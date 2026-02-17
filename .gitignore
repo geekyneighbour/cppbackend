@@ -730,3 +730,5 @@ sprint3/problems/flamegraph/solution/graph.svg
 *.xml
 
 **/.DS_Store
+
+cpp-backend-tests-practicum.*
