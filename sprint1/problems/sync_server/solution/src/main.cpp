@@ -74,7 +74,7 @@ StringResponse HandleRequest(StringRequest&& req) {
 		return text_response(http::status::ok, "");
 	}
 	else {
-		auto response = text_response(http::status::method_not_allowed, "<strong>Invalid method</strong>");
+		auto response = text_response(http::status::method_not_allowed, "Invalid method");
 		response.set(http::field::allow, "GET, HEAD");
 		return response;
 	}
