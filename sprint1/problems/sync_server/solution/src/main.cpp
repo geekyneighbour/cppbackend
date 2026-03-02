@@ -69,7 +69,7 @@ StringResponse HandleRequest(StringRequest&& req) {
     };
 
 	if(req.method_string() == "GET"){
-		return text_response(http::status::ok, "<strong>Hello, " + std::string(req.target()).substr(1) + "</strong>");
+		return text_response(http::status::ok, "Hello, " + std::string(req.target()).substr(1));
 	} else if(req.method_string() == "HEAD"){
 		return text_response(http::status::ok, "");
 	}
