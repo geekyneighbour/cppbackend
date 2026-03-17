@@ -5,8 +5,6 @@
 #include <thread>
 #include <boost/asio/signal_set.hpp>
 #include <csignal>
-#include <boost/json.hpp>
-#include <boost/json/src.hpp> 
 
 #include "json_loader.h"
 #include "request_handler.h"
@@ -36,6 +34,7 @@ int main(int argc, const char* argv[]) {
         std::cerr << "Usage: game_server <game-config-json>"sv << std::endl;
         return EXIT_FAILURE;
     }
+    
     try {
         // 1. Загружаем карту из файла и построить модель игры
         model::Game game = json_loader::LoadGame(argv[1]);
@@ -47,8 +46,10 @@ int main(int argc, const char* argv[]) {
         // 3. Добавляем асинхронный обработчик сигналов SIGINT и SIGTERM
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](auto, auto) {
+            std::cout << "Stopping server..."sv << std::endl;
             ioc.stop();
-            });
+        });
+        
         // 4. Создаём обработчик HTTP-запросов и связываем его с моделью игры
         http_handler::RequestHandler handler{game};
 
@@ -60,7 +61,6 @@ int main(int argc, const char* argv[]) {
             handler(std::forward<decltype(req)>(req), std::forward<decltype(send)>(send));
         });
         
-
         // Эта надпись сообщает тестам о том, что сервер запущен и готов обрабатывать запросы
         std::cout << "Server has started..."sv << std::endl;
 
@@ -68,8 +68,11 @@ int main(int argc, const char* argv[]) {
         RunWorkers(std::max(1u, num_threads), [&ioc] {
             ioc.run();
         });
+        
     } catch (const std::exception& ex) {
-        std::cerr << ex.what() << std::endl;
+        std::cerr << "Fatal error: " << ex.what() << std::endl;
         return EXIT_FAILURE;
     }
+    
+    return EXIT_SUCCESS;
 }
