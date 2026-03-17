@@ -28,7 +28,7 @@ public:
             
             json::object error;
             error["code"] = "badRequest";
-            error["message"] = std::string(message);  // Явное преобразование в std::string
+            error["message"] = std::string(message);
             res.body() = json::serialize(error);
             res.prepare_payload();
             send(std::move(res));
@@ -48,7 +48,6 @@ public:
 
         std::string path = std::string(req.target());
 
-        // Проверяем, что запрос начинается с /api/
         if (!path.starts_with("/api/")) {
             return bad_request("Bad request");
         }
@@ -62,8 +61,8 @@ public:
 
             for (const auto& map : game_.GetMaps()) {
                 json::object obj;
-                obj["id"] = std::string(*map.GetId());  // Явное преобразование
-                obj["name"] = map.GetName();  // string_view -> string преобразуется автоматически?
+                obj["id"] = std::string(*map.GetId());  
+                obj["name"] = map.GetName();  
                 result.push_back(obj);
             }
 
@@ -85,7 +84,7 @@ public:
             }
 
             json::object obj;
-            obj["id"] = std::string(*map->GetId());  // Явное преобразование
+            obj["id"] = std::string(*map->GetId()); 
             obj["name"] = map->GetName();
 
             json::array roads;
@@ -119,7 +118,7 @@ public:
             json::array offices;
             for (const auto& o : map->GetOffices()) {
                 json::object office;
-                office["id"] = std::string(*o.GetId());  // Явное преобразование
+                office["id"] = std::string(*o.GetId());  
                 office["x"] = o.GetPosition().x;
                 office["y"] = o.GetPosition().y;
                 office["offsetX"] = o.GetOffset().dx;
