@@ -99,7 +99,7 @@ public:
 
                 try {
 					static std::atomic<int> next_hotdog_id{0}; 
-					int hotdog_id = next_id.fetch_add(1, std::memory_order_relaxed);
+					int hotdog_id = next_hotdog_id.fetch_add(1, std::memory_order_relaxed);
 
                     HotDog hotdog(
                         hotdog_id,
