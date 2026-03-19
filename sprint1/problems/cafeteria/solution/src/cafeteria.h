@@ -24,7 +24,7 @@ public:
     }
 
     void OrderHotDog(HotDogHandler handler) {
-
+		static std::atomic<int> next_hotdog_id{0};
         struct OrderState : std::enable_shared_from_this<OrderState> {
 
             net::io_context& io;
@@ -99,9 +99,11 @@ public:
                     return;
 
                 try {
+					static std::atomic<int> next_id{0};  // Или передавайте id из внешней функции
+					int hotdog_id = next_id.fetch_add(1, std::memory_order_relaxed);
 
                     HotDog hotdog(
-                        sausage->GetId(),
+                        hotdog_id,
                         sausage,
                         bread
                     );
