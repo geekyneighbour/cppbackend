@@ -1,10 +1,69 @@
 #include "json_loader.h"
 #include <fstream>
 #include <sstream>
-#include <boost/json.hpp>
 #include <iostream>
+#include <boost/json.hpp>
 
 namespace json_loader {
+
+    void AddRoads(const boost::json::array& roads_array, model::Map& map) {
+        for (const auto& road_val : roads_array) {
+            boost::json::object road_obj = road_val.as_object();
+
+            int x0 = static_cast<int>(road_obj.at("x0").as_int64());
+            int y0 = static_cast<int>(road_obj.at("y0").as_int64());
+
+            if (road_obj.contains("x1")) {
+                int x1 = static_cast<int>(road_obj.at("x1").as_int64());
+                map.AddRoad(model::Road(model::Road::HORIZONTAL,
+                    model::Point{ x0, y0 },
+                    x1));
+            }
+            else if (road_obj.contains("y1")) {
+
+                int y1 = static_cast<int>(road_obj.at("y1").as_int64());
+                map.AddRoad(model::Road(model::Road::VERTICAL,
+                    model::Point{ x0, y0 },
+                    y1));
+            }
+        }
+ }
+
+    void AddBuildings(const boost::json::array& buildings_array, model::Map& map) {
+        for (const auto& building_val : buildings_array) {
+            boost::json::object building_obj = building_val.as_object();
+
+            int x = static_cast<int>(building_obj.at("x").as_int64());
+            int y = static_cast<int>(building_obj.at("y").as_int64());
+            int w = static_cast<int>(building_obj.at("w").as_int64());
+            int h = static_cast<int>(building_obj.at("h").as_int64());
+
+            map.AddBuilding(model::Building(
+                model::Rectangle{
+                    model::Point{x, y},
+                    model::Size{w, h}
+                }
+            ));
+        }
+ }
+
+    void AddOffices(const boost::json::array& offices_array, model::Map& map) {
+        for (const auto& office_val : offices_array) {
+            boost::json::object office_obj = office_val.as_object();
+
+            std::string office_id = boost::json::value_to<std::string>(office_obj.at("id"));
+            int x = static_cast<int>(office_obj.at("x").as_int64());
+            int y = static_cast<int>(office_obj.at("y").as_int64());
+            int offsetX = static_cast<int>(office_obj.at("offsetX").as_int64());
+            int offsetY = static_cast<int>(office_obj.at("offsetY").as_int64());
+
+            map.AddOffice(model::Office(
+                model::Office::Id(office_id),
+                model::Point{ x, y },
+                model::Offset{ offsetX, offsetY }
+            ));
+        }
+ }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {
     model::Game game;
@@ -19,7 +78,15 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         buffer << file.rdbuf();
         std::string json_str = buffer.str();
         
-        boost::json::value jv = boost::json::parse(json_str);
+        boost::json::value jv;
+        try {
+            jv = boost::json::parse(json_str);
+        }
+
+        catch (const std::exception& e) {
+            std::cerr << "Error parsing json: " << e.what() << std::endl;
+        }
+        
         boost::json::object obj = jv.as_object();
         
         if (!obj.contains("maps")) {
@@ -36,65 +103,20 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             
             model::Map map(model::Map::Id(id), name);
             
-            if (map_obj.contains("roads")) {
-                boost::json::array roads_array = map_obj.at("roads").as_array();
-                for (const auto& road_val : roads_array) {
-                    boost::json::object road_obj = road_val.as_object();
-                    
-                    int x0 = static_cast<int>(road_obj.at("x0").as_int64());
-                    int y0 = static_cast<int>(road_obj.at("y0").as_int64());
-                    
-                    if (road_obj.contains("x1")) {
-                        int x1 = static_cast<int>(road_obj.at("x1").as_int64());
-                        map.AddRoad(model::Road(model::Road::HORIZONTAL, 
-                                                model::Point{x0, y0}, 
-                                                x1));
-                    } else if (road_obj.contains("y1")) {
-
-                        int y1 = static_cast<int>(road_obj.at("y1").as_int64());
-                        map.AddRoad(model::Road(model::Road::VERTICAL, 
-                                                model::Point{x0, y0}, 
-                                                y1));
-                    }
-                }
+            auto roads = map_obj.if_contains("roads");
+            auto buildings = map_obj.if_contains("buildings");
+            auto offices = map_obj.if_contains("offices");
+            
+            if (roads) {
+                AddRoads(roads->as_array(), map);
             }
             
-            if (map_obj.contains("buildings")) {
-                boost::json::array buildings_array = map_obj.at("buildings").as_array();
-                for (const auto& building_val : buildings_array) {
-                    boost::json::object building_obj = building_val.as_object();
-                    
-                    int x = static_cast<int>(building_obj.at("x").as_int64());
-                    int y = static_cast<int>(building_obj.at("y").as_int64());
-                    int w = static_cast<int>(building_obj.at("w").as_int64());
-                    int h = static_cast<int>(building_obj.at("h").as_int64());
-                    
-                    map.AddBuilding(model::Building(
-                        model::Rectangle{
-                            model::Point{x, y},
-                            model::Size{w, h}
-                        }
-                    ));
-                }
+            if (buildings) {
+                AddBuildings(buildings->as_array(), map);
             }
             
-            if (map_obj.contains("offices")) {
-                boost::json::array offices_array = map_obj.at("offices").as_array();
-                for (const auto& office_val : offices_array) {
-                    boost::json::object office_obj = office_val.as_object();
-                    
-                    std::string office_id = boost::json::value_to<std::string>(office_obj.at("id"));
-                    int x = static_cast<int>(office_obj.at("x").as_int64());
-                    int y = static_cast<int>(office_obj.at("y").as_int64());
-                    int offsetX = static_cast<int>(office_obj.at("offsetX").as_int64());
-                    int offsetY = static_cast<int>(office_obj.at("offsetY").as_int64());
-                    
-                    map.AddOffice(model::Office(
-                        model::Office::Id(office_id),
-                        model::Point{x, y},
-                        model::Offset{offsetX, offsetY}
-                    ));
-                }
+            if (offices) {
+                AddOffices(offices->as_array(), map);
             }
             
             game.AddMap(std::move(map));
