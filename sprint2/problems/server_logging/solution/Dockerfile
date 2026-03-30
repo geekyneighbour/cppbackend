@@ -4,10 +4,13 @@ RUN apt update && \
     apt install -y python3-pip cmake && \
     pip3 install conan==1.*
 
+
+RUN conan profile new default --detect && \
+    conan profile update settings.compiler.libcxx=libstdc++11 default
+
 COPY ./conanfile.txt /app/
 
 WORKDIR /app/build
-RUN conan profile update settings.compiler.libcxx=libstdc++11 default
 RUN conan install .. --build=missing
 
 COPY ./src /app/src
