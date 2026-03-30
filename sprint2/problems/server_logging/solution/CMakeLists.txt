@@ -18,17 +18,12 @@ add_executable(game_server
     src/model.cpp
 )
 
+
 target_link_libraries(game_server
     PRIVATE
     Threads::Threads
-    CONAN_PKG::boost_log
-    CONAN_PKG::boost_log_setup
-    CONAN_PKG::boost_thread
-    CONAN_PKG::boost_filesystem
-    CONAN_PKG::boost_system
-    CONAN_PKG::boost_regex
+    ${CONAN_LIBS}
 )
-
 
 target_include_directories(game_server
     PRIVATE
