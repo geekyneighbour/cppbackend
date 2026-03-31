@@ -85,8 +85,14 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         catch (const std::exception& e) {
             std::cerr << "Error parsing json: " << e.what() << std::endl;
+			return game;
         }
         
+		if (!jv.is_object()) {
+    std::cerr << "JSON root is not an object" << std::endl;
+    return game;
+}
+boost::json::object obj = jv.as_object();
         boost::json::object obj = jv.as_object();
         
         if (!obj.contains("maps")) {

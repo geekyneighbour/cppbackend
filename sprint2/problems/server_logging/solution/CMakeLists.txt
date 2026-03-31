@@ -17,6 +17,7 @@ add_executable(game_server
     src/http_server.cpp
     src/json_loader.cpp
     src/model.cpp
+    src/boost_json.cpp
 )
 
 

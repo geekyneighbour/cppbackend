@@ -1,6 +1,3 @@
-// Этот файл служит для подключения реализации библиотеки Boost.Json
-#include <boost/json/src.hpp>
-
 #include "http_server.h"
 #include "logging.h"
 #include <boost/json.hpp>
