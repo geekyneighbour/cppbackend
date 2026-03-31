@@ -1,6 +1,5 @@
 FROM gcc:11.3 as build
 
-
 RUN apt update && \
     apt install -y \
       python3-pip \
@@ -10,7 +9,7 @@ RUN apt update && \
 
 COPY ./conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
-    conan install .. --build=missing
+    conan install .. --build=missing -s compiler.libcxx=libstdc++11
 
 COPY ./src /app/src
 COPY ./CMakeLists.txt /app/
@@ -22,7 +21,6 @@ RUN cd /app/build && \
 FROM ubuntu:22.04 as run
 
 RUN groupadd -r www && useradd -r -g www www
-
 
 COPY --from=build /app/build/bin/game_server /app/
 COPY ./data /app/data
