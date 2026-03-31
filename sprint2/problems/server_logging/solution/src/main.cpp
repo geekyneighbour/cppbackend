@@ -1,5 +1,4 @@
 #include "sdk.h"
-//
 #include <boost/asio/io_context.hpp>
 #include <iostream>
 #include <thread>
@@ -106,7 +105,7 @@ int main(int argc, const char* argv[]) {
         constexpr unsigned short port = 8080;
 
         http_server::ServeHttp(ioc, {address, port}, logging_handler);
-        
+        std::cout << "Server started" << std::endl;
         json::object data_obj;
         data_obj["port"] = port;
         data_obj["address"] = address.to_string();
