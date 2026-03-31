@@ -6,7 +6,6 @@
 
 namespace json = boost::json;
 namespace logging = boost::log;
-
 namespace http_server {
 
 SessionBase::SessionBase(tcp::socket&& socket)
@@ -39,43 +38,25 @@ void SessionBase::Read() {
         stream_,
         buffer_,
         request_,
-        beast::bind_front_handler(
-            &SessionBase::OnRead,
-            GetSharedThis()));
+        beast::bind_front_handler(&SessionBase::OnRead, GetSharedThis()));
 }
 
 void SessionBase::OnRead(beast::error_code ec, std::size_t) {
-    if (ec == http::error::end_of_stream) {
-        return Close();
-    }
-
-    if (ec) {
-        LogError(ec, "read");
-        return;
-    }
-
+    if (ec == http::error::end_of_stream) return Close();
+    if (ec) { LogError(ec, "read"); return; }
     HandleRequest(std::move(request_));
 }
 
 void SessionBase::OnWrite(bool close, beast::error_code ec, std::size_t) {
-    if (ec) {
-        LogError(ec, "write");
-        return;
-    }
-
-    if (close) {
-        return Close();
-    }
-
+    if (ec) { LogError(ec, "write"); return; }
+    if (close) { return Close(); }
     Read();
 }
 
 void SessionBase::Close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
-    if (ec && ec != beast::errc::not_connected) {
-        LogError(ec, "shutdown");
-    }
+    if (ec && ec != beast::errc::not_connected) LogError(ec, "shutdown");
 }
 
 } // namespace http_server
