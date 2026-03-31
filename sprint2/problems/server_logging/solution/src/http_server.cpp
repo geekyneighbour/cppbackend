@@ -2,78 +2,80 @@
 #include "logging.h"
 #include <boost/json.hpp>
 #include <boost/log/trivial.hpp>
-#include <boost/log/attributes.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
 
 namespace json = boost::json;
 namespace logging = boost::log;
 
 namespace http_server {
-    
-    SessionBase::SessionBase(tcp::socket&& socket)
-        : stream_(std::move(socket)) {
-    }
-    
-    void SessionBase::LogError(beast::error_code ec, std::string_view where) {
-        json::value data{
-            {"code", ec.value()},
-            {"text", ec.message()},
-            {"where", std::string(where)}
-        };
 
-        BOOST_LOG_TRIVIAL(error)
-            << boost::log::add_value(additional_data, data)
-            << "error";
-    }
+SessionBase::SessionBase(tcp::socket&& socket)
+    : stream_(std::move(socket)) {
+}
 
-    void SessionBase::Run() {
-        net::dispatch(
-            stream_.get_executor(),
-            beast::bind_front_handler(&SessionBase::Read, GetSharedThis()));
-    }
+void SessionBase::LogError(beast::error_code ec, std::string_view where) {
+    json::value data{
+        {"code", ec.value()},
+        {"text", ec.message()},
+        {"where", std::string(where)}
+    };
 
-    void SessionBase::Read() {
-        request_ = {};
+    BOOST_LOG_TRIVIAL(error)
+        << boost::log::add_value(additional_data, data)
+        << "error";
+}
 
-        stream_.expires_after(std::chrono::seconds(30));
+void SessionBase::Run() {
+    net::dispatch(
+        stream_.get_executor(),
+        beast::bind_front_handler(&SessionBase::Read, GetSharedThis()));
+}
 
-        http::async_read(
-            stream_,
-            buffer_,
-            request_,
-            beast::bind_front_handler(
-                &SessionBase::OnRead,
-                GetSharedThis()));
-    }
+void SessionBase::Read() {
+    request_ = {};
+    stream_.expires_after(std::chrono::seconds(30));
 
-    void SessionBase::OnRead(beast::error_code ec, std::size_t) {
-        if (ec == http::error::end_of_stream) {
-            return Close();
-        }
+    http::async_read(
+        stream_,
+        buffer_,
+        request_,
+        beast::bind_front_handler(
+            &SessionBase::OnRead,
+            GetSharedThis()));
+}
 
-        if (ec) {
-            LogError(ec, "read");
-            return;
-        }
-
-        HandleRequest(std::move(request_));
+void SessionBase::OnRead(beast::error_code ec, std::size_t) {
+    if (ec == http::error::end_of_stream) {
+        return Close();
     }
 
-    void SessionBase::OnWrite(bool close, beast::error_code ec, std::size_t) {
-        if (ec) {
-            LogError(ec, "write");
-            return;
-        }
-
-        if (close) {
-            return Close();
-        }
-
-        Read();
+    if (ec) {
+        LogError(ec, "read");
+        return;
     }
 
-    void SessionBase::Close() {
-        stream_.socket().shutdown(tcp::socket::shutdown_send);
+    HandleRequest(std::move(request_));
+}
+
+void SessionBase::OnWrite(bool close, beast::error_code ec, std::size_t) {
+    if (ec) {
+        LogError(ec, "write");
+        return;
     }
 
-}  // namespace http_server
+    if (close) {
+        return Close();
+    }
+
+    Read();
+}
+
+void SessionBase::Close() {
+    beast::error_code ec;
+    stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
+    if (ec && ec != beast::errc::not_connected) {
+        LogError(ec, "shutdown");
+    }
+}
+
+} // namespace http_server

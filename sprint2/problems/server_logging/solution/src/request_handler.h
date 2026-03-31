@@ -14,7 +14,8 @@ namespace http_handler {
     namespace http = beast::http;
     namespace json = boost::json;
     namespace logging = boost::log;
-    
+
+    // Логирующий обёрточный хэндлер
     template <typename Handler>
     class LoggingRequestHandler {
     public:
@@ -74,12 +75,12 @@ namespace http_handler {
                 << "response sent";
         }
     };
-    
+
+    // Основной хэндлер
     class RequestHandler {
     public:
         explicit RequestHandler(model::Game& game)
-            : game_{ game } {
-        }
+            : game_{ game } {}
 
         RequestHandler(const RequestHandler&) = delete;
         RequestHandler& operator=(const RequestHandler&) = delete;
@@ -98,7 +99,7 @@ namespace http_handler {
                 res.body() = json::serialize(error);
                 res.prepare_payload();
                 send(std::move(res));
-                };
+            };
 
             auto const not_found = [&]() {
                 http::response<http::string_body> res{ http::status::not_found, req.version() };
@@ -110,7 +111,7 @@ namespace http_handler {
                 res.body() = json::serialize(error);
                 res.prepare_payload();
                 send(std::move(res));
-                };
+            };
 
             std::string path = std::string(req.target());
 
@@ -122,7 +123,7 @@ namespace http_handler {
 
                     for (const auto& map : game_.GetMaps()) {
                         json::object obj;
-                        obj["id"] = std::string(*map.GetId());
+                        obj["id"] = std::string(*map.GetId()); // исправлено для Tagged
                         obj["name"] = map.GetName();
                         result.push_back(obj);
                     }
@@ -136,7 +137,6 @@ namespace http_handler {
                 }
 
                 std::string id = path.substr(std::string("/api/v1/maps/").size());
-
                 const auto* map = game_.FindMap(model::Map::Id{ id });
 
                 if (!map) {
@@ -144,9 +144,10 @@ namespace http_handler {
                 }
 
                 json::object obj;
-                obj["id"] = std::string(*map->GetId());
+                obj["id"] = std::string(*map->GetId()); // исправлено для Tagged
                 obj["name"] = map->GetName();
 
+                // Сериализация содержимого карты
                 obj["roads"] = SerializeRoads(map->GetRoads());
                 obj["buildings"] = SerializeBuildings(map->GetBuildings());
                 obj["offices"] = SerializeOffices(map->GetOffices());
@@ -174,8 +175,7 @@ namespace http_handler {
 
                 if (r.IsHorizontal()) {
                     road["x1"] = r.GetEnd().x;
-                }
-                else {
+                } else {
                     road["y1"] = r.GetEnd().y;
                 }
 
@@ -183,7 +183,7 @@ namespace http_handler {
             }
             return roads;
         }
-        
+
         json::array SerializeBuildings(const std::vector<model::Building>& map_buildings) {
             json::array buildings;
             for (const auto& b : map_buildings) {
@@ -197,12 +197,12 @@ namespace http_handler {
             }
             return buildings;
         }
-        
+
         json::array SerializeOffices(const std::vector<model::Office>& map_offices) {
             json::array offices;
             for (const auto& o : map_offices) {
                 json::object office;
-                office["id"] = std::string(*o.GetId());
+                office["id"] = std::string(*o.GetId()); // исправлено для Tagged
                 office["x"] = o.GetPosition().x;
                 office["y"] = o.GetPosition().y;
                 office["offsetX"] = o.GetOffset().dx;
