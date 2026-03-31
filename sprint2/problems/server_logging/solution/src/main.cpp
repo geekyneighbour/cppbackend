@@ -101,17 +101,20 @@ int main(int argc, const char* argv[]) {
 
         {
             json::object start_data;
-            start_data["event"] = "server_started";
-            start_data["address"] = address.to_string();
-            start_data["port"] = port;
-			
-            std::cout << json::serialize(start_data) << std::endl;
+    start_data["event"] = "server_started";
+    start_data["address"] = address.to_string();
+    start_data["port"] = port;
 
-			std::cout << "Server started" << std::endl;
-			
-            BOOST_LOG_TRIVIAL(info)
-                << boost::log::add_value(additional_data, start_data)
-                << "server started";
+
+    std::string message = "Server started";
+
+
+    std::cout << message << std::endl;
+
+
+    BOOST_LOG_TRIVIAL(info)
+        << boost::log::add_value(additional_data, start_data)
+        << message;
         }
 
 
