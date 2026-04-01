@@ -104,10 +104,11 @@ int main(int argc, const char* argv[]) {
             start_data["address"] = address.to_string();
             start_data["port"] = port;
 
-            std::string message = "Server started";
+            std::string message = "server started";
 
-            std::cout << message << std::endl;
 
+			std::cout << "Server has started..." << std::endl;
+			
             BOOST_LOG_TRIVIAL(info)
                 << boost::log::add_value(additional_data, start_data)
                 << message;
@@ -115,7 +116,7 @@ int main(int argc, const char* argv[]) {
 
         http_server::ServeHttp(ioc, {address, port}, logging_handler);
 
-        std::cout << "Hello! Server is starting at port " << port << std::endl;
+        //std::cout << "Hello! Server is //starting at port " << port << //std::endl;
 
         RunWorkers(std::max(1u, num_threads), [&ioc] {
             ioc.run();
