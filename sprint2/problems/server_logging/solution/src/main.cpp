@@ -108,7 +108,7 @@ int main(int argc, const char* argv[]) {
             std::string message = "server started";
 
 
-			std::cout << "Server has started..." << std::endl;
+			//std::cout << "Server has //started..." << std::endl;
 			
             BOOST_LOG_TRIVIAL(info)
                 << boost::log::add_value(additional_data, start_data)
