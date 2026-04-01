@@ -18,8 +18,12 @@ COPY ./src /app/src
 COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
-    cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build .
+    conan install .. -g cmake \
+      -s compiler.libcxx=libstdc++11 \
+      -s build_type=Debug \
+      --build=missing && \
+    cmake -DCMAKE_BUILD_TYPE=Debug .. && \
+    cmake --build . --verbose
 
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 AS run
