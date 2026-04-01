@@ -68,7 +68,8 @@ void RunWorkers(unsigned n, const Fn& fn) {
 
 int main(int argc, const char* argv[]) {
     InitLogging();
-
+	boost::log::core::get()->add_global_attribute("Flush", boost::log::attributes::current_thread_id());
+    boost::log::core::get()->flush();
     if (argc != 3) {
         std::cerr << "Usage: game_server <game-config-json> <static-files-directory>"sv << std::endl;
         return EXIT_FAILURE;
