@@ -5,7 +5,7 @@
 #include <boost/log/utility/manipulators/add_value.hpp>
 
 namespace json = boost::json;
-namespace logging = boost::log;
+
 namespace http_server {
 
 SessionBase::SessionBase(tcp::socket&& socket)
@@ -49,14 +49,16 @@ void SessionBase::OnRead(beast::error_code ec, std::size_t) {
 
 void SessionBase::OnWrite(bool close, beast::error_code ec, std::size_t) {
     if (ec) { LogError(ec, "write"); return; }
-    if (close) { return Close(); }
+    if (close) return Close();
     Read();
 }
 
 void SessionBase::Close() {
     beast::error_code ec;
     stream_.socket().shutdown(tcp::socket::shutdown_send, ec);
-    if (ec && ec != beast::errc::not_connected) LogError(ec, "shutdown");
+    if (ec && ec != beast::errc::not_connected) {
+        LogError(ec, "shutdown");
+    }
 }
 
-} // namespace http_server
+}  // namespace http_server
