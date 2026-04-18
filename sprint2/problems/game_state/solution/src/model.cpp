@@ -3,7 +3,6 @@
 #include <stdexcept>
 
 namespace model {
-using namespace std::literals;
 
 PointDouble GetRandomPointOnRoad(const Road& road) {
     static std::random_device rd;
@@ -36,7 +35,6 @@ void Map::AddOffice(Office office) {
     try {
         warehouse_id_to_index_.emplace(o.GetId(), index);
     } catch (...) {
-        // Удаляем офис из вектора, если не удалось вставить в unordered_map
         offices_.pop_back();
         throw;
     }
@@ -48,12 +46,65 @@ void Game::AddMap(Map map) {
         throw std::invalid_argument("Map with id "s + *map.GetId() + " already exists"s);
     } else {
         try {
-            maps_.emplace_back(std::make_unique<Map>(map));
+            maps_.emplace_back(std::make_unique<Map>(std::move(map)));
         } catch (...) {
             map_id_to_index_.erase(it);
             throw;
         }
     }
+}
+
+Dog& GameSession::AddDog(const std::string& name) {
+    dogs_.push_back(std::make_unique<Dog>(name));
+    Dog& dog = *dogs_.back();
+    
+    // Установка случайной позиции на случайной дороге карты
+    if (map_ && !map_->GetRoads().empty()) {
+        static std::random_device rd;
+        static std::mt19937 gen(rd());
+        std::uniform_int_distribution<size_t> dist(0, map_->GetRoads().size() - 1);
+        
+        const Road& random_road = map_->GetRoads()[dist(gen)];
+        PointDouble pos = GetRandomPointOnRoad(random_road);
+        dog.SetPos(pos);
+    }
+    
+    return dog;
+}
+
+Player& GameSession::AddPlayer(Dog& dog) {
+    uint64_t id = ++next_player_id_;
+    auto [it, ok] = players_.emplace(
+        id, Player{ id, &dog, this }
+    );
+    return it->second;
+}
+
+std::vector<Player*> GameSession::GetPlayers() {
+    std::vector<Player*> res;
+    for (auto& [_, p] : players_) {
+        res.push_back(&p);
+    }
+    return res;
+}
+
+GameSession& Game::FindOrCreateSession(const Map* map) {
+    auto& ptr = sessions_[map];
+    if (!ptr) {
+        ptr = std::make_unique<GameSession>(map);
+    }
+    return *ptr;
+}
+
+const Map* Game::FindMap(const Map::Id& id) const {
+    for (auto& m : maps_) {
+        if (*m->GetId() == *id) return m.get();
+    }
+    return nullptr;
+}
+
+const Game::Maps& Game::GetMaps() const noexcept {
+    return maps_;
 }
 
 }  // namespace model

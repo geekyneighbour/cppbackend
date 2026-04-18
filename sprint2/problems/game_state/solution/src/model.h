@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
+#include <random>  // Добавьте эту строку
 
 #include "tagged.h"
 
@@ -28,21 +29,21 @@ struct Offset {
     Dimension dx, dy;
 };
 
+// Добавьте эти структуры
 struct PointDouble {
     double x, y;
 };
 
 struct Speed {
-    double vx, vy;  // скорость по x и y
+    double vx, vy;
 };
 
 enum class Direction {
-    NORTH,  // U - вверх
-    SOUTH,  // D - вниз
-    WEST,   // L - влево
-    EAST    // R - вправо
+    NORTH,
+    SOUTH,
+    WEST,
+    EAST
 };
-
 
 class Road {
     struct HorizontalTag {
@@ -184,7 +185,6 @@ private:
     Offices offices_;
 };
 
-
 class Dog {
 public:
     explicit Dog(std::string name)
@@ -198,12 +198,10 @@ public:
     const std::string& GetName() const { return name_; }
     uint64_t GetId() const { return id_; }
     
-    // Геттеры для позиции, скорости и направления
     PointDouble GetPos() const { return pos_; }
     Speed GetSpeed() const { return speed_; }
     Direction GetDirection() const { return dir_; }
     
-    // Сеттеры
     void SetPos(PointDouble pos) { pos_ = pos; }
     void SetPos(double x, double y) { pos_ = {x, y}; }
     void SetSpeed(Speed speed) { speed_ = speed; }
@@ -237,92 +235,39 @@ private:
     GameSession* session_;
 };
 
-
-
 class GameSession {
 public:
     explicit GameSession(const Map* map) : map_(map) {}
 
-    Dog& AddDog(const std::string& name) {
-    dogs_.push_back(std::make_unique<Dog>(name));
-    Dog& dog = *dogs_.back();
-    
-    
-    if (map_ && !map_->GetRoads().empty()) {
-        static std::random_device rd;
-        static std::mt19937 gen(rd());
-        std::uniform_int_distribution<size_t> dist(0, map_->GetRoads().size() - 1);
-        
-        const Road& random_road = map_->GetRoads()[dist(gen)];
-        PointDouble pos = GetRandomPointOnRoad(random_road);
-        dog.SetPos(pos);
-    }
-    
-    return dog;
-}
-
-    Player& AddPlayer(Dog& dog) {
-        uint64_t id = ++next_player_id_;
-        auto [it, ok] = players_.emplace(
-            id, Player{ id, &dog, this }
-        );
-        return it->second;
-    }
-
-    std::vector<Player*> GetPlayers() {
-        std::vector<Player*> res;
-        for (auto& [_, p] : players_) {
-            res.push_back(&p);
-        }
-        return res;
-    }
-	
-	const Map* GetMap() const { return map_; }
+    Dog& AddDog(const std::string& name);
+    Player& AddPlayer(Dog& dog);
+    std::vector<Player*> GetPlayers();
+    const Map* GetMap() const { return map_; }
 
 private:
     const Map* map_ = nullptr;
-
     std::vector<std::unique_ptr<Dog>> dogs_;
     std::unordered_map<uint64_t, Player> players_;
     uint64_t next_player_id_ = 0;
 };
 
-
-
 class Game {
 public:
-	using Maps = std::vector<std::unique_ptr<Map>>;
-    GameSession& FindOrCreateSession(const Map* map) {
-        auto& ptr = sessions_[map];
-        if (!ptr) {
-            ptr = std::make_unique<GameSession>(map);
-        }
-        return *ptr;
-    }
-
-    const Map* FindMap(const Map::Id& id) const {
-        for (auto& m : maps_) {
-            if (*m->GetId() == *id) return m.get();
-        }
-        return nullptr;
-    }
-
-    const Maps& GetMaps() const noexcept {
-        return maps_;
-    }
-	
-	void AddMap(Map map);
+    using Maps = std::vector<std::unique_ptr<Map>>;
+    
+    GameSession& FindOrCreateSession(const Map* map);
+    const Map* FindMap(const Map::Id& id) const;
+    const Maps& GetMaps() const noexcept;
+    void AddMap(Map map);
 
 private:
-	using MapIdHasher = util::TaggedHasher<Map::Id>;
+    using MapIdHasher = util::TaggedHasher<Map::Id>;
     using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
 
-	std::vector<std::unique_ptr<Map>> maps_;
+    std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
 };
-
-
 
 class PlayerTokens {
 public:
@@ -341,4 +286,5 @@ private:
 
 
 PointDouble GetRandomPointOnRoad(const Road& road);
+
 }  // namespace model
