@@ -337,7 +337,7 @@ private:
 
     model::Player* player = tokens_.FindPlayerByToken(*token_opt);
     if (!player) {
-        return unauthorized(req, "unknownToken", "Player token has not been found");
+        return unauthorized(req, "invalidToken", "Player token has not been found");
     }
 
     // Get all players in the same session
