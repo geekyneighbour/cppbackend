@@ -71,26 +71,26 @@ private:
             << "request received";
     }
 
-    template <typename Response, typename Endpoint>
-    static void LogResponse(const Response& resp, const Endpoint& endpoint, int time_ms) {
-        json::object data{
-            {"ip", endpoint.address().to_string()},
-            {"response_time", time_ms},
-            {"code", resp.result_int()}
-        };
+template <typename Response, typename Endpoint>
+static void LogResponse(const Response& resp, const Endpoint& endpoint, int time_ms) {
+    json::object data{
+        {"ip", endpoint.address().to_string()},
+        {"response_time", time_ms},
+        {"code", resp.result_int()}
+    };
 
-        auto it = resp.base().find("Content-Type");
-        if (it != resp.base().end()) {
-            std::string content_type(it->value().data(), it->value().size());
-            data.as_object()["content_type"] = content_type;
-        } else {
-            data.as_object()["content_type"] = nullptr;
-        }
-
-        BOOST_LOG_TRIVIAL(info)
-            << boost::log::add_value(additional_data, data)
-            << "response sent";
+    auto it = resp.base().find("Content-Type");
+    if (it != resp.base().end()) {
+        std::string content_type(it->value().data(), it->value().size());
+        data["content_type"] = content_type;
+    } else {
+        data["content_type"] = nullptr;
     }
+
+    BOOST_LOG_TRIVIAL(info)
+        << boost::log::add_value(additional_data, data)
+        << "response sent";
+}
 };
 
 /* =========================
@@ -257,14 +257,16 @@ private:
         return Json(req, result);
     }
 
-    template <typename Req, typename Json>
-    http::response<http::string_body> Json(const Req& req, const Json& obj) {
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, "application/json");
-        res.body() = json::serialize(obj);
-        res.prepare_payload();
-        return res;
-    }
+template <typename Req, typename Value>
+http::response<http::string_body>
+Json(const Req& req, const Value& obj) {
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = json::serialize(obj);
+    res.prepare_payload();
+    return res;
+}
 
     template <typename Req>
     http::response<http::string_body> Error(
