@@ -129,7 +129,7 @@ void Dog::UpdatePosition(double time_delta, const std::vector<model::Road>& road
     double new_x = pos_.x + speed_.vx * time_delta;
     double new_y = pos_.y + speed_.vy * time_delta;
     
-
+    // Find which road the dog is currently on
     const Road* current_road = nullptr;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(pos_.x, pos_.y)) {
@@ -138,48 +138,92 @@ void Dog::UpdatePosition(double time_delta, const std::vector<model::Road>& road
         }
     }
     
-    if (current_road) {
-        double half_width = 0.4; 
+    if (!current_road) {
+        // If not on any road, try to find the nearest road
+        for (const auto& road : roads) {
+            if (road.IsPointOnRoad(new_x, new_y)) {
+                current_road = &road;
+                break;
+            }
+        }
+        if (!current_road) {
+            pos_.x = new_x;
+            pos_.y = new_y;
+            return;
+        }
+    }
+    
+    const double half_width = 0.4;
+    
+    if (current_road->IsHorizontal()) {
+        double min_x = current_road->GetMinX() - half_width;
+        double max_x = current_road->GetMaxX() + half_width;
         
-        if (current_road->IsHorizontal()) {
-            double min_x = current_road->GetMinX() - half_width;
-            double max_x = current_road->GetMaxX() + half_width;
-            
-
-            if (new_x < min_x) {
+        // Calculate the maximum possible movement before hitting the boundary
+        if (new_x < min_x) {
+            // Would go beyond left boundary
+            if (pos_.x > min_x) {
+                // Try to move only to the boundary
+                double max_move = min_x - pos_.x;
+                if (std::abs(max_move) < std::abs(speed_.vx * time_delta)) {
+                    new_x = min_x;
+                    speed_.vx = 0.0;
+                }
+            } else {
                 new_x = min_x;
-                speed_.vx = 0.0; 
-            } else if (new_x > max_x) {
+                speed_.vx = 0.0;
+            }
+        } else if (new_x > max_x) {
+            // Would go beyond right boundary
+            if (pos_.x < max_x) {
+                double max_move = max_x - pos_.x;
+                if (std::abs(max_move) < std::abs(speed_.vx * time_delta)) {
+                    new_x = max_x;
+                    speed_.vx = 0.0;
+                }
+            } else {
                 new_x = max_x;
                 speed_.vx = 0.0;
             }
-            
-
-            new_y = current_road->GetStart().y;
-        } else { 
-            double min_y = current_road->GetMinY() - half_width;
-            double max_y = current_road->GetMaxY() + half_width;
-            
-            if (new_y < min_y) {
+        }
+        
+        new_y = current_road->GetStart().y;
+    } else { // Vertical road
+        double min_y = current_road->GetMinY() - half_width;
+        double max_y = current_road->GetMaxY() + half_width;
+        
+        // Calculate the maximum possible movement before hitting the boundary
+        if (new_y < min_y) {
+            // Would go beyond top boundary
+            if (pos_.y > min_y) {
+                double max_move = min_y - pos_.y;
+                if (std::abs(max_move) < std::abs(speed_.vy * time_delta)) {
+                    new_y = min_y;
+                    speed_.vy = 0.0;
+                }
+            } else {
                 new_y = min_y;
                 speed_.vy = 0.0;
-            } else if (new_y > max_y) {
+            }
+        } else if (new_y > max_y) {
+            // Would go beyond bottom boundary
+            if (pos_.y < max_y) {
+                double max_move = max_y - pos_.y;
+                if (std::abs(max_move) < std::abs(speed_.vy * time_delta)) {
+                    new_y = max_y;
+                    speed_.vy = 0.0;
+                }
+            } else {
                 new_y = max_y;
                 speed_.vy = 0.0;
             }
-            
-            new_x = current_road->GetStart().x;
         }
         
-        pos_.x = new_x;
-        pos_.y = new_y;
-        
-        if (speed_.vx == 0.0 && speed_.vy == 0.0) {
-        }
-    } else {
-        pos_.x = new_x;
-        pos_.y = new_y;
+        new_x = current_road->GetStart().x;
     }
+    
+    pos_.x = new_x;
+    pos_.y = new_y;
 }
 
 void Dog::SetAction(const std::string& action, double speed) {
