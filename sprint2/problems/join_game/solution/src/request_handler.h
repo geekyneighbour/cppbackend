@@ -160,13 +160,13 @@ private:
 
     // ================= RESPONSES =================
 
-    auto unauthorized(const http::request<auto>& req, const std::string& message = "Authorization header is missing or invalid") {
+    auto unauthorized(const http::request<auto>& req, const std::string& code = "invalidToken", const std::string& message = "Authorization header is missing or invalid") {
         http::response<http::string_body> res{http::status::unauthorized, req.version()};
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
 
         json::object error{
-            {"code", "invalidToken"},
+            {"code", code},
             {"message", message}
         };
 
@@ -302,11 +302,11 @@ private:
             // Parse token from Authorization header
             auto token_opt = ParseToken(req);
             if (!token_opt)
-                return unauthorized(req);
+                return unauthorized(req, "invalidToken", "Authorization header is missing");
 
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
             if (!player) {
-                return unauthorized(req, "Player token has not been found");
+                return unauthorized(req, "unknownToken", "Player token has not been found");
             }
 
             // Get all players in the same session
