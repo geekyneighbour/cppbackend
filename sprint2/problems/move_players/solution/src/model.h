@@ -3,7 +3,8 @@
 #include <unordered_map>
 #include <vector>
 #include <memory>
-#include <random>  // Добавьте эту строку
+#include <random>
+#include <optional>  
 
 #include "tagged.h"
 
@@ -31,7 +32,6 @@ struct Offset {
     Dimension dx, dy;
 };
 
-// Добавьте эти структуры
 struct PointDouble {
     double x, y;
 };
@@ -174,8 +174,8 @@ public:
     }
 
     void AddOffice(Office office);
-	
-	double GetDogSpeed() const noexcept {
+    
+    double GetDogSpeed() const noexcept {
         return dog_speed_.has_value() ? *dog_speed_ : default_dog_speed_;
     }
     
@@ -197,8 +197,8 @@ private:
 
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
-	
-	std::optional<double> dog_speed_;
+    
+    std::optional<double> dog_speed_;
     inline static double default_dog_speed_ = 1.0;
 };
 
@@ -224,8 +224,8 @@ public:
     void SetSpeed(Speed speed) { speed_ = speed; }
     void SetSpeed(double vx, double vy) { speed_ = {vx, vy}; }
     void SetDirection(Direction dir) { dir_ = dir; }
-	
-	 void SetAction(const std::string& action, double speed) {
+    
+    void SetAction(const std::string& action, double speed) {
         if (action.empty()) {
             speed_ = {0.0, 0.0};
             return;
@@ -321,7 +321,6 @@ public:
 private:
     std::unordered_map<std::string, Player*> tokens_;
 };
-
 
 PointDouble GetRandomPointOnRoad(const Road& road);
 

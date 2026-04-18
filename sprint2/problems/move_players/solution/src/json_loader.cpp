@@ -5,10 +5,14 @@
 #include <boost/json.hpp>
 
 namespace json_loader {
-	
+
 void LoadGlobalSettings(const boost::json::object& root_obj) {
     if (auto speed = root_obj.if_contains("defaultDogSpeed")) {
-        model::Map::SetDefaultDogSpeed(speed->as_double());
+        if (speed->is_double()) {
+            model::Map::SetDefaultDogSpeed(speed->as_double());
+        } else if (speed->is_int64()) {
+            model::Map::SetDefaultDogSpeed(static_cast<double>(speed->as_int64()));
+        }
     }
 }
 
@@ -93,7 +97,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         const auto& obj = jv.as_object();
         
-        // Загружаем глобальные настройки
         LoadGlobalSettings(obj);
 
         if (!obj.contains("maps")) return game;
@@ -107,9 +110,12 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
             model::Map map(model::Map::Id{id}, name);
             
-            // Загружаем скорость для конкретной карты
             if (auto speed = map_obj.if_contains("dogSpeed")) {
-                map.SetDogSpeed(speed->as_double());
+                if (speed->is_double()) {
+                    map.SetDogSpeed(speed->as_double());
+                } else if (speed->is_int64()) {
+                    map.SetDogSpeed(static_cast<double>(speed->as_int64()));
+                }
             }
 
             if (auto roads = map_obj.if_contains("roads")) {
