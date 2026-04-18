@@ -228,6 +228,8 @@ public:
         }
         return res;
     }
+	
+	const Map* GetMap() const { return map_; }
 
 private:
     const Map* map_ = nullptr;

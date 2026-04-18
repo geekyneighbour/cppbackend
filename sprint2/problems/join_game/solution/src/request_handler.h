@@ -6,6 +6,8 @@
 
 #include <boost/json.hpp>
 #include <boost/beast/http/file_body.hpp>
+#include <boost/log/trivial.hpp>
+#include <boost/log/utility/manipulators/add_value.hpp>
 
 #include <filesystem>
 #include <string>
@@ -21,6 +23,62 @@ namespace http = boost::beast::http;
 namespace json = boost::json;
 namespace fs = std::filesystem;
 namespace net = boost::asio;
+
+// ================= LOGGING =================
+template <typename Handler>
+class LoggingRequestHandler {
+public:
+    explicit LoggingRequestHandler(Handler& handler)
+        : handler_(handler) {}
+
+    template <typename Request, typename Send, typename Endpoint>
+    void operator()(Request&& req, Send&& send, Endpoint endpoint) {
+
+        json::object data_req{
+            {"ip", endpoint.address().to_string()},
+            {"URI", std::string(req.target())},
+            {"method", std::string(req.method_string())}
+        };
+
+        BOOST_LOG_TRIVIAL(info)
+            << boost::log::add_value(additional_data, data_req)
+            << "request received";
+
+        auto start = std::chrono::steady_clock::now();
+
+        handler_(
+            std::forward<Request>(req),
+            [start, endpoint, send = std::forward<Send>(send)](auto response) mutable {
+
+                auto end = std::chrono::steady_clock::now();
+                auto duration =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+                json::object data_resp{
+                    {"ip", endpoint.address().to_string()},
+                    {"response_time", duration},
+                    {"code", response.result_int()}
+                };
+
+                auto it = response.base().find(http::field::content_type);
+                data_resp["content_type"] =
+                    (it != response.base().end())
+                        ? json::value(std::string(it->value()))
+                        : json::value(nullptr);
+
+                BOOST_LOG_TRIVIAL(info)
+                    << boost::log::add_value(additional_data, data_resp)
+                    << "response sent";
+
+                send(std::move(response));
+            },
+            endpoint
+        );
+    }
+
+private:
+    Handler& handler_;
+};
 
 // ================= HANDLER =================
 class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
@@ -66,210 +124,216 @@ private:
     model::Game& game_;
     fs::path root_;
     Strand api_strand_;
-
     model::PlayerTokens tokens_;
 
     // ================= TOKEN =================
     std::string GenerateToken() {
         static std::random_device rd;
-        static std::mt19937_64 gen(rd());
-        static std::uniform_int_distribution<uint64_t> dist;
+        static std::mt19937_64 gen1(rd());
+        static std::mt19937_64 gen2(rd());
 
-        auto to_hex = [](uint64_t v) {
+        auto hex = [](uint64_t v) {
             std::ostringstream ss;
             ss << std::hex << std::setw(16) << std::setfill('0') << v;
             return ss.str();
         };
 
-        return to_hex(dist(gen)) + to_hex(dist(gen)); // 32 hex chars
+        return hex(gen1()) + hex(gen2());
     }
 
-    // ================= HELPERS =================
-
-    http::response<http::string_body>
-    json_response(http::status status, unsigned version,
-                  json::object obj,
-                  bool keep_alive = false)
-    {
-        http::response<http::string_body> res{status, version};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.keep_alive(keep_alive);
-
-        res.body() = json::serialize(obj);
-        res.prepare_payload();
-        return res;
-    }
-
-    http::response<http::string_body>
-    bad_request(unsigned v, bool ka, std::string msg)
-    {
-        return json_response(
-            http::status::bad_request, v,
-            {
-                {"code", "invalidArgument"},
-                {"message", msg}
-            }, ka);
-    }
-
-    http::response<http::string_body>
-    not_found(unsigned v, bool ka)
-    {
-        return json_response(
-            http::status::not_found, v,
-            {
-                {"code", "mapNotFound"},
-                {"message", "Map not found"}
-            }, ka);
-    }
-
-    http::response<http::string_body>
-    unauthorized(unsigned v, bool ka, std::string code, std::string msg)
-    {
-        return json_response(
-            http::status::unauthorized, v,
-            {
-                {"code", code},
-                {"message", msg}
-            }, ka);
-    }
-
-    http::response<http::string_body>
-    invalid_method(unsigned v, bool ka)
-    {
-        http::response<http::string_body> res{http::status::method_not_allowed, v};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.set(http::field::allow, "POST");
-        res.keep_alive(ka);
-
-        json::object obj{
-            {"code", "invalidMethod"},
-            {"message", "Only POST method is expected"}
-        };
-
-        res.body() = json::serialize(obj);
-        res.prepare_payload();
-        return res;
-    }
-
-    // ================= TOKEN PARSE =================
-    std::optional<std::string> ParseToken(const auto& req)
-    {
+    template <typename Req>
+    std::optional<std::string> ParseToken(const Req& req) {
         auto it = req.find(http::field::authorization);
         if (it == req.end()) return std::nullopt;
 
         std::string v = std::string(it->value());
         const std::string prefix = "Bearer ";
 
-        if (v.rfind(prefix, 0) != 0)
+        if (v.length() <= prefix.length() || v.substr(0, prefix.length()) != prefix)
             return std::nullopt;
 
-        return v.substr(prefix.size());
+        std::string token = v.substr(prefix.length());
+        if (token.empty()) return std::nullopt;
+
+        return token;
+    }
+
+    // ================= RESPONSES =================
+
+    auto unauthorized(const http::request<auto>& req, const std::string& message = "Authorization header is missing or invalid") {
+        http::response<http::string_body> res{http::status::unauthorized, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+
+        json::object error{
+            {"code", "invalidToken"},
+            {"message", message}
+        };
+
+        res.body() = json::serialize(error);
+        res.prepare_payload();
+        return res;
+    }
+
+    auto bad_request(const http::request<auto>& req, std::string_view msg) {
+        http::response<http::string_body> res{http::status::bad_request, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+
+        json::object error{
+            {"code", "invalidArgument"},
+            {"message", std::string(msg)}
+        };
+
+        res.body() = json::serialize(error);
+        res.prepare_payload();
+        return res;
+    }
+
+    auto not_found(const http::request<auto>& req) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+
+        json::object error{
+            {"code", "mapNotFound"},
+            {"message", "Map not found"}
+        };
+
+        res.body() = json::serialize(error);
+        res.prepare_payload();
+        return res;
+    }
+
+    auto invalid_method(const http::request<auto>& req, const std::string& allowed_methods) {
+        http::response<http::string_body> res{http::status::method_not_allowed, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.set(http::field::allow, allowed_methods);
+
+        json::object error{
+            {"code", "invalidMethod"},
+            {"message", "Only " + allowed_methods + " method is expected"}
+        };
+
+        res.body() = json::serialize(error);
+        res.prepare_payload();
+        return res;
     }
 
     // ================= API =================
-
     template <typename Req>
-    http::response<http::string_body> HandleApiRequest(const Req& req)
-    {
+    http::response<http::string_body> HandleApiRequest(const Req& req) {
         std::string path(req.target());
         auto method = req.method();
 
-        // ================= JOIN =================
-        if (path == "/api/v1/game/join")
-        {
-            if (method != http::verb::post)
-                return invalid_method(req.version(), req.keep_alive());
+        // Handle /api/v1/maps (GET)
+        if (path == "/api/v1/maps") {
+            if (method != http::verb::get && method != http::verb::head)
+                return invalid_method(req, "GET, HEAD");
 
-            json::object body;
-            try {
-                body = json::parse(req.body()).as_object();
-            }
-            catch (...) {
-                return bad_request(req.version(), req.keep_alive(), "Join game request parse error");
-            }
-
-            if (!body.contains("userName") || !body.contains("mapId"))
-                return bad_request(req.version(), req.keep_alive(), "Join game request parse error");
-
-            std::string user = json::value_to<std::string>(body.at("userName"));
-            std::string map_id = json::value_to<std::string>(body.at("mapId"));
-
-            if (user.empty())
-                return bad_request(req.version(), req.keep_alive(), "Invalid name");
-
-            const auto* map = game_.FindMap(model::Map::Id{map_id});
-            if (!map)
-                return not_found(req.version(), req.keep_alive());
-
-            auto& session = game_.FindOrCreateSession(map);
-            auto& dog = session.AddDog(user);
-            auto& player = session.AddPlayer(dog);
-
-            std::string token = GenerateToken();
-            tokens_.AddPlayer(token, &player);
-
-            return json_response(
-                http::status::ok, req.version(),
-                {
-                    {"authToken", token},
-                    {"playerId", static_cast<int>(player.GetId())}
-                }, req.keep_alive());
-        }
-
-        // ================= MAPS =================
-        if (path == "/api/v1/game/maps")
-        {
             json::array arr;
-
-            for (const auto& m : game_.GetMaps())
-            {
+            for (const auto& map : game_.GetMaps()) {
                 arr.push_back(json::object{
-                    {"id", *m->GetId()},
-                    {"name", m->GetName()}
+                    {"id", *map->GetId()},
+                    {"name", map->GetName()}
                 });
             }
 
-            return json_response(http::status::ok, req.version(), arr);
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(arr);
+            res.prepare_payload();
+            return res;
         }
 
-        // ================= PLAYERS =================
-        if (path == "/api/v1/game/players")
-        {
-            auto token = ParseToken(req);
-            if (!token)
-                return unauthorized(req.version(), req.keep_alive(),
-                                    "invalidToken",
-                                    "Authorization header is missing");
+        // Handle /api/v1/game/join (POST)
+        if (path == "/api/v1/game/join") {
+            if (method != http::verb::post)
+                return invalid_method(req, "POST");
 
-            auto* player = tokens_.FindPlayerByToken(*token);
-            if (!player)
-                return unauthorized(req.version(), req.keep_alive(),
-                                    "unknownToken",
-                                    "Player token has not been found");
+            try {
+                auto body = json::parse(req.body()).as_object();
 
-            auto session = player->GetSession();
-            json::object result;
+                if (!body.contains("userName") || !body.contains("mapId"))
+                    return bad_request(req, "Join game request parse error");
 
-            for (auto* p : session->GetPlayers())
-            {
-                result[std::to_string(p->GetId())] = json::object{
+                std::string user = json::value_to<std::string>(body.at("userName"));
+                std::string map_id = json::value_to<std::string>(body.at("mapId"));
+
+                if (user.empty())
+                    return bad_request(req, "Invalid name");
+
+                const auto* map = game_.FindMap(model::Map::Id{map_id});
+                if (!map)
+                    return not_found(req);
+
+                auto& session = game_.FindOrCreateSession(map);
+                auto& dog = session.AddDog(user);
+                auto& player = session.AddPlayer(dog);
+
+                std::string token = GenerateToken();
+                tokens_.AddPlayer(token, &player);
+
+                http::response<http::string_body> res{http::status::ok, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+
+                json::object result{
+                    {"authToken", token},
+                    {"playerId", static_cast<int>(player.GetId())}
+                };
+
+                res.body() = json::serialize(result);
+                res.prepare_payload();
+                return res;
+            }
+            catch (const std::exception& e) {
+                return bad_request(req, "Join game request parse error");
+            }
+        }
+
+        // Handle /api/v1/game/players (GET)
+        if (path == "/api/v1/game/players") {
+            if (method != http::verb::get && method != http::verb::head)
+                return invalid_method(req, "GET, HEAD");
+
+            // Parse token from Authorization header
+            auto token_opt = ParseToken(req);
+            if (!token_opt)
+                return unauthorized(req);
+
+            model::Player* player = tokens_.FindPlayerByToken(*token_opt);
+            if (!player) {
+                return unauthorized(req, "Player token has not been found");
+            }
+
+            // Get all players in the same session
+            model::GameSession* session = player->GetSession();
+            json::object players_obj;
+
+            for (model::Player* p : session->GetPlayers()) {
+                players_obj[std::to_string(p->GetId())] = json::object{
                     {"name", p->GetDog()->GetName()}
                 };
             }
 
-            return json_response(http::status::ok, req.version(), result);
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(players_obj);
+            res.prepare_payload();
+            return res;
         }
 
-        return bad_request(req.version(), req.keep_alive(), "Unknown endpoint");
+        return bad_request(req, "Unknown endpoint");
     }
 
-    // ================= STATIC =================
+    // ================= FILE =================
     template <typename Req>
-    http::response<http::string_body> HandleFileRequest(const Req&)
-    {
-        http::response<http::string_body> res{http::status::ok, 11};
+    http::response<http::string_body> HandleFileRequest(const Req& req) {
+        http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "text/plain");
         res.set(http::field::cache_control, "no-cache");
         res.body() = "static stub";
@@ -277,16 +341,20 @@ private:
         return res;
     }
 
-    // ================= ERROR =================
     http::response<http::string_body>
-    ServerError(unsigned v, bool ka)
-    {
+    ServerError(unsigned v, bool keep_alive) const {
         json::object obj{
             {"code", "internalError"},
             {"message", "Internal server error"}
         };
 
-        return json_response(http::status::internal_server_error, v, obj, ka);
+        http::response<http::string_body> res{http::status::internal_server_error, v};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.keep_alive(keep_alive);
+        res.body() = json::serialize(obj);
+        res.prepare_payload();
+        return res;
     }
 };
 
