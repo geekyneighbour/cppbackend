@@ -309,7 +309,7 @@ public:
     void SetSpeed(double vx, double vy) { speed_ = {vx, vy}; }
     void SetDirection(Direction dir) { dir_ = dir; }
     
-    void Dog::SetAction(const std::string& action, double speed);
+    void SetAction(const std::string& action, double speed);
 	
 	void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
 
