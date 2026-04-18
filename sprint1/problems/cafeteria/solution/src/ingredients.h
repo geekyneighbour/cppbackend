@@ -1,6 +1,7 @@
 #pragma once
 #include <functional>
 #include <optional>
+#include <atomic>
 
 #include "clock.h"
 #include "gascooker.h"
@@ -149,5 +150,5 @@ public:
     }
 
 private:
-    int next_id_ = 0;
+    std::atomic<int> next_id_ = 0;
 };
