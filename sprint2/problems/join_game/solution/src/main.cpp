@@ -69,13 +69,17 @@ int main(int argc, const char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(
             argv[2], strand, game);
 
-        http_server::ServeHttp(ioc, {"0.0.0.0", 8080},
-            [handler](auto&& req, auto&& send, auto&& endpoint) {
-                (*handler)(std::move(req),
-                           std::forward<decltype(send)>(send),
-                           endpoint);
-            });
+        auto address = net::ip::make_address("0.0.0.0");
+net::ip::tcp::endpoint endpoint{address, 8080};
 
+http_server::ServeHttp(ioc, endpoint,
+    [handler](auto&& req, auto&& send, auto&& endpoint) {
+        (*handler)(
+            std::move(req),
+            std::forward<decltype(send)>(send),
+            endpoint
+        );
+    });
         std::cout << "Server started\n";
 
         ioc.run();

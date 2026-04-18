@@ -12,6 +12,7 @@
 #include <random>
 #include <sstream>
 #include <iomanip>
+#include <optional>
 
 namespace http_handler {
 
@@ -180,8 +181,8 @@ private:
 
         for (const auto& map : game_.GetMaps()) {
             arr.push_back(json::object{
-                {"id", *map.GetId()},
-                {"name", map.GetName()}
+                {"id", *map->GetId()},
+                {"name", map->GetName()}
             });
         }
 
