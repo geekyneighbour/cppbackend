@@ -5,7 +5,7 @@
 #include "logging.h"
 
 #include <boost/json.hpp>
-#include <boost/beast/http/file_body.hpp>
+#include <boost/beast/http.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/manipulators/add_value.hpp>
 
@@ -538,7 +538,7 @@ private:
 
     // ================= FILE =================
     template <typename Req>
-    http::response<http::file_body> HandleFileRequest(const Req& req, const std::string& target) {
+    http::response<http::string_body> HandleFileRequest(const Req& req, const std::string& target) {
         std::string path = target;
         if (path.empty() || path == "/") {
             path = "/index.html";
@@ -552,26 +552,32 @@ private:
         fs::path full_path = root_ / path;
         
         // Проверка безопасности - путь должен быть внутри root_
-        auto canonical_root = fs::canonical(root_);
-        fs::path canonical_full;
         try {
-            canonical_full = fs::canonical(full_path);
+            auto canonical_root = fs::canonical(root_);
+            auto canonical_full = fs::canonical(full_path);
+            
+            if (canonical_full.string().find(canonical_root.string()) != 0) {
+                http::response<http::string_body> res{http::status::bad_request, req.version()};
+                return res;
+            }
         } catch (const fs::filesystem_error&) {
-            http::response<http::file_body> res{http::status::not_found, req.version()};
-            res.body() = "";
-            res.prepare_payload();
-            return res;
-        }
-        
-        if (canonical_full.string().find(canonical_root.string()) != 0) {
-            http::response<http::file_body> res{http::status::bad_request, req.version()};
+            http::response<http::string_body> res{http::status::not_found, req.version()};
             return res;
         }
         
         if (!fs::exists(full_path) || fs::is_directory(full_path)) {
-            http::response<http::file_body> res{http::status::not_found, req.version()};
+            http::response<http::string_body> res{http::status::not_found, req.version()};
             return res;
         }
+        
+        // Читаем файл
+        std::ifstream file(full_path, std::ios::binary);
+        if (!file.is_open()) {
+            http::response<http::string_body> res{http::status::not_found, req.version()};
+            return res;
+        }
+        
+        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         
         // Определяем content type
         std::string content_type;
@@ -592,11 +598,10 @@ private:
             content_type = "text/plain";
         }
         
-        http::response<http::file_body> res{http::status::ok, req.version()};
+        http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, content_type);
         res.set(http::field::cache_control, "no-cache");
-        
-        res.body().open(full_path.c_str(), boost::beast::file_mode::read);
+        res.body() = content;
         res.prepare_payload();
         return res;
     }
