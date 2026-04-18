@@ -337,15 +337,15 @@ private:
     }
 
     // ================= FILE =================
-    template <typename Req>
-    http::response<http::string_body> HandleFileRequest(const Req&) {
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, "text/plain");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = "static stub";
-        res.prepare_payload();
-        return res;
-    }
+template <typename Req>
+http::response<http::string_body> HandleFileRequest(const Req& req) {
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, "text/plain");
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = "static stub";
+    res.prepare_payload();
+    return res;
+}
 
     http::response<http::string_body>
     ServerError(unsigned v, bool keep_alive) const {
