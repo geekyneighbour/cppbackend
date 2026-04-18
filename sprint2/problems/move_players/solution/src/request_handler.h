@@ -197,19 +197,19 @@ private:
     }
 
     auto BadRequest(const http::request<auto>& req, const std::string& message) {
-        http::response<http::string_body> res{http::status::bad_request, req.version()};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
+    http::response<http::string_body> res{http::status::bad_request, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
 
-        json::object error{
-            {"code", "invalidArgument"},
-            {"message", message}
-        };
+    json::object error{
+        {"code", "badRequest"},  // <-- ИЗМЕНЕНО: было "invalidArgument", стало "badRequest"
+        {"message", message}
+    };
 
-        res.body() = json::serialize(error);
-        res.prepare_payload();
-        return res;
-    }
+    res.body() = json::serialize(error);
+    res.prepare_payload();
+    return res;
+}
 
     auto NotFound(const http::request<auto>& req, const std::string& code = "mapNotFound", const std::string& message = "Map not found") {
         http::response<http::string_body> res{http::status::not_found, req.version()};
@@ -538,73 +538,89 @@ private:
 
     // ================= FILE =================
     template <typename Req>
-    http::response<http::string_body> HandleFileRequest(const Req& req, const std::string& target) {
-        std::string path = target;
-        if (path.empty() || path == "/") {
-            path = "/index.html";
-        }
+http::response<http::string_body> HandleFileRequest(const Req& req, const std::string& target) {
+    std::string path = target;
+    if (path.empty() || path == "/") {
+        path = "/index.html";
+    }
+    
+    
+    if (path.front() == '/') {
+        path = path.substr(1);
+    }
+    
+    fs::path full_path = root_ / path;
+    
+    
+    try {
+        auto canonical_root = fs::canonical(root_);
+        auto canonical_full = fs::canonical(full_path);
         
-        // Убираем ведущий слэш
-        if (path.front() == '/') {
-            path = path.substr(1);
-        }
-        
-        fs::path full_path = root_ / path;
-        
-        // Проверка безопасности - путь должен быть внутри root_
-        try {
-            auto canonical_root = fs::canonical(root_);
-            auto canonical_full = fs::canonical(full_path);
-            
-            if (canonical_full.string().find(canonical_root.string()) != 0) {
-                http::response<http::string_body> res{http::status::bad_request, req.version()};
-                return res;
-            }
-        } catch (const fs::filesystem_error&) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
+        if (canonical_full.string().find(canonical_root.string()) != 0) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::content_type, "text/plain");  
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = "Bad request";
+            res.prepare_payload();
             return res;
         }
-        
-        if (!fs::exists(full_path) || fs::is_directory(full_path)) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
-            return res;
-        }
-        
-        // Читаем файл
-        std::ifstream file(full_path, std::ios::binary);
-        if (!file.is_open()) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
-            return res;
-        }
-        
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        
-        // Определяем content type
-        std::string content_type;
-        std::string ext = full_path.extension().string();
-        if (ext == ".html" || ext == ".htm") {
-            content_type = "text/html";
-        } else if (ext == ".css") {
-            content_type = "text/css";
-        } else if (ext == ".js") {
-            content_type = "application/javascript";
-        } else if (ext == ".svg") {
-            content_type = "image/svg+xml";
-        } else if (ext == ".png") {
-            content_type = "image/png";
-        } else if (ext == ".jpg" || ext == ".jpeg") {
-            content_type = "image/jpeg";
-        } else {
-            content_type = "text/plain";
-        }
-        
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, content_type);
+    } catch (const fs::filesystem_error&) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");  
         res.set(http::field::cache_control, "no-cache");
-        res.body() = content;
+        res.body() = "File not found";
         res.prepare_payload();
         return res;
     }
+    
+    if (!fs::exists(full_path) || fs::is_directory(full_path)) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");  // <-- ДОБАВИТЬ
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = "File not found";
+        res.prepare_payload();
+        return res;
+    }
+    
+    
+    std::ifstream file(full_path, std::ios::binary);
+    if (!file.is_open()) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");  
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = "File not found";
+        res.prepare_payload();
+        return res;
+    }
+    
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    
+    
+    std::string content_type;
+    std::string ext = full_path.extension().string();
+    if (ext == ".html" || ext == ".htm") {
+        content_type = "text/html";
+    } else if (ext == ".css") {
+        content_type = "text/css";
+    } else if (ext == ".js") {
+        content_type = "application/javascript";
+    } else if (ext == ".svg") {
+        content_type = "image/svg+xml";
+    } else if (ext == ".png") {
+        content_type = "image/png";
+    } else if (ext == ".jpg" || ext == ".jpeg") {
+        content_type = "image/jpeg";
+    } else {
+        content_type = "text/plain";
+    }
+    
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, content_type);
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = content;
+    res.prepare_payload();
+    return res;
+}
 
     http::response<http::string_body>
     ServerError(unsigned v, bool keep_alive) const {
