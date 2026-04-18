@@ -21,25 +21,22 @@
 #include "http_server.h"
 #include "logging.h"
 
-using namespace std::literals;
 namespace net = boost::asio;
 namespace logging = boost::log;
 namespace expr = boost::log::expressions;
 namespace json = boost::json;
 
-
 BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
 BOOST_LOG_ATTRIBUTE_KEYWORD(message, "Message", std::string)
 
-
 namespace {
-
 
 void InitLogging() {
     logging::add_common_attributes();
 
-    logging::add_console_log(std::cout,
-        logging::keywords::auto_flush = true,  
+    logging::add_console_log(
+        std::cout,
+        logging::keywords::auto_flush = true,
         logging::keywords::format =
         (
             expr::stream
@@ -56,39 +53,25 @@ void InitLogging() {
                 << message
                 << "\""
                 << "}"
-        ));
+        )
+    );
 }
 
-
-template <typename Fn>
-void RunWorkers(unsigned n, const Fn& fn) {
-    n = std::max(1u, n);
-    std::vector<std::jthread> workers;
-    workers.reserve(n - 1);
-
-    while (--n) {
-        workers.emplace_back(fn);
-    }
-    fn();
-}
-
-}  // namespace
+} // namespace
 
 int main(int argc, const char* argv[]) {
     InitLogging();
 
     if (argc != 3) {
-        std::cerr << "Usage: game_server <game-config-json> <static-files-directory>"sv << std::endl;
-        return EXIT_FAILURE;
+        std::cerr << "Usage: game_server <config> <static_dir>\n";
+        return 1;
     }
 
     try {
-
         model::Game game = json_loader::LoadGame(argv[1]);
 
         const unsigned num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(num_threads);
-
 
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](auto, auto) {
@@ -102,14 +85,16 @@ int main(int argc, const char* argv[]) {
             ioc.stop();
         });
 
+        auto strand = net::make_strand(ioc);
 
-        http_handler::RequestHandler handler{game, argv[2]};
-        http_handler::LoggingRequestHandler<http_handler::RequestHandler> logging_handler{handler};
+        auto handler = std::make_shared<http_handler::RequestHandler>(
+            argv[2], strand, game);
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr unsigned short port = 8080;
 
 
+		std::cout << "Server started" << std::endl;
         {
             json::object start_data;
             start_data["address"] = address.to_string();
@@ -120,25 +105,28 @@ int main(int argc, const char* argv[]) {
                 << "server started";
         }
 
+        http_server::ServeHttp(ioc, {address, port},
+            [handler](auto&& req, auto&& send, auto&& endpoint) {
+                (*handler)(
+                    std::move(req),
+                    std::forward<decltype(send)>(send),
+                    endpoint
+                );
+            });
 
-        http_server::ServeHttp(ioc, {address, port}, logging_handler);
-
-
-        RunWorkers(std::max(1u, num_threads), [&ioc] {
-            ioc.run();
-        });
+        ioc.run();
 
     } catch (const std::exception& e) {
         json::object data;
-        data["code"] = EXIT_FAILURE;
+        data["code"] = 1;
         data["exception"] = e.what();
 
         BOOST_LOG_TRIVIAL(error)
             << boost::log::add_value(additional_data, data)
             << "server exited with error";
 
-        return EXIT_FAILURE;
+        return 1;
     }
 
-    return EXIT_SUCCESS;
+    return 0;
 }

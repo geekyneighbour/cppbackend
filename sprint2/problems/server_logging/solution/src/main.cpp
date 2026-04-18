@@ -109,6 +109,7 @@ int main(int argc, const char* argv[]) {
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr unsigned short port = 8080;
 
+		std::cout << "Server started" << std::endl;
 
         {
             json::object start_data;
