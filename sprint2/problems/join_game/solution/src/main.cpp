@@ -72,6 +72,16 @@ int main(int argc, const char* argv[]) {
         auto address = net::ip::make_address("0.0.0.0");
 net::ip::tcp::endpoint endpoint{address, 8080};
 
+{
+    json::object start_data;
+    start_data["address"] = address.to_string();
+    start_data["port"] = 8080;
+
+    BOOST_LOG_TRIVIAL(info)
+        << boost::log::add_value(additional_data, start_data)
+        << "server started";
+}
+
 http_server::ServeHttp(ioc, endpoint,
     [handler](auto&& req, auto&& send, auto&& endpoint) {
         (*handler)(
@@ -80,19 +90,20 @@ http_server::ServeHttp(ioc, endpoint,
             endpoint
         );
     });
-        std::cout << "Server started\n";
 
         ioc.run();
     }
     catch (const std::exception& e) {
         json::object data;
-        data["code"] = 1;
+        data["code"] = EXIT_FAILURE;
         data["exception"] = e.what();
 
         BOOST_LOG_TRIVIAL(error)
             << boost::log::add_value(additional_data, data)
             << "server exited with error";
 
-        return 1;
+        return EXIT_FAILURE;
     }
+	
+	return EXIT_SUCCESS;
 }
