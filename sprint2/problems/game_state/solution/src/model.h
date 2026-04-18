@@ -8,6 +8,8 @@
 #include "tagged.h"
 
 namespace model {
+	
+using namespace std::string_literals;
 
 using Dimension = int;
 using Coord = Dimension;
