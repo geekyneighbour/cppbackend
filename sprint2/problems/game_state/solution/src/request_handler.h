@@ -89,6 +89,18 @@ public:
         : root_(std::move(root))
         , api_strand_(strand)
         , game_(game) {}
+		
+	bool IsValidToken(const std::string& token) {
+    if (token.size() != 32)
+        return false;
+
+    for (char c : token) {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
+            return false;
+    }
+
+    return true;
+}	
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
@@ -304,6 +316,10 @@ private:
             if (!token_opt)
                 return unauthorized(req, "invalidToken", "Authorization header is missing");
 
+			if (!IsValidToken(*token_opt)) {
+    return unauthorized(req, "invalidToken", "Invalid token");
+}
+
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
             if (!player) {
                 return unauthorized(req, "unknownToken", "Player token has not been found");
@@ -334,6 +350,10 @@ private:
     auto token_opt = ParseToken(req);
     if (!token_opt)
         return unauthorized(req, "invalidToken", "Authorization header is required");
+
+	if (!IsValidToken(*token_opt)) {
+    return unauthorized(req, "invalidToken", "Invalid token");
+}
 
     model::Player* player = tokens_.FindPlayerByToken(*token_opt);
     if (!player) {
