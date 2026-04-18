@@ -70,10 +70,18 @@ int main(int argc, const char* argv[]) {
     try {
         model::Game game = json_loader::LoadGame(argv[1]);
 
-        net::io_context ioc(std::thread::hardware_concurrency());
+        const unsigned num_threads = std::thread::hardware_concurrency();
+        net::io_context ioc(num_threads);
 
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](auto, auto) {
+            json::object data;
+            data["code"] = 0;
+
+            BOOST_LOG_TRIVIAL(info)
+                << boost::log::add_value(additional_data, data)
+                << "server exited";
+
             ioc.stop();
         });
 
@@ -83,21 +91,39 @@ int main(int argc, const char* argv[]) {
             argv[2], strand, game);
 
         const auto address = net::ip::make_address("0.0.0.0");
-        const unsigned short port = 8080;
+        constexpr unsigned short port = 8080;
+
+        // ===== ВОССТАНОВЛЕНО: server started =====
+        {
+            json::object start_data;
+            start_data["address"] = address.to_string();
+            start_data["port"] = port;
+
+            BOOST_LOG_TRIVIAL(info)
+                << boost::log::add_value(additional_data, start_data)
+                << "server started";
+        }
 
         http_server::ServeHttp(ioc, {address, port},
-    [handler](auto&& req, auto&& send, auto&& endpoint) {
-        (*handler)(
-            std::move(req),
-            std::forward<decltype(send)>(send),
-            endpoint
-        );
-    });
+            [handler](auto&& req, auto&& send, auto&& endpoint) {
+                (*handler)(
+                    std::move(req),
+                    std::forward<decltype(send)>(send),
+                    endpoint
+                );
+            });
 
         ioc.run();
 
     } catch (const std::exception& e) {
-        std::cerr << e.what() << std::endl;
+        json::object data;
+        data["code"] = 1;
+        data["exception"] = e.what();
+
+        BOOST_LOG_TRIVIAL(error)
+            << boost::log::add_value(additional_data, data)
+            << "server exited with error";
+
         return 1;
     }
 
