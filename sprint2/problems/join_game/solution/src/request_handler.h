@@ -339,7 +339,7 @@ private:
     // ================= FILE =================
     template <typename Req>
     http::response<http::string_body> HandleFileRequest(const Req&) {
-        http::response<http::string_body> res{http::status::ok};
+        http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "text/plain");
         res.set(http::field::cache_control, "no-cache");
         res.body() = "static stub";
