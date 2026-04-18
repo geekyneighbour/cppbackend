@@ -58,11 +58,14 @@ Dog& GameSession::AddDog(const std::string& name) {
     dogs_.push_back(std::make_unique<Dog>(name));
     Dog& dog = *dogs_.back();
     
-
     if (map_ && !map_->GetRoads().empty()) {
         const Road& first_road = map_->GetRoads()[0];
         Point start = first_road.GetStart();
-        dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
+        if (first_road.IsHorizontal()) {
+            dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
+        } else {
+            dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
+        }
     }
     
     return dog;
@@ -85,8 +88,11 @@ std::vector<Player*> GameSession::GetPlayers() {
 }
 
 void GameSession::UpdateState(double time_delta) {
+    if (!map_) return;
+    
+    const auto& roads = map_->GetRoads();
     for (auto& dog_ptr : dogs_) {
-        dog_ptr->UpdatePosition(time_delta);
+        dog_ptr->UpdatePosition(time_delta, roads);
     }
 }
 
@@ -117,12 +123,84 @@ void Game::UpdateAllSessions(double time_delta) {
     }
 }
 
-void Dog::UpdatePosition(double time_delta) {
+void Dog::UpdatePosition(double time_delta, const std::vector<model::Road>& roads) {
     if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
     
     double new_x = pos_.x + speed_.vx * time_delta;
     double new_y = pos_.y + speed_.vy * time_delta;
-    pos_ = {new_x, new_y};
+    
+
+    const Road* current_road = nullptr;
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
+            current_road = &road;
+            break;
+        }
+    }
+    
+    if (current_road) {
+        double half_width = 0.4; 
+        
+        if (current_road->IsHorizontal()) {
+            double min_x = current_road->GetMinX() - half_width;
+            double max_x = current_road->GetMaxX() + half_width;
+            
+
+            if (new_x < min_x) {
+                new_x = min_x;
+                speed_.vx = 0.0; 
+            } else if (new_x > max_x) {
+                new_x = max_x;
+                speed_.vx = 0.0;
+            }
+            
+
+            new_y = current_road->GetStart().y;
+        } else { 
+            double min_y = current_road->GetMinY() - half_width;
+            double max_y = current_road->GetMaxY() + half_width;
+            
+            if (new_y < min_y) {
+                new_y = min_y;
+                speed_.vy = 0.0;
+            } else if (new_y > max_y) {
+                new_y = max_y;
+                speed_.vy = 0.0;
+            }
+            
+            new_x = current_road->GetStart().x;
+        }
+        
+        pos_.x = new_x;
+        pos_.y = new_y;
+        
+        if (speed_.vx == 0.0 && speed_.vy == 0.0) {
+        }
+    } else {
+        pos_.x = new_x;
+        pos_.y = new_y;
+    }
+}
+
+void Dog::SetAction(const std::string& action, double speed) {
+    if (action.empty()) {
+        speed_ = {0.0, 0.0};
+        return;
+    }
+    
+    if (action == "L") {
+        speed_ = {-speed, 0.0};
+        dir_ = Direction::WEST;
+    } else if (action == "R") {
+        speed_ = {speed, 0.0};
+        dir_ = Direction::EAST;
+    } else if (action == "U") {
+        speed_ = {0.0, -speed};
+        dir_ = Direction::NORTH;
+    } else if (action == "D") {
+        speed_ = {0.0, speed};
+        dir_ = Direction::SOUTH;
+    }
 }
 
 }  // namespace model

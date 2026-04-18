@@ -85,6 +85,52 @@ public:
     Point GetEnd() const noexcept {
         return end_;
     }
+	
+	 double GetMinX() const noexcept {
+        return std::min(start_.x, end_.x);
+    }
+    
+    double GetMaxX() const noexcept {
+        return std::max(start_.x, end_.x);
+    }
+    
+    double GetMinY() const noexcept {
+        return std::min(start_.y, end_.y);
+    }
+    
+    double GetMaxY() const noexcept {
+        return std::max(start_.y, end_.y);
+    }
+    
+    bool IsPointOnRoad(double x, double y, double road_width = 0.8) const {
+        double half_width = road_width / 2.0;
+        
+        if (IsHorizontal()) {
+            return (y >= start_.y - half_width && y <= start_.y + half_width &&
+                    x >= GetMinX() - half_width && x <= GetMaxX() + half_width);
+        } else { 
+            return (x >= start_.x - half_width && x <= start_.x + half_width &&
+                    y >= GetMinY() - half_width && y <= GetMaxY() + half_width);
+        }
+    }
+    
+    void ConstrainMovement(double& x, double& y, const PointDouble& from, double road_width = 0.8) const {
+        double half_width = road_width / 2.0;
+        
+        if (IsHorizontal()) {
+            double min_x = GetMinX() - half_width;
+            double max_x = GetMaxX() + half_width;
+            if (x < min_x) x = min_x;
+            if (x > max_x) x = max_x;
+            y = start_.y;
+        } else { 
+            double min_y = GetMinY() - half_width;
+            double max_y = GetMaxY() + half_width;
+            if (y < min_y) y = min_y;
+            if (y > max_y) y = max_y;
+            x = start_.x;
+        }
+    }
 
 private:
     Point start_;
@@ -186,6 +232,44 @@ public:
     static void SetDefaultDogSpeed(double speed) {
         default_dog_speed_ = speed;
     }
+	
+	const Road* FindRoadAtPoint(double x, double y) const {
+        for (const auto& road : roads_) {
+            if (road.IsPointOnRoad(x, y)) {
+                return &road;
+            }
+        }
+        return nullptr;
+    }
+    
+    const Road* FindNearestRoad(const PointDouble& pos) const {
+        const Road* nearest = nullptr;
+        double min_dist = 1e9;
+        
+        for (const auto& road : roads_) {
+            double dx = 0, dy = 0;
+            if (road.IsHorizontal()) {
+                double road_y = road.GetStart().y;
+                dy = std::abs(pos.y - road_y);
+                if (pos.x >= road.GetMinX() - 0.4 && pos.x <= road.GetMaxX() + 0.4) {
+                    if (dy < min_dist) {
+                        min_dist = dy;
+                        nearest = &road;
+                    }
+                }
+            } else {
+                double road_x = road.GetStart().x;
+                dx = std::abs(pos.x - road_x);
+                if (pos.y >= road.GetMinY() - 0.4 && pos.y <= road.GetMaxY() + 0.4) {
+                    if (dx < min_dist) {
+                        min_dist = dx;
+                        nearest = &road;
+                    }
+                }
+            }
+        }
+        return nearest;
+    }
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -225,28 +309,9 @@ public:
     void SetSpeed(double vx, double vy) { speed_ = {vx, vy}; }
     void SetDirection(Direction dir) { dir_ = dir; }
     
-    void SetAction(const std::string& action, double speed) {
-        if (action.empty()) {
-            speed_ = {0.0, 0.0};
-            return;
-        }
-        
-        if (action == "L") {
-            speed_ = {-speed, 0.0};
-            dir_ = Direction::WEST;
-        } else if (action == "R") {
-            speed_ = {speed, 0.0};
-            dir_ = Direction::EAST;
-        } else if (action == "U") {
-            speed_ = {0.0, -speed};
-            dir_ = Direction::NORTH;
-        } else if (action == "D") {
-            speed_ = {0.0, speed};
-            dir_ = Direction::SOUTH;
-        }
-    }
+    void Dog::SetAction(const std::string& action, double speed);
 	
-	void UpdatePosition(double time_delta);
+	void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
 
 private:
     std::string name_;
