@@ -16,6 +16,7 @@
 #include <iomanip>
 #include <optional>
 #include <chrono>
+#include <fstream>
 
 namespace http_handler {
 
@@ -89,25 +90,32 @@ public:
         : root_(std::move(root))
         , api_strand_(strand)
         , game_(game) {}
-		
-	bool IsValidToken(const std::string& token) {
-    if (token.size() != 32)
-        return false;
-
-    for (char c : token) {
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        
+    bool IsValidToken(const std::string& token) {
+        if (token.size() != 32)
             return false;
-    }
 
-    return true;
-}	
+        for (char c : token) {
+            if (!std::isxdigit(static_cast<unsigned char>(c)))
+                return false;
+        }
+
+        return true;
+    }	
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
                     Send&& send,
                     Endpoint endpoint)
     {
-        const std::string target(req.target());
+        std::string target(req.target());
+        
+        // Удаляем query string если есть
+        size_t query_pos = target.find('?');
+        if (query_pos != std::string::npos) {
+            target = target.substr(0, query_pos);
+        }
+        
         const bool is_api = target.starts_with("/api/");
 
         auto self = shared_from_this();
@@ -122,14 +130,15 @@ public:
                 [self, req = std::move(req), send_wrapper = std::move(send_wrapper)]() mutable {
                     try {
                         send_wrapper(self->HandleApiRequest(req));
-                    } catch (...) {
+                    } catch (const std::exception& e) {
                         send_wrapper(self->ServerError(req.version(), req.keep_alive()));
                     }
                 });
             return;
         }
 
-        send_wrapper(HandleFileRequest(req));
+        // Обработка статических файлов
+        send_wrapper(HandleFileRequest(req, target));
     }
 
 private:
@@ -137,125 +146,6 @@ private:
     fs::path root_;
     Strand api_strand_;
     model::PlayerTokens tokens_;
-	
-	template<typename Req, typename Fn>
-auto ExecuteAuthorized(const Req& req, Fn&& action) {
-    // Проверка Content-Type для POST запросов с телом
-    if (req.method() == http::verb::post) {
-        auto content_type = req.find(http::field::content_type);
-        if (content_type == req.end() || 
-            content_type->value() != "application/json") {
-            return BadRequest(req, "Invalid content type");
-        }
-    }
-    
-    auto token_opt = ParseToken(req);
-    if (!token_opt) {
-        return Unauthorized(req, "invalidToken", "Authorization header is required");
-    }
-    
-    if (!IsValidToken(*token_opt)) {
-        return Unauthorized(req, "invalidToken", "Invalid token");
-    }
-    
-    model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-    if (!player) {
-        return Unauthorized(req, "unknownToken", "Player token has not been found");
-    }
-    
-    return action(player);
-}
-
-template<typename Req>
-http::response<http::string_body> HandlePlayerAction(const Req& req) {
-    if (req.method() != http::verb::post) {
-        return InvalidMethod(req, "POST");
-    }
-    
-    return ExecuteAuthorized(req, [&](model::Player* player) {
-        try {
-            auto body = json::parse(req.body()).as_object();
-            
-            if (!body.contains("move")) {
-                return BadRequest(req, "Failed to parse action");
-            }
-            
-            std::string move = json::value_to<std::string>(body.at("move"));
-            
-            // Проверяем допустимые значения
-            if (move != "L" && move != "R" && move != "U" && move != "D" && !move.empty()) {
-                return BadRequest(req, "Failed to parse action");
-            }
-            
-            // Получаем скорость с карты
-            const model::Map* map = player->GetSession()->GetMap();
-            double dog_speed = map->GetDogSpeed();
-            
-            // Устанавливаем действие собаке
-            player->GetDog()->SetAction(move, dog_speed);
-            
-            // Возвращаем пустой JSON-объект
-            http::response<http::string_body> res{http::status::ok, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = "{}";
-            res.prepare_payload();
-            return res;
-            
-        } catch (const std::exception& e) {
-            return BadRequest(req, "Failed to parse action");
-        }
-    });
-}
-
-template<typename Req>
-auto BadRequest(const Req& req, const std::string& message) {
-    http::response<http::string_body> res{http::status::bad_request, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-    
-    json::object error{
-        {"code", "invalidArgument"},
-        {"message", message}
-    };
-    
-    res.body() = json::serialize(error);
-    res.prepare_payload();
-    return res;
-}
-
-template<typename Req>
-auto InvalidMethod(const Req& req, const std::string& allowed_methods) {
-    http::response<http::string_body> res{http::status::method_not_allowed, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-    res.set(http::field::allow, allowed_methods);
-    
-    json::object error{
-        {"code", "invalidMethod"},
-        {"message", "Invalid method"}
-    };
-    
-    res.body() = json::serialize(error);
-    res.prepare_payload();
-    return res;
-}
-
-template<typename Req>
-auto Unauthorized(const Req& req, const std::string& code, const std::string& message) {
-    http::response<http::string_body> res{http::status::unauthorized, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-    
-    json::object error{
-        {"code", code},
-        {"message", message}
-    };
-    
-    res.body() = json::serialize(error);
-    res.prepare_payload();
-    return res;
-}
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -291,7 +181,7 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
 
     // ================= RESPONSES =================
 
-    auto unauthorized(const http::request<auto>& req, const std::string& code = "invalidToken", const std::string& message = "Authorization header is missing or invalid") {
+    auto Unauthorized(const http::request<auto>& req, const std::string& code, const std::string& message) {
         http::response<http::string_body> res{http::status::unauthorized, req.version()};
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
@@ -306,14 +196,14 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
         return res;
     }
 
-    auto bad_request(const http::request<auto>& req, std::string_view msg) {
+    auto BadRequest(const http::request<auto>& req, const std::string& message) {
         http::response<http::string_body> res{http::status::bad_request, req.version()};
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
 
         json::object error{
             {"code", "invalidArgument"},
-            {"message", std::string(msg)}
+            {"message", message}
         };
 
         res.body() = json::serialize(error);
@@ -321,14 +211,14 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
         return res;
     }
 
-    auto not_found(const http::request<auto>& req) {
+    auto NotFound(const http::request<auto>& req, const std::string& code = "mapNotFound", const std::string& message = "Map not found") {
         http::response<http::string_body> res{http::status::not_found, req.version()};
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
 
         json::object error{
-            {"code", "mapNotFound"},
-            {"message", "Map not found"}
+            {"code", code},
+            {"message", message}
         };
 
         res.body() = json::serialize(error);
@@ -336,7 +226,7 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
         return res;
     }
 
-    auto invalid_method(const http::request<auto>& req, const std::string& allowed_methods) {
+    auto InvalidMethod(const http::request<auto>& req, const std::string& allowed_methods) {
         http::response<http::string_body> res{http::status::method_not_allowed, req.version()};
         res.set(http::field::content_type, "application/json");
         res.set(http::field::cache_control, "no-cache");
@@ -356,12 +246,19 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
     template <typename Req>
     http::response<http::string_body> HandleApiRequest(const Req& req) {
         std::string path(req.target());
+        
+        // Удаляем query string если есть
+        size_t query_pos = path.find('?');
+        if (query_pos != std::string::npos) {
+            path = path.substr(0, query_pos);
+        }
+        
         auto method = req.method();
 
         // Handle /api/v1/maps (GET)
         if (path == "/api/v1/maps") {
             if (method != http::verb::get && method != http::verb::head)
-                return invalid_method(req, "GET, HEAD");
+                return InvalidMethod(req, "GET, HEAD");
 
             json::array arr;
             for (const auto& map : game_.GetMaps()) {
@@ -378,27 +275,96 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
             res.prepare_payload();
             return res;
         }
+        
+        // Handle /api/v1/maps/{id} (GET)
+        if (path.starts_with("/api/v1/maps/") && path.size() > 13) {
+            if (method != http::verb::get && method != http::verb::head)
+                return InvalidMethod(req, "GET, HEAD");
+                
+            std::string map_id = path.substr(13);
+            const auto* map = game_.FindMap(model::Map::Id{map_id});
+            if (!map) {
+                return NotFound(req);
+            }
+            
+            // Строим полный ответ с картой
+            json::object result;
+            result["id"] = *map->GetId();
+            result["name"] = map->GetName();
+            
+            // Добавляем дороги
+            json::array roads_array;
+            for (const auto& road : map->GetRoads()) {
+                json::object road_obj;
+                road_obj["x0"] = road.GetStart().x;
+                road_obj["y0"] = road.GetStart().y;
+                if (road.IsHorizontal()) {
+                    road_obj["x1"] = road.GetEnd().x;
+                } else {
+                    road_obj["y1"] = road.GetEnd().y;
+                }
+                roads_array.push_back(road_obj);
+            }
+            result["roads"] = roads_array;
+            
+            // Добавляем здания
+            json::array buildings_array;
+            for (const auto& building : map->GetBuildings()) {
+                json::object building_obj;
+                building_obj["x"] = building.GetBounds().position.x;
+                building_obj["y"] = building.GetBounds().position.y;
+                building_obj["w"] = building.GetBounds().size.width;
+                building_obj["h"] = building.GetBounds().size.height;
+                buildings_array.push_back(building_obj);
+            }
+            result["buildings"] = buildings_array;
+            
+            // Добавляем офисы
+            json::array offices_array;
+            for (const auto& office : map->GetOffices()) {
+                json::object office_obj;
+                office_obj["id"] = *office.GetId();
+                office_obj["x"] = office.GetPosition().x;
+                office_obj["y"] = office.GetPosition().y;
+                office_obj["offsetX"] = office.GetOffset().dx;
+                office_obj["offsetY"] = office.GetOffset().dy;
+                offices_array.push_back(office_obj);
+            }
+            result["offices"] = offices_array;
+            
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(result);
+            res.prepare_payload();
+            return res;
+        }
 
         // Handle /api/v1/game/join (POST)
         if (path == "/api/v1/game/join") {
             if (method != http::verb::post)
-                return invalid_method(req, "POST");
+                return InvalidMethod(req, "POST");
+                
+            auto content_type = req.find(http::field::content_type);
+            if (content_type == req.end() || content_type->value() != "application/json") {
+                return BadRequest(req, "Invalid content type");
+            }
 
             try {
                 auto body = json::parse(req.body()).as_object();
 
                 if (!body.contains("userName") || !body.contains("mapId"))
-                    return bad_request(req, "Join game request parse error");
+                    return BadRequest(req, "Join game request parse error");
 
                 std::string user = json::value_to<std::string>(body.at("userName"));
                 std::string map_id = json::value_to<std::string>(body.at("mapId"));
 
                 if (user.empty())
-                    return bad_request(req, "Invalid name");
+                    return BadRequest(req, "Invalid name");
 
                 const auto* map = game_.FindMap(model::Map::Id{map_id});
                 if (!map)
-                    return not_found(req);
+                    return NotFound(req);
 
                 auto& session = game_.FindOrCreateSession(map);
                 auto& dog = session.AddDog(user);
@@ -421,30 +387,28 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
                 return res;
             }
             catch (const std::exception& e) {
-                return bad_request(req, "Join game request parse error");
+                return BadRequest(req, "Join game request parse error");
             }
         }
 
         // Handle /api/v1/game/players (GET)
         if (path == "/api/v1/game/players") {
             if (method != http::verb::get && method != http::verb::head)
-                return invalid_method(req, "GET, HEAD");
+                return InvalidMethod(req, "GET, HEAD");
 
-            // Parse token from Authorization header
             auto token_opt = ParseToken(req);
             if (!token_opt)
-                return unauthorized(req, "invalidToken", "Authorization header is missing");
+                return Unauthorized(req, "invalidToken", "Authorization header is required");
 
-			if (!IsValidToken(*token_opt)) {
-    return unauthorized(req, "invalidToken", "Invalid token");
-}
+            if (!IsValidToken(*token_opt)) {
+                return Unauthorized(req, "invalidToken", "Invalid token");
+            }
 
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
             if (!player) {
-                return unauthorized(req, "unknownToken", "Player token has not been found");
+                return Unauthorized(req, "unknownToken", "Player token has not been found");
             }
 
-            // Get all players in the same session
             model::GameSession* session = player->GetSession();
             json::object players_obj;
 
@@ -461,76 +425,178 @@ auto Unauthorized(const Req& req, const std::string& code, const std::string& me
             res.prepare_payload();
             return res;
         }
-		if (path == "/api/v1/game/state") {
-    if (method != http::verb::get && method != http::verb::head)
-        return invalid_method(req, "GET, HEAD");
-
-    // Parse token from Authorization header
-    auto token_opt = ParseToken(req);
-    if (!token_opt)
-        return unauthorized(req, "invalidToken", "Authorization header is required");
-
-	if (!IsValidToken(*token_opt)) {
-    return unauthorized(req, "invalidToken", "Invalid token");
-}
-
-    model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-    if (!player) {
-        return unauthorized(req, "unknownToken", "Player token has not been found");
-    }
-
-    // Get all players in the same session
-    model::GameSession* session = player->GetSession();
-    json::object players_obj;
-
-    for (model::Player* p : session->GetPlayers()) {
-        model::Dog* dog = p->GetDog();
-        model::PointDouble pos = dog->GetPos();
-        model::Speed speed = dog->GetSpeed();
-        model::Direction dir = dog->GetDirection();
         
-        // Convert direction to string
-        std::string dir_str;
-        switch (dir) {
-            case model::Direction::NORTH: dir_str = "U"; break;
-            case model::Direction::SOUTH: dir_str = "D"; break;
-            case model::Direction::WEST:  dir_str = "L"; break;
-            case model::Direction::EAST:  dir_str = "R"; break;
+        // Handle /api/v1/game/state (GET)
+        if (path == "/api/v1/game/state") {
+            if (method != http::verb::get && method != http::verb::head)
+                return InvalidMethod(req, "GET, HEAD");
+
+            auto token_opt = ParseToken(req);
+            if (!token_opt)
+                return Unauthorized(req, "invalidToken", "Authorization header is required");
+
+            if (!IsValidToken(*token_opt)) {
+                return Unauthorized(req, "invalidToken", "Invalid token");
+            }
+
+            model::Player* player = tokens_.FindPlayerByToken(*token_opt);
+            if (!player) {
+                return Unauthorized(req, "unknownToken", "Player token has not been found");
+            }
+
+            model::GameSession* session = player->GetSession();
+            json::object players_obj;
+
+            for (model::Player* p : session->GetPlayers()) {
+                model::Dog* dog = p->GetDog();
+                model::PointDouble pos = dog->GetPos();
+                model::Speed speed = dog->GetSpeed();
+                model::Direction dir = dog->GetDirection();
+                
+                std::string dir_str;
+                switch (dir) {
+                    case model::Direction::NORTH: dir_str = "U"; break;
+                    case model::Direction::SOUTH: dir_str = "D"; break;
+                    case model::Direction::WEST:  dir_str = "L"; break;
+                    case model::Direction::EAST:  dir_str = "R"; break;
+                }
+                
+                players_obj[std::to_string(p->GetId())] = json::object{
+                    {"pos", json::array{pos.x, pos.y}},
+                    {"speed", json::array{speed.vx, speed.vy}},
+                    {"dir", dir_str}
+                };
+            }
+
+            json::object response_obj{
+                {"players", players_obj}
+            };
+
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(response_obj);
+            res.prepare_payload();
+            return res;
         }
         
-        players_obj[std::to_string(p->GetId())] = json::object{
-            {"pos", json::array{pos.x, pos.y}},
-            {"speed", json::array{speed.vx, speed.vy}},
-            {"dir", dir_str}
-        };
-    }
+        // Handle /api/v1/game/player/action (POST)
+        if (path == "/api/v1/game/player/action") {
+            if (method != http::verb::post)
+                return InvalidMethod(req, "POST");
+                
+            auto content_type = req.find(http::field::content_type);
+            if (content_type == req.end() || content_type->value() != "application/json") {
+                return BadRequest(req, "Invalid content type");
+            }
 
-    json::object response_obj{
-        {"players", players_obj}
-    };
+            auto token_opt = ParseToken(req);
+            if (!token_opt)
+                return Unauthorized(req, "invalidToken", "Authorization header is required");
 
-    http::response<http::string_body> res{http::status::ok, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-    res.body() = json::serialize(response_obj);
-    res.prepare_payload();
-    return res;
-}
+            if (!IsValidToken(*token_opt)) {
+                return Unauthorized(req, "invalidToken", "Invalid token");
+            }
 
-if (path == "/api/v1/game/player/action") {
-        return HandlePlayerAction(req);
-    }
+            model::Player* player = tokens_.FindPlayerByToken(*token_opt);
+            if (!player) {
+                return Unauthorized(req, "unknownToken", "Player token has not been found");
+            }
 
-        return bad_request(req, "Unknown endpoint");
+            try {
+                auto body = json::parse(req.body()).as_object();
+                
+                if (!body.contains("move")) {
+                    return BadRequest(req, "Failed to parse action");
+                }
+                
+                std::string move = json::value_to<std::string>(body.at("move"));
+                
+                if (move != "L" && move != "R" && move != "U" && move != "D" && !move.empty()) {
+                    return BadRequest(req, "Failed to parse action");
+                }
+                
+                const model::Map* map = player->GetSession()->GetMap();
+                double dog_speed = map->GetDogSpeed();
+                
+                player->GetDog()->SetAction(move, dog_speed);
+                
+                http::response<http::string_body> res{http::status::ok, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+                res.body() = "{}";
+                res.prepare_payload();
+                return res;
+                
+            } catch (const std::exception& e) {
+                return BadRequest(req, "Failed to parse action");
+            }
+        }
+
+        return BadRequest(req, "Unknown endpoint");
     }
 
     // ================= FILE =================
     template <typename Req>
-    http::response<http::string_body> HandleFileRequest(const Req& req) {
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, "text/plain");
+    http::response<http::file_body> HandleFileRequest(const Req& req, const std::string& target) {
+        std::string path = target;
+        if (path.empty() || path == "/") {
+            path = "/index.html";
+        }
+        
+        // Убираем ведущий слэш
+        if (path.front() == '/') {
+            path = path.substr(1);
+        }
+        
+        fs::path full_path = root_ / path;
+        
+        // Проверка безопасности - путь должен быть внутри root_
+        auto canonical_root = fs::canonical(root_);
+        fs::path canonical_full;
+        try {
+            canonical_full = fs::canonical(full_path);
+        } catch (const fs::filesystem_error&) {
+            http::response<http::file_body> res{http::status::not_found, req.version()};
+            res.body() = "";
+            res.prepare_payload();
+            return res;
+        }
+        
+        if (canonical_full.string().find(canonical_root.string()) != 0) {
+            http::response<http::file_body> res{http::status::bad_request, req.version()};
+            return res;
+        }
+        
+        if (!fs::exists(full_path) || fs::is_directory(full_path)) {
+            http::response<http::file_body> res{http::status::not_found, req.version()};
+            return res;
+        }
+        
+        // Определяем content type
+        std::string content_type;
+        std::string ext = full_path.extension().string();
+        if (ext == ".html" || ext == ".htm") {
+            content_type = "text/html";
+        } else if (ext == ".css") {
+            content_type = "text/css";
+        } else if (ext == ".js") {
+            content_type = "application/javascript";
+        } else if (ext == ".svg") {
+            content_type = "image/svg+xml";
+        } else if (ext == ".png") {
+            content_type = "image/png";
+        } else if (ext == ".jpg" || ext == ".jpeg") {
+            content_type = "image/jpeg";
+        } else {
+            content_type = "text/plain";
+        }
+        
+        http::response<http::file_body> res{http::status::ok, req.version()};
+        res.set(http::field::content_type, content_type);
         res.set(http::field::cache_control, "no-cache");
-        res.body() = "static stub";
+        
+        res.body().open(full_path.c_str(), boost::beast::file_mode::read);
         res.prepare_payload();
         return res;
     }
