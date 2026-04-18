@@ -29,8 +29,6 @@ namespace json = boost::json;
 BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
 BOOST_LOG_ATTRIBUTE_KEYWORD(message, "Message", std::string)
 
-namespace {
-
 void InitLogging() {
     logging::add_common_attributes();
 
@@ -57,8 +55,6 @@ void InitLogging() {
     );
 }
 
-} // namespace
-
 int main(int argc, const char* argv[]) {
     InitLogging();
 
@@ -70,8 +66,8 @@ int main(int argc, const char* argv[]) {
     try {
         model::Game game = json_loader::LoadGame(argv[1]);
 
-        const unsigned num_threads = std::thread::hardware_concurrency();
-        net::io_context ioc(num_threads);
+        const unsigned threads = std::thread::hardware_concurrency();
+        net::io_context ioc(threads);
 
         net::signal_set signals(ioc, SIGINT, SIGTERM);
         signals.async_wait([&ioc](auto, auto) {
@@ -90,24 +86,16 @@ int main(int argc, const char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(
             argv[2], strand, game);
 
+        http_handler::LoggingRequestHandler logging_handler{*handler};
+
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr unsigned short port = 8080;
 
-
-		std::cout << "Server started" << std::endl;
-        {
-            json::object start_data;
-            start_data["address"] = address.to_string();
-            start_data["port"] = port;
-
-            BOOST_LOG_TRIVIAL(info)
-                << boost::log::add_value(additional_data, start_data)
-                << "server started";
-        }
+        std::cout << "Server started" << std::endl;
 
         http_server::ServeHttp(ioc, {address, port},
-            [handler](auto&& req, auto&& send, auto&& endpoint) {
-                (*handler)(
+            [&logging_handler](auto&& req, auto&& send, auto&& endpoint) {
+                logging_handler(
                     std::move(req),
                     std::forward<decltype(send)>(send),
                     endpoint
@@ -115,8 +103,8 @@ int main(int argc, const char* argv[]) {
             });
 
         ioc.run();
-
-    } catch (const std::exception& e) {
+    }
+    catch (const std::exception& e) {
         json::object data;
         data["code"] = 1;
         data["exception"] = e.what();
