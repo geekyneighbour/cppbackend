@@ -12,8 +12,6 @@
 #include <random>
 #include <sstream>
 #include <iomanip>
-#include <optional>
-#include <chrono>
 
 namespace http_handler {
 
@@ -22,9 +20,7 @@ namespace json = boost::json;
 namespace fs = std::filesystem;
 namespace net = boost::asio;
 
-/* =========================
- * Logging wrapper
- * ========================= */
+
 template <typename Handler>
 class LoggingRequestHandler {
 public:
@@ -33,21 +29,40 @@ public:
 
     template <typename Request, typename Send, typename Endpoint>
     void operator()(Request&& req, Send&& send, Endpoint endpoint) {
-        LogRequest(req, endpoint);
+        json::object data_req{
+            {"ip", endpoint.address().to_string()},
+            {"URI", std::string(req.target())},
+            {"method", std::string(req.method_string())}
+        };
+
+        BOOST_LOG_TRIVIAL(info)
+            << boost::log::add_value(additional_data, data_req)
+            << "request received";
 
         auto start = std::chrono::steady_clock::now();
 
         handler_(
             std::forward<Request>(req),
-            [this, endpoint, start, send = std::forward<Send>(send)]
-            (auto&& response) mutable {
-
+            [start, endpoint, send = std::forward<Send>(send)](auto&& response) mutable {
                 auto end = std::chrono::steady_clock::now();
                 auto duration =
-                    std::chrono::duration_cast<std::chrono::milliseconds>(
-                        end - start).count();
+                    std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
-                LogResponse(response, endpoint, duration);
+                json::object data_resp{
+                    {"ip", endpoint.address().to_string()},
+                    {"response_time", duration},
+                    {"code", response.result_int()}
+                };
+
+                auto it = response.base().find(http::field::content_type);
+                data_resp["content_type"] =
+                    (it != response.base().end())
+                        ? json::value(std::string(it->value()))
+                        : json::value(nullptr);
+
+                BOOST_LOG_TRIVIAL(info)
+                    << boost::log::add_value(additional_data, data_resp)
+                    << "response sent";
 
                 send(std::forward<decltype(response)>(response));
             },
@@ -57,45 +72,9 @@ public:
 
 private:
     Handler& handler_;
-
-    template <typename Request, typename Endpoint>
-    static void LogRequest(const Request& req, const Endpoint& endpoint) {
-        json::object data{
-            {"ip", endpoint.address().to_string()},
-            {"URI", std::string(req.target())},
-            {"method", std::string(req.method_string())}
-        };
-
-        BOOST_LOG_TRIVIAL(info)
-            << boost::log::add_value(additional_data, data)
-            << "request received";
-    }
-
-template <typename Response, typename Endpoint>
-static void LogResponse(const Response& resp, const Endpoint& endpoint, int time_ms) {
-    json::object data{
-        {"ip", endpoint.address().to_string()},
-        {"response_time", time_ms},
-        {"code", resp.result_int()}
-    };
-
-    auto it = resp.base().find("Content-Type");
-    if (it != resp.base().end()) {
-        std::string content_type(it->value().data(), it->value().size());
-        data["content_type"] = content_type;
-    } else {
-        data["content_type"] = nullptr;
-    }
-
-    BOOST_LOG_TRIVIAL(info)
-        << boost::log::add_value(additional_data, data)
-        << "response sent";
-}
 };
 
-/* =========================
- * RequestHandler
- * ========================= */
+
 class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
 public:
     using Strand = net::strand<net::io_context::executor_type>;
@@ -110,7 +89,7 @@ public:
                     Send&& send,
                     Endpoint endpoint)
     {
-        const auto target = std::string(req.target());
+        const std::string target(req.target());
         const bool is_api = target.starts_with("/api/");
 
         auto self = shared_from_this();
@@ -122,11 +101,7 @@ public:
 
         if (is_api) {
             net::dispatch(api_strand_,
-                [self,
-                 req = std::move(req),
-                 send_wrapper = std::move(send_wrapper),
-                 endpoint]() mutable {
-
+                [self, req = std::move(req), send_wrapper = std::move(send_wrapper)]() mutable {
                     try {
                         send_wrapper(self->HandleApi(req));
                     } catch (...) {
@@ -143,111 +118,142 @@ private:
     model::Game& game_;
     fs::path root_;
     Strand api_strand_;
+
     model::PlayerTokens tokens_;
 
     std::string GenerateToken() {
         static std::random_device rd;
-        static std::mt19937_64 gen1(rd());
-        static std::mt19937_64 gen2(rd());
+        static std::mt19937_64 gen(rd());
         static std::uniform_int_distribution<uint64_t> dist;
 
-        auto to_hex = [](uint64_t v) {
+        auto hex = [](uint64_t v) {
             std::ostringstream ss;
             ss << std::hex << std::setw(16) << std::setfill('0') << v;
             return ss.str();
         };
 
-        return to_hex(dist(gen1)) + to_hex(dist(gen2));
+        return hex(dist(gen)) + hex(dist(gen));
     }
 
+    /* =========================
+     * API ROUTER
+     * ========================= */
     template <typename Req>
     http::response<http::string_body> HandleApi(const Req& req) {
         const std::string target(req.target());
+        const auto method = req.method();
 
         if (target == "/api/v1/game/join") {
-            if (req.method() != http::verb::post) {
-                return Error(req, "invalidMethod",
-                    "Only POST method is expected",
-                    http::status::method_not_allowed);
+            if (method != http::verb::post) {
+                return Error(req, "invalidMethod", "Only POST expected",
+                             http::status::method_not_allowed);
             }
             return HandleJoin(req);
         }
 
         if (target == "/api/v1/game/players") {
+            if (method != http::verb::get && method != http::verb::head) {
+                return Error(req, "invalidMethod", "Invalid method",
+                             http::status::method_not_allowed);
+            }
             return HandlePlayers(req);
         }
 
-        return Error(req, "badRequest", "Unknown endpoint", http::status::bad_request);
+        if (target == "/api/v1/game/maps") {
+            if (method != http::verb::get && method != http::verb::head) {
+                return Error(req, "invalidMethod", "Invalid method",
+                             http::status::method_not_allowed);
+            }
+            return HandleMaps(req);
+        }
+
+        return Error(req, "badRequest", "Unknown endpoint",
+                     http::status::bad_request);
     }
 
+    /* =========================
+     * MAPS (FIX FOR TESTS)
+     * ========================= */
+    template <typename Req>
+    http::response<http::string_body> HandleMaps(const Req& req) {
+        json::array arr;
+
+        for (const auto& map : game_.GetMaps()) {
+            arr.push_back(json::object{
+                {"id", *map.GetId()},
+                {"name", map.GetName()}
+            });
+        }
+
+        return Json(req, arr);
+    }
+
+    /* =========================
+     * JOIN
+     * ========================= */
     template <typename Req>
     http::response<http::string_body> HandleJoin(const Req& req) {
         try {
-            json::value body = json::parse(req.body());
-            const auto& obj = body.as_object();
+            auto body = json::parse(req.body()).as_object();
 
-            std::string user_name = json::value_to<std::string>(obj.at("userName"));
-            std::string map_id = json::value_to<std::string>(obj.at("mapId"));
+            if (!body.contains("userName") || !body.contains("mapId")) {
+                return Error(req, "invalidArgument", "Join parse error",
+                             http::status::bad_request);
+            }
 
-            const model::Map* map = game_.FindMap(model::Map::Id{map_id});
+            std::string user = json::value_to<std::string>(body.at("userName"));
+            std::string map_id = json::value_to<std::string>(body.at("mapId"));
+
+            if (user.empty()) {
+                return Error(req, "invalidArgument", "Invalid name",
+                             http::status::bad_request);
+            }
+
+            const auto* map = game_.FindMap(model::Map::Id{map_id});
             if (!map) {
-                return Error(req, "mapNotFound",
-                    "Map not found",
-                    http::status::not_found);
+                return Error(req, "mapNotFound", "Map not found",
+                             http::status::not_found);
             }
 
             auto& session = game_.FindOrCreateSession(map);
 
-            model::Dog& dog = session.AddDog(user_name);
-            model::Player& player = session.AddPlayer(dog);
+            auto& dog = session.AddDog(user);
+            auto& player = session.AddPlayer(dog);
 
             std::string token = GenerateToken();
             tokens_.AddPlayer(token, &player);
 
-            json::object response{
+            return Json(req, json::object{
                 {"authToken", token},
                 {"playerId", static_cast<int>(player.GetId())}
-            };
-
-            return Json(req, response);
+            });
         }
         catch (...) {
-            return Error(req, "invalidArgument",
-                "Join game request parse error",
-                http::status::bad_request);
+            return Error(req, "invalidArgument", "Join parse error",
+                         http::status::bad_request);
         }
     }
 
+    /* =========================
+     * PLAYERS
+     * ========================= */
     template <typename Req>
     http::response<http::string_body> HandlePlayers(const Req& req) {
-        auto it = req.find(http::field::authorization);
-        if (it == req.end()) {
-            return Error(req, "invalidToken",
-                "Authorization header is missing",
-                http::status::unauthorized);
+        auto token = ParseToken(req);
+        if (!token) {
+            return Error(req, "invalidToken", "Missing token",
+                         http::status::unauthorized);
         }
 
-        std::string value = std::string(it->value());
-        const std::string prefix = "Bearer ";
-
-        if (value.rfind(prefix, 0) != 0) {
-            return Error(req, "invalidToken",
-                "Invalid token format",
-                http::status::unauthorized);
-        }
-
-        auto token = value.substr(prefix.size());
-
-        model::Player* player = tokens_.FindPlayerByToken(token);
+        auto* player = tokens_.FindPlayerByToken(*token);
         if (!player) {
-            return Error(req, "unknownToken",
-                "Player token has not been found",
-                http::status::unauthorized);
+            return Error(req, "unknownToken", "Token not found",
+                         http::status::unauthorized);
         }
 
         auto session = player->GetSession();
-        json::object result;
 
+        json::object result;
         for (auto* p : session->GetPlayers()) {
             result[std::to_string(p->GetId())] = json::object{
                 {"name", p->GetDog()->GetName()}
@@ -257,47 +263,63 @@ private:
         return Json(req, result);
     }
 
-template <typename Req, typename Value>
-http::response<http::string_body>
-Json(const Req& req, const Value& obj) {
-    http::response<http::string_body> res{http::status::ok, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-    res.body() = json::serialize(obj);
-    res.prepare_payload();
-    return res;
-}
+    /* =========================
+     * TOKEN PARSE
+     * ========================= */
+    template <typename Req>
+    std::optional<std::string> ParseToken(const Req& req) {
+        auto it = req.find(http::field::authorization);
+        if (it == req.end()) return std::nullopt;
+
+        std::string v = std::string(it->value());
+        const std::string p = "Bearer ";
+
+        if (v.rfind(p, 0) != 0) return std::nullopt;
+
+        return v.substr(p.size());
+    }
+
+
+    template <typename Req, typename JsonType>
+    http::response<http::string_body> Json(const Req& req, const JsonType& obj) {
+        http::response<http::string_body> res{http::status::ok, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = json::serialize(obj);
+        res.prepare_payload();
+        return res;
+    }
 
     template <typename Req>
-    http::response<http::string_body> Error(
-        const Req& req,
-        const std::string& code,
-        const std::string& message,
-        http::status status)
-    {
+    http::response<http::string_body> Error(const Req& req,
+                                             const std::string& code,
+                                             const std::string& msg,
+                                             http::status status) {
         json::object obj{
             {"code", code},
-            {"message", message}
+            {"message", msg}
         };
 
         http::response<http::string_body> res{status, req.version()};
         res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
         res.body() = json::serialize(obj);
         res.prepare_payload();
         return res;
     }
 
     http::response<http::string_body>
-    ServerError(unsigned version, bool keep_alive) const {
+    ServerError(unsigned v, bool keep_alive) const {
         json::object obj{
             {"code", "internalError"},
             {"message", "Internal server error"}
         };
 
         http::response<http::string_body> res{
-            http::status::internal_server_error, version};
+            http::status::internal_server_error, v};
 
         res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
         res.keep_alive(keep_alive);
         res.body() = json::serialize(obj);
         res.prepare_payload();
@@ -308,6 +330,7 @@ Json(const Req& req, const Value& obj) {
     http::response<http::string_body> HandleFile(const Req& req) {
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "text/plain");
+        res.set(http::field::cache_control, "no-cache");
         res.body() = "static file stub";
         res.prepare_payload();
         return res;
