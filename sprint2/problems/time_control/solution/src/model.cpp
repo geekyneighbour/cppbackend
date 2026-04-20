@@ -122,7 +122,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // 1. Найти текущую дорогу
+
     const Road* road = nullptr;
     for (const auto& r : roads) {
         if (r.IsPointOnRoad(pos_.x, pos_.y)) {
@@ -131,7 +131,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         }
     }
 
-    // 2. Если нет — найти ближайшую
     if (!road) {
         double best = 1e9;
         for (const auto& r : roads) {
@@ -149,7 +148,15 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (!road) return;
 
 
+    double orig_x = new_x;
+    double orig_y = new_y;
+    
     road->ConstrainMovement(new_x, new_y, from);
+
+
+    if (std::abs(new_x - orig_x) > 1e-9 || std::abs(new_y - orig_y) > 1e-9) {
+        speed_ = {0.0, 0.0};
+    }
 
     pos_ = {new_x, new_y};
 }
