@@ -102,8 +102,8 @@ public:
         return std::max(start_.y, end_.y);
     }
     
-    bool IsPointOnRoad(double x, double y, double road_width = 1.0) const {
-    double half_width = road_width / 2.0;  // = 0.5
+bool IsPointOnRoad(double x, double y, double road_width = 2.0) const {
+    double half_width = road_width / 2.0;  // = 1.0
     
     if (IsHorizontal()) {
         return (y >= start_.y - half_width && y <= start_.y + half_width &&
