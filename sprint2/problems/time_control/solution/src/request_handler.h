@@ -459,8 +459,7 @@ private:
                     case model::Direction::SOUTH: dir_str = "D"; break;
                     case model::Direction::WEST:  dir_str = "L"; break;
                     case model::Direction::EAST:  dir_str = "R"; break;
-                }
-                
+                } 
                 players_obj[std::to_string(p->GetId())] = json::object{
                     {"pos", json::array{pos.x, pos.y}},
                     {"speed", json::array{speed.vx, speed.vy}},
