@@ -118,36 +118,27 @@ void Game::UpdateAllSessions(double dt) {
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
-    PointDouble from = pos_;
+    // Рассчитываем новую позицию
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    std::vector<const Road*> possible_roads;
-    for (const auto& r : roads) {
-        if (r.IsPointOnRoad(new_x, new_y) || r.IsPointOnRoad(pos_.x, pos_.y)) {
-            possible_roads.push_back(&r);
+    // Проверяем, находится ли новая позиция на какой-либо дороге
+    bool on_road = false;
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(new_x, new_y)) {
+            on_road = true;
+            break;
         }
     }
 
-    if (!possible_roads.empty()) {
-        bool on_any_road = false;
-        for (const auto* road : possible_roads) {
-            if (road->IsPointOnRoad(new_x, new_y)) {
-                on_any_road = true;
-                break;
-            }
-        }
-        
-        if (!on_any_road) {
-            speed_ = {0.0, 0.0};
-            return;
-        }
-        
+    if (on_road) {
+        // Можно двигаться
         pos_ = {new_x, new_y};
-        return;
+    } else {
+        // Достигли границы - останавливаемся
+        speed_ = {0.0, 0.0};
+        // Не меняем позицию
     }
-
-    speed_ = {0.0, 0.0};
 }
 
 // ================= ACTION =================
