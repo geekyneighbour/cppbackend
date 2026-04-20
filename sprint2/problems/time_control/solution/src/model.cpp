@@ -121,42 +121,21 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Найти границы карты
-    double min_x = 1e9, max_x = -1e9, min_y = 1e9, max_y = -1e9;
-    for (const auto& road : roads) {
-        min_x = std::min(min_x, road.GetMinX());
-        max_x = std::max(max_x, road.GetMaxX());
-        min_y = std::min(min_y, road.GetMinY());
-        max_y = std::max(max_y, road.GetMaxY());
-    }
-    
-    // Расширяем границы с учетом ширины дороги
-    const double road_width = 1.0;
-    double half_width = road_width / 2.0;
-    min_x -= half_width;
-    max_x += half_width;
-    min_y -= half_width;
-    max_y += half_width;
-    
-    // Проверяем, находится ли новая позиция в границах карты
-    bool within_bounds = (new_x >= min_x && new_x <= max_x && 
-                          new_y >= min_y && new_y <= max_y);
-    
-    // Дополнительно проверяем, на дороге ли собака
+    // Проверяем, находится ли новая позиция на какой-либо дороге
     bool on_road = false;
     for (const auto& road : roads) {
-        if (road.IsPointOnRoad(new_x, new_y, road_width)) {
+        if (road.IsPointOnRoad(new_x, new_y, 0.8)) {  // используем ширину собаки
             on_road = true;
             break;
         }
     }
     
-    if (on_road && within_bounds) {
+    if (on_road) {
         pos_ = {new_x, new_y};
     } else {
-        // Останавливаем собаку
+        // Не на дороге - останавливаемся и НЕ двигаемся
         speed_ = {0.0, 0.0};
-        // Не обновляем позицию
+        // позиция не меняется
     }
 }
 

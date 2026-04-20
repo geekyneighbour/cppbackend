@@ -102,15 +102,20 @@ public:
         return std::max(start_.y, end_.y);
     }
     
-bool IsPointOnRoad(double x, double y, double road_width = 2.0) const {
-    double half_width = road_width / 2.0;  // = 1.0
+bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
+    double half_dog = dog_width / 2.0;
+    double half_road = 1.0;  // половина ширины дороги
     
     if (IsHorizontal()) {
-        return (y >= start_.y - half_width && y <= start_.y + half_width &&
-                x >= GetMinX() - half_width && x <= GetMaxX() + half_width);
+        return (y >= start_.y - half_road - half_dog && 
+                y <= start_.y + half_road + half_dog &&
+                x >= GetMinX() - half_dog && 
+                x <= GetMaxX() + half_dog);
     } else {
-        return (x >= start_.x - half_width && x <= start_.x + half_width &&
-                y >= GetMinY() - half_width && y <= GetMaxY() + half_width);
+        return (x >= start_.x - half_road - half_dog && 
+                x <= start_.x + half_road + half_dog &&
+                y >= GetMinY() - half_dog && 
+                y <= GetMaxY() + half_dog);
     }
 }
     
