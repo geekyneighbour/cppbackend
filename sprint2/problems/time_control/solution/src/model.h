@@ -102,17 +102,17 @@ public:
         return std::max(start_.y, end_.y);
     }
     
-    bool IsPointOnRoad(double x, double y, double road_width = 0.8) const {
-        double half_width = road_width / 2.0;
-        
-        if (IsHorizontal()) {
-            return (y >= start_.y - half_width && y <= start_.y + half_width &&
-                    x >= GetMinX() - half_width && x <= GetMaxX() + half_width);
-        } else { 
-            return (x >= start_.x - half_width && x <= start_.x + half_width &&
-                    y >= GetMinY() - half_width && y <= GetMaxY() + half_width);
-        }
+    bool IsPointOnRoad(double x, double y, double road_width = 1.0) const {
+    double half_width = road_width / 2.0;  // = 0.5
+    
+    if (IsHorizontal()) {
+        return (y >= start_.y - half_width && y <= start_.y + half_width &&
+                x >= GetMinX() - half_width && x <= GetMaxX() + half_width);
+    } else {
+        return (x >= start_.x - half_width && x <= start_.x + half_width &&
+                y >= GetMinY() - half_width && y <= GetMaxY() + half_width);
     }
+}
     
     void ConstrainMovement(double& x, double& y, const PointDouble& from, double road_width = 0.8) const {
         double half_width = road_width / 2.0;

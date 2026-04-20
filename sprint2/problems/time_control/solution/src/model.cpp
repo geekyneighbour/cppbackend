@@ -118,48 +118,31 @@ void Game::UpdateAllSessions(double dt) {
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
-    PointDouble from = pos_;
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    const Road* current_road = nullptr;
-    for (const auto& r : roads) {
-        if (r.IsPointOnRoad(pos_.x, pos_.y)) {
-            current_road = &r;
+    // Проверяем с небольшим допуском
+    const double epsilon = 0.001;
+    bool on_road = false;
+    
+    for (const auto& road : roads) {
+        // Проверяем не только новую позицию, но и промежуточные точки
+        if (road.IsPointOnRoad(new_x, new_y) ||
+            road.IsPointOnRoad(pos_.x, new_y) ||
+            road.IsPointOnRoad(new_x, pos_.y)) {
+            on_road = true;
             break;
         }
     }
 
-    if (!current_road) return;
-
-
-    double constrained_x = new_x;
-    double constrained_y = new_y;
-    current_road->ConstrainMovement(constrained_x, constrained_y, from);
-    
-
-    const Road* next_road = nullptr;
-    for (const auto& r : roads) {
-        if (&r != current_road && r.IsPointOnRoad(constrained_x, constrained_y)) {
-            next_road = &r;
-            break;
-        }
-    }
-    
-    if (next_road) {
-        pos_ = {constrained_x, constrained_y};
-        return;
-    }
-    
-    double orig_x = new_x, orig_y = new_y;
-    current_road->ConstrainMovement(new_x, new_y, from);
-    
-    if (std::abs(new_x - orig_x) > 1e-9 || std::abs(new_y - orig_y) > 1e-9) {
+    if (on_road) {
+        pos_ = {new_x, new_y};
+    } else {
         speed_ = {0.0, 0.0};
+        // Не обновляем позицию
     }
-    
-    pos_ = {new_x, new_y};
 }
+
 
 // ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
