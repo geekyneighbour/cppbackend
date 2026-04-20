@@ -121,22 +121,27 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Проверяем, находится ли новая позиция на какой-либо дороге
-    bool on_road = false;
+    const Road* current_road = nullptr;
+
     for (const auto& road : roads) {
-        if (road.IsPointOnRoad(new_x, new_y, 0.8)) {  // используем ширину собаки
-            on_road = true;
+        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
+            current_road = &road;
             break;
         }
     }
-    
-    if (on_road) {
-        pos_ = {new_x, new_y};
-    } else {
-        // Не на дороге - останавливаемся и НЕ двигаемся
+
+    if (!current_road) return;
+
+    double constrained_x = new_x;
+    double constrained_y = new_y;
+
+    current_road->ConstrainMovement(constrained_x, constrained_y, pos_);
+
+    if (constrained_x != new_x || constrained_y != new_y) {
         speed_ = {0.0, 0.0};
-        // позиция не меняется
     }
+
+    pos_ = {constrained_x, constrained_y};
 }
 
 // ================= ACTION =================
