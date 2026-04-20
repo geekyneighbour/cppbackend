@@ -122,43 +122,32 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    const Road* current_road = nullptr;
+    std::vector<const Road*> possible_roads;
     for (const auto& r : roads) {
-        if (r.IsPointOnRoad(pos_.x, pos_.y)) {
-            current_road = &r;
-            break;
+        if (r.IsPointOnRoad(new_x, new_y) || r.IsPointOnRoad(pos_.x, pos_.y)) {
+            possible_roads.push_back(&r);
         }
     }
 
-    if (!current_road) return;
-
-
-    double constrained_x = new_x;
-    double constrained_y = new_y;
-    current_road->ConstrainMovement(constrained_x, constrained_y, from);
-    
-
-    const Road* next_road = nullptr;
-    for (const auto& r : roads) {
-        if (&r != current_road && r.IsPointOnRoad(constrained_x, constrained_y)) {
-            next_road = &r;
-            break;
+    if (!possible_roads.empty()) {
+        bool on_any_road = false;
+        for (const auto* road : possible_roads) {
+            if (road->IsPointOnRoad(new_x, new_y)) {
+                on_any_road = true;
+                break;
+            }
         }
-    }
-    
-    if (next_road) {
-        pos_ = {constrained_x, constrained_y};
+        
+        if (!on_any_road) {
+            speed_ = {0.0, 0.0};
+            return;
+        }
+        
+        pos_ = {new_x, new_y};
         return;
     }
-    
-    double orig_x = new_x, orig_y = new_y;
-    current_road->ConstrainMovement(new_x, new_y, from);
-    
-    if (std::abs(new_x - orig_x) > 1e-9 || std::abs(new_y - orig_y) > 1e-9) {
-        speed_ = {0.0, 0.0};
-    }
-    
-    pos_ = {new_x, new_y};
+
+    speed_ = {0.0, 0.0};
 }
 
 // ================= ACTION =================
