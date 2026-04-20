@@ -137,10 +137,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
     current_road->ConstrainMovement(constrained_x, constrained_y, pos_);
 
-    if (constrained_x != new_x || constrained_y != new_y) {
-        speed_ = {0.0, 0.0};
-    }
-
+    // ❗ ВАЖНО: НЕ останавливаем собаку
     pos_ = {constrained_x, constrained_y};
 }
 
