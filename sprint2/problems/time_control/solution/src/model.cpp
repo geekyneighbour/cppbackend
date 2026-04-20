@@ -143,7 +143,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     }
 }
 
-
 // ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
