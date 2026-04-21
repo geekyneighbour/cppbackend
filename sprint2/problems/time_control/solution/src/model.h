@@ -104,49 +104,72 @@ public:
     
 bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
     double half_dog = dog_width / 2.0;
-    double half_road = 1.0;  // половина ширины дороги
+    double road_half = 0.4;  // половина ширины дороги
     
     if (IsHorizontal()) {
-        return (y >= start_.y - half_road - half_dog && 
-                y <= start_.y + half_road + half_dog &&
-                x >= GetMinX() - half_dog && 
-                x <= GetMaxX() + half_dog);
+        // Проверка по Y: центр собаки должен быть в пределах дороги ± половина ширины собаки
+        double road_y = start_.y;
+        double min_y = road_y - road_half - half_dog;
+        double max_y = road_y + road_half + half_dog;
+        
+        if (y < min_y || y > max_y) return false;
+        
+        // Проверка по X: собака должна пересекаться с сегментом дороги
+        double min_x = GetMinX() - half_dog;
+        double max_x = GetMaxX() + half_dog;
+        
+        return x >= min_x && x <= max_x;
+        
     } else {
-        return (x >= start_.x - half_road - half_dog && 
-                x <= start_.x + half_road + half_dog &&
-                y >= GetMinY() - half_dog && 
-                y <= GetMaxY() + half_dog);
+        // Вертикальная дорога
+        double road_x = start_.x;
+        double min_x = road_x - road_half - half_dog;
+        double max_x = road_x + road_half + half_dog;
+        
+        if (x < min_x || x > max_x) return false;
+        
+        double min_y = GetMinY() - half_dog;
+        double max_y = GetMaxY() + half_dog;
+        
+        return y >= min_y && y <= max_y;
     }
 }
     
-    void ConstrainMovement(double& x, double& y, const PointDouble&) const {
-    double road_half = 1.0;
-    double dog_half = 0.4;
-
+    void ConstrainMovement(double& x, double& y, const PointDouble& old_pos) const {
+    double road_half = 0.4;  // половина ширины дороги
+    double dog_half = 0.4;   // половина ширины собаки
+    
     if (IsHorizontal()) {
-        double min_x = GetMinX() - dog_half;
-        double max_x = GetMaxX() + dog_half;
-
+        // Горизонтальная дорога: y фиксирован, x может меняться
+        double min_x = GetMinX();
+        double max_x = GetMaxX();
+        
+        // Ограничиваем x
         if (x < min_x) x = min_x;
         if (x > max_x) x = max_x;
-
-        // ограничиваем Y, но не фиксируем
-        double min_y = start_.y - road_half - dog_half;
-        double max_y = start_.y + road_half + dog_half;
-
+        
+        // y должен быть на оси дороги ± ширина дороги
+        double road_y = start_.y;
+        double min_y = road_y - road_half;
+        double max_y = road_y + road_half;
+        
         if (y < min_y) y = min_y;
         if (y > max_y) y = max_y;
-
+        
     } else {
-        double min_y = GetMinY() - dog_half;
-        double max_y = GetMaxY() + dog_half;
-
+        // Вертикальная дорога: x фиксирован, y может меняться
+        double min_y = GetMinY();
+        double max_y = GetMaxY();
+        
+        // Ограничиваем y
         if (y < min_y) y = min_y;
         if (y > max_y) y = max_y;
-
-        double min_x = start_.x - road_half - dog_half;
-        double max_x = start_.x + road_half + dog_half;
-
+        
+        // x должен быть на оси дороги ± ширина дороги
+        double road_x = start_.x;
+        double min_x = road_x - road_half;
+        double max_x = road_x + road_half;
+        
         if (x < min_x) x = min_x;
         if (x > max_x) x = max_x;
     }
