@@ -57,10 +57,13 @@ Dog& GameSession::AddDog(const std::string& name) {
     Dog& dog = *dogs_.back();
 
     if (map_ && !map_->GetRoads().empty()) {
-        // Всегда ставим на начало первой дороги
         const Road& first_road = map_->GetRoads()[0];
         Point start = first_road.GetStart();
+        
         dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
+        
+
+        dog.SetDirection(model::Direction::NORTH);
     }
 
     return dog;
@@ -120,6 +123,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
+
     const Road* current_road = nullptr;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(pos_.x, pos_.y)) {
@@ -130,6 +134,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
     if (!current_road) return;
 
+
     bool will_be_on_road = false;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(new_x, new_y)) {
@@ -139,16 +144,20 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     }
 
     if (will_be_on_road) {
-        // Свободное движение
+
         pos_ = {new_x, new_y};
     } else {
         double constrained_x = new_x;
         double constrained_y = new_y;
         current_road->ConstrainMovement(constrained_x, constrained_y, pos_);
         
-        pos_ = {constrained_x, constrained_y};
-        
-        speed_ = {0.0, 0.0};
+
+        if (std::abs(constrained_x - new_x) > 1e-9 || std::abs(constrained_y - new_y) > 1e-9) {
+            pos_ = {constrained_x, constrained_y};
+            speed_ = {0.0, 0.0};
+        } else {
+            pos_ = {new_x, new_y};
+        }
     }
 }
 
