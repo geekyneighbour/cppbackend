@@ -132,6 +132,15 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
     if (!current_road) return;
 
+    
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(new_x, new_y)) {
+            pos_ = {new_x, new_y};
+            return;
+        }
+    }
+
+    
     double constrained_x = new_x;
     double constrained_y = new_y;
 

@@ -119,7 +119,7 @@ bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
     }
 }
     
-    void ConstrainMovement(double& x, double& y, const PointDouble& from) const {
+    void ConstrainMovement(double& x, double& y, const PointDouble&) const {
     double road_half = 1.0;
     double dog_half = 0.4;
 
@@ -130,8 +130,13 @@ bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
         if (x < min_x) x = min_x;
         if (x > max_x) x = max_x;
 
+        // ограничиваем Y, но не фиксируем
+        double min_y = start_.y - road_half - dog_half;
+        double max_y = start_.y + road_half + dog_half;
 
-        y = start_.y;
+        if (y < min_y) y = min_y;
+        if (y > max_y) y = max_y;
+
     } else {
         double min_y = GetMinY() - dog_half;
         double max_y = GetMaxY() + dog_half;
@@ -139,8 +144,11 @@ bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
         if (y < min_y) y = min_y;
         if (y > max_y) y = max_y;
 
+        double min_x = start_.x - road_half - dog_half;
+        double max_x = start_.x + road_half + dog_half;
 
-        x = start_.x;
+        if (x < min_x) x = min_x;
+        if (x > max_x) x = max_x;
     }
 }
 
