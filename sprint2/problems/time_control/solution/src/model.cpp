@@ -57,26 +57,13 @@ Dog& GameSession::AddDog(const std::string& name) {
     Dog& dog = *dogs_.back();
 
     if (map_ && !map_->GetRoads().empty()) {
-
-        const Road* selected_road = nullptr;
+        const Road& first_road = map_->GetRoads()[0];
+        Point start = first_road.GetStart();
+        
+        dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
         
 
-        for (const auto& road : map_->GetRoads()) {
-            if (road.IsVertical()) {
-                selected_road = &road;
-                break;
-            }
-        }
-        
-
-        if (!selected_road && !map_->GetRoads().empty()) {
-            selected_road = &map_->GetRoads()[0];
-        }
-        
-        if (selected_road) {
-            Point start = selected_road->GetStart();
-            dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
-        }
+        //dog.SetDirection(model::Direction::NORTH);
     }
 
     return dog;
@@ -181,8 +168,6 @@ void Dog::SetAction(const std::string& action, double speed) {
         return;
     }
 
-
-    
     if (action == "L") {
         speed_ = {-speed, 0};
         dir_ = Direction::WEST;
