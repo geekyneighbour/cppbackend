@@ -276,7 +276,7 @@ private:
             return res;
         }
         
-        // Handle /api/v1/maps/{id} (GET)
+
         if (path.starts_with("/api/v1/maps/") && path.size() > 13) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
@@ -287,12 +287,12 @@ private:
                 return NotFound(req);
             }
             
-            // Строим полный ответ с картой
+
             json::object result;
             result["id"] = *map->GetId();
             result["name"] = map->GetName();
             
-            // Добавляем дороги
+
             json::array roads_array;
             for (const auto& road : map->GetRoads()) {
                 json::object road_obj;
@@ -306,8 +306,7 @@ private:
                 roads_array.push_back(road_obj);
             }
             result["roads"] = roads_array;
-            
-            // Добавляем здания
+
             json::array buildings_array;
             for (const auto& building : map->GetBuildings()) {
                 json::object building_obj;
@@ -319,7 +318,7 @@ private:
             }
             result["buildings"] = buildings_array;
             
-            // Добавляем офисы
+
             json::array offices_array;
             for (const auto& office : map->GetOffices()) {
                 json::object office_obj;

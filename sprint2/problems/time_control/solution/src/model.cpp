@@ -64,9 +64,9 @@ Dog& GameSession::AddDog(const std::string& name) {
         double y = static_cast<double>(start.y);
         
         if (first_road.IsVertical()) {
-            y += 0.4;  
-        } else if (first_road.IsHorizontal()) {
             x += 0.4;  
+        } else if (first_road.IsHorizontal()) {
+            y += 0.4;  
         }
         
         dog.SetPos(x, y);
