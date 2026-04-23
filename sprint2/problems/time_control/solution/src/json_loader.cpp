@@ -26,10 +26,14 @@ void AddRoads(const boost::json::array& roads_array, model::Map& map) {
 
         if (road_obj.contains("x1")) {
             int x1 = static_cast<int>(road_obj.at("x1").as_int64());
-            map.AddRoad(model::Road(model::Road::HORIZONTAL, model::Point{x0, y0}, x1));
+            if (x1 != x0) {
+                map.AddRoad(model::Road(model::Road::HORIZONTAL, model::Point{x0, y0}, x1));
+            }
         } else if (road_obj.contains("y1")) {
             int y1 = static_cast<int>(road_obj.at("y1").as_int64());
-            map.AddRoad(model::Road(model::Road::VERTICAL, model::Point{x0, y0}, y1));
+            if (y1 != y0) {
+                map.AddRoad(model::Road(model::Road::VERTICAL, model::Point{x0, y0}, y1));
+            }
         }
     }
 }
