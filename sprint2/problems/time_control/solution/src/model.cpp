@@ -117,74 +117,69 @@ const Game::Maps& Game::GetMaps() const noexcept {
 }
 
 void Game::UpdateAllSessions(double dt) {
+    double dt_seconds = dt / 1000.0;
+
     for (auto& [_, session] : sessions_) {
-        session->UpdateState(dt);
+        session->UpdateState(dt_seconds);
     }
 }
 
 // ================= DOG =================
-void Player::UpdatePosition(double delta_time, const Map& map) {
-    if (speed_.x == 0 && speed_.y == 0) {
-        return;
+void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
+
+    double new_x = pos_.x + speed_.vx * dt;
+    double new_y = pos_.y + speed_.vy * dt;
+
+    const Road* current_road = nullptr;
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
+            current_road = &road;
+            break;
+        }
     }
 
-    const Road* current_road = map.FindRoadByPosition(pos_.x, pos_.y);
-    if (!current_road) {
-        return;
+    if (!current_road) return;
+
+    bool will_be_on_road = false;
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(new_x, new_y)) {
+            will_be_on_road = true;
+            break;
+        }
     }
 
-    const auto& start = current_road->GetStart();
-    const auto& end = current_road->GetEnd();
+    if (will_be_on_road) {
+        pos_ = {new_x, new_y};
+    } else {
+        double constrained_x = new_x;
+        double constrained_y = new_y;
+        
 
-    // Границы дороги с учетом ширины (±0.4)
-    double min_x = std::min(start.x, end.x) - 0.4;
-    double max_x = std::max(start.x, end.x) + 0.4;
-    double min_y = std::min(start.y, end.y) - 0.4;
-    double max_y = std::max(start.y, end.y) + 0.4;
+        if (current_road->IsHorizontal()) {
+            double min_x = current_road->GetMinX() - 0.4;
+            double max_x = current_road->GetMaxX() + 0.4;
+            if (constrained_x < min_x) constrained_x = min_x;
+            if (constrained_x > max_x) constrained_x = max_x;
+            double road_y = current_road->GetStart().y;
+            if (constrained_y < road_y - 0.4) constrained_y = road_y - 0.4;
+            if (constrained_y > road_y + 0.4) constrained_y = road_y + 0.4;
+        } else {
+            double min_y = current_road->GetMinY() - 0.4;
+            double max_y = current_road->GetMaxY() + 0.4;
+            if (constrained_y < min_y) constrained_y = min_y;
+            if (constrained_y > max_y) constrained_y = max_y;
+            double road_x = current_road->GetStart().x;
+            if (constrained_x < road_x - 0.4) constrained_x = road_x - 0.4;
+            if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
+        }
+        
 
-    double delta_x = speed_.x * delta_time;
-    double delta_y = speed_.y * delta_time;
-
-    switch (dir_) {
-        case Direction::RIGHT: {
-            double new_x = pos_.x + delta_x;
-            if (new_x <= max_x) {
-                pos_.x = new_x;
-            } else {
-                pos_.x = max_x;
-                Stop();
-            }
-            break;
-        }
-        case Direction::LEFT: {
-            double new_x = pos_.x + delta_x;
-            if (new_x >= min_x) {
-                pos_.x = new_x;
-            } else {
-                pos_.x = min_x;
-                Stop();
-            }
-            break;
-        }
-        case Direction::DOWN: {
-            double new_y = pos_.y + delta_y;
-            if (new_y <= max_y) {
-                pos_.y = new_y;
-            } else {
-                pos_.y = max_y;
-                Stop();
-            }
-            break;
-        }
-        case Direction::UP: {
-            double new_y = pos_.y + delta_y;
-            if (new_y >= min_y) {
-                pos_.y = new_y;
-            } else {
-                pos_.y = min_y;
-                Stop();
-            }
-            break;
+        if (constrained_x != new_x || constrained_y != new_y) {
+            pos_ = {constrained_x, constrained_y};
+            speed_ = {0.0, 0.0};
+        } else {
+            pos_ = {new_x, new_y};
         }
     }
 }
