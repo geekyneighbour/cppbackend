@@ -60,10 +60,16 @@ Dog& GameSession::AddDog(const std::string& name) {
         const Road& first_road = map_->GetRoads()[0];
         Point start = first_road.GetStart();
         
-        dog.SetPos(static_cast<double>(start.x), static_cast<double>(start.y));
+        double x = static_cast<double>(start.x);
+        double y = static_cast<double>(start.y);
         
-
-        //dog.SetDirection(model::Direction::NORTH);
+        if (first_road.IsHorizontal()) {
+            x += 0.4;
+        } else if (first_road.IsVertical()) {
+            y += 0.4;
+        }
+        
+        dog.SetPos(x, y);
     }
 
     return dog;
