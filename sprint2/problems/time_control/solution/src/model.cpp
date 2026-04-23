@@ -63,10 +63,10 @@ Dog& GameSession::AddDog(const std::string& name) {
         double x = static_cast<double>(start.x);
         double y = static_cast<double>(start.y);
         
-        if (first_road.IsHorizontal()) {
-            x += 0.4;
-        } else if (first_road.IsVertical()) {
-            y += 0.4;
+        if (first_road.IsVertical()) {
+            y += 0.4;  
+        } else if (first_road.IsHorizontal()) {
+            x += 0.4;  
         }
         
         dog.SetPos(x, y);
@@ -129,7 +129,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-
     const Road* current_road = nullptr;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(pos_.x, pos_.y)) {
@@ -140,7 +139,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
     if (!current_road) return;
 
-
     bool will_be_on_road = false;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(new_x, new_y)) {
@@ -150,15 +148,32 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     }
 
     if (will_be_on_road) {
-
         pos_ = {new_x, new_y};
     } else {
         double constrained_x = new_x;
         double constrained_y = new_y;
-        current_road->ConstrainMovement(constrained_x, constrained_y, pos_);
         
 
-        if (std::abs(constrained_x - new_x) > 1e-9 || std::abs(constrained_y - new_y) > 1e-9) {
+        if (current_road->IsHorizontal()) {
+            double min_x = current_road->GetMinX() - 0.4;
+            double max_x = current_road->GetMaxX() + 0.4;
+            if (constrained_x < min_x) constrained_x = min_x;
+            if (constrained_x > max_x) constrained_x = max_x;
+            double road_y = current_road->GetStart().y;
+            if (constrained_y < road_y - 0.4) constrained_y = road_y - 0.4;
+            if (constrained_y > road_y + 0.4) constrained_y = road_y + 0.4;
+        } else {
+            double min_y = current_road->GetMinY() - 0.4;
+            double max_y = current_road->GetMaxY() + 0.4;
+            if (constrained_y < min_y) constrained_y = min_y;
+            if (constrained_y > max_y) constrained_y = max_y;
+            double road_x = current_road->GetStart().x;
+            if (constrained_x < road_x - 0.4) constrained_x = road_x - 0.4;
+            if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
+        }
+        
+
+        if (constrained_x != new_x || constrained_y != new_y) {
             pos_ = {constrained_x, constrained_y};
             speed_ = {0.0, 0.0};
         } else {
