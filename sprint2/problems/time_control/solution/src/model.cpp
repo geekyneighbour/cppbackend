@@ -126,8 +126,10 @@ void Game::UpdateAllSessions(double dt) {
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
-    double new_x = pos_.x + speed_.vx * dt;
-    double new_y = pos_.y + speed_.vy * dt;
+    double dt_seconds = dt / 1000.0;
+
+	double new_x = pos_.x + speed_.vx * dt_seconds;
+	double new_y = pos_.y + speed_.vy * dt_seconds;
 
     const Road* current_road = nullptr;
     for (const auto& road : roads) {
