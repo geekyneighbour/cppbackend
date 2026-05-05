@@ -117,10 +117,8 @@ const Game::Maps& Game::GetMaps() const noexcept {
 }
 
 void Game::UpdateAllSessions(double dt) {
-    double dt_seconds = dt / 1000.0;
-
     for (auto& [_, session] : sessions_) {
-        session->UpdateState(dt_seconds);
+        session->UpdateState(dt);
     }
 }
 
