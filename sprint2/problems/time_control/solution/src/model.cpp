@@ -94,7 +94,7 @@ void GameSession::UpdateState(double dt) {
 
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
-    }
+		}
 }
 
 // ================= GAME =================
