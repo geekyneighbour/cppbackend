@@ -104,29 +104,28 @@ public:
     
 bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
     double half_dog = dog_width / 2.0;
-    double tolerance = 1e-9;  
+    double tolerance = 1e-6;
     
     if (IsHorizontal()) {
         double road_y = start_.y;
+        double y_diff = std::abs(y - road_y);
 
-        if (std::abs(y - road_y) > half_dog + tolerance) return false;
+        if (y_diff > half_dog + tolerance) return false;
         
-
         double min_x = GetMinX() - half_dog;
         double max_x = GetMaxX() + half_dog;
         
-        return x >= min_x - tolerance && x <= max_x + tolerance;
-        
+        return (x + tolerance) >= min_x && (x - tolerance) <= max_x;
     } else {
         double road_x = start_.x;
-
-        if (std::abs(x - road_x) > half_dog + tolerance) return false;
+        double x_diff = std::abs(x - road_x);
         
-
+        if (x_diff > half_dog + tolerance) return false;
+        
         double min_y = GetMinY() - half_dog;
         double max_y = GetMaxY() + half_dog;
         
-        return y >= min_y - tolerance && y <= max_y + tolerance;
+        return (y + tolerance) >= min_y && (y - tolerance) <= max_y;
     }
 }
     
@@ -348,6 +347,7 @@ public:
     void SetAction(const std::string& action, double speed);
 	
 	void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
+	
 
 private:
     std::string name_;
