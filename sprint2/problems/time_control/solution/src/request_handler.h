@@ -110,7 +110,6 @@ public:
     {
         std::string target(req.target());
         
-        // Удаляем query string если есть
         size_t query_pos = target.find('?');
         if (query_pos != std::string::npos) {
             target = target.substr(0, query_pos);
@@ -570,18 +569,27 @@ private:
         }
         
         int64_t time_delta_ms = body.at("timeDelta").as_int64();
-        if (time_delta_ms <= 0) {
-            json::object error{
-                {"code", "invalidArgument"},
-                {"message", "timeDelta must be positive"}
-            };
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = json::serialize(error);
-            res.prepare_payload();
-            return res;
-        }
+        if (time_delta_ms < 0) {
+    json::object error{
+        {"code", "invalidArgument"},
+        {"message", "timeDelta must be non-negative"}
+    };
+    http::response<http::string_body> res{http::status::bad_request, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = json::serialize(error);
+    res.prepare_payload();
+    return res;
+}
+
+if (time_delta_ms == 0) {
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = "{}";
+    res.prepare_payload();
+    return res;
+}
         
 
         double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
