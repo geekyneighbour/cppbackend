@@ -128,107 +128,59 @@ void Game::UpdateAllSessions(double dt) {
 
 // ================= DOG =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
-    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) {
+        return;
+    }
 
-    double new_x = pos_.x + speed_.vx * dt;
-    double new_y = pos_.y + speed_.vy * dt;
-    
-    const double ROAD_OFFSET = 0.4;
-    const double EPS = 1e-9;
-    
-    const Road* horizontal_road = nullptr;
-    const Road* vertical_road = nullptr;
-    
+    double dt_seconds = dt / 1000.0;
+
+    const Road* current_road = nullptr;
+
     for (const auto& road : roads) {
-        if (road.IsHorizontal()) {
-            double road_y = road.GetStart().y;
-            if (std::abs(pos_.y - road_y) <= ROAD_OFFSET + EPS) {
-                double min_x = road.GetMinX() - ROAD_OFFSET;
-                double max_x = road.GetMaxX() + ROAD_OFFSET;
-                if (pos_.x >= min_x - EPS && pos_.x <= max_x + EPS) {
-                    horizontal_road = &road;
-                }
-            }
-        } else if (road.IsVertical()) {
-            double road_x = road.GetStart().x;
-            if (std::abs(pos_.x - road_x) <= ROAD_OFFSET + EPS) {
-                double min_y = road.GetMinY() - ROAD_OFFSET;
-                double max_y = road.GetMaxY() + ROAD_OFFSET;
-                if (pos_.y >= min_y - EPS && pos_.y <= max_y + EPS) {
-                    vertical_road = &road;
-                }
-            }
+        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
+            current_road = &road;
+            break;
         }
     }
-    
-    if (!horizontal_road && !vertical_road) return;
-    
-    bool hit_border = false;
-    
-    if (speed_.vx != 0 && horizontal_road) {
-        double border;
-        if (speed_.vx > 0) {
-            border = horizontal_road->GetMaxX() + ROAD_OFFSET;
-            if (new_x >= border - EPS) {
-                new_x = border;
-                hit_border = true;
-            } else {
-                new_x = std::min(border, new_x);
-            }
-        } else {
-            border = horizontal_road->GetMinX() - ROAD_OFFSET;
-            if (new_x <= border + EPS) {
-                new_x = border;
-                hit_border = true;
-            } else {
-                new_x = std::max(border, new_x);
-            }
-        }
-    }
-    
-    if (speed_.vy != 0 && vertical_road) {
-        double border;
-        if (speed_.vy > 0) {
-            border = vertical_road->GetMaxY() + ROAD_OFFSET;
-            if (new_y >= border - EPS) {
-                new_y = border;
-                hit_border = true;
-            } else {
-                new_y = std::min(border, new_y);
-            }
-        } else {
-            border = vertical_road->GetMinY() - ROAD_OFFSET;
-            if (new_y <= border + EPS) {
-                new_y = border;
-                hit_border = true;
-            } else {
-                new_y = std::max(border, new_y);
-            }
-        }
-    }
-    
 
-    if (hit_border) {
-        speed_ = {0.0, 0.0};
+    if (!current_road) {
+        return;
     }
-    
 
-    if (horizontal_road && vertical_road) {
-        double min_x = horizontal_road->GetMinX() - ROAD_OFFSET;
-        double max_x = horizontal_road->GetMaxX() + ROAD_OFFSET;
-        double min_y = vertical_road->GetMinY() - ROAD_OFFSET;
-        double max_y = vertical_road->GetMaxY() + ROAD_OFFSET;
-        
-        double old_x = new_x, old_y = new_y;
-        new_x = std::max(min_x, std::min(max_x, new_x));
-        new_y = std::max(min_y, std::min(max_y, new_y));
-        
-        if (std::abs(new_x - old_x) > EPS || std::abs(new_y - old_y) > EPS) {
+    if (current_road->IsHorizontal()) {
+
+        double new_x = pos_.x + speed_.vx * dt_seconds;
+
+        double min_x = current_road->GetMinX() - 0.4;
+        double max_x = current_road->GetMaxX() + 0.4;
+
+        if (new_x < min_x) {
+            pos_.x = min_x;
             speed_ = {0.0, 0.0};
+        } else if (new_x > max_x) {
+            pos_.x = max_x;
+            speed_ = {0.0, 0.0};
+        } else {
+            pos_.x = new_x;
+        }
+
+    } else {
+
+        double new_y = pos_.y + speed_.vy * dt_seconds;
+
+        double min_y = current_road->GetMinY() - 0.4;
+        double max_y = current_road->GetMaxY() + 0.4;
+
+        if (new_y < min_y) {
+            pos_.y = min_y;
+            speed_ = {0.0, 0.0};
+        } else if (new_y > max_y) {
+            pos_.y = max_y;
+            speed_ = {0.0, 0.0};
+        } else {
+            pos_.y = new_y;
         }
     }
-    
-    pos_ = {new_x, new_y};
 }
 // ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
