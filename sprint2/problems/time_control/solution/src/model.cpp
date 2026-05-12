@@ -150,10 +150,10 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (will_be_on_road) {
         pos_ = {new_x, new_y};
     } else {
+
         double constrained_x = new_x;
         double constrained_y = new_y;
         
-
         if (current_road->IsHorizontal()) {
             double min_x = current_road->GetMinX() - 0.4;
             double max_x = current_road->GetMaxX() + 0.4;
@@ -172,13 +172,8 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
             if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
         }
         
+        pos_ = {constrained_x, constrained_y};
 
-        if (constrained_x != new_x || constrained_y != new_y) {
-            pos_ = {constrained_x, constrained_y};
-            speed_ = {0.0, 0.0};
-        } else {
-            pos_ = {new_x, new_y};
-        }
     }
 }
 
