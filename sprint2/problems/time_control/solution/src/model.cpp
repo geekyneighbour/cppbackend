@@ -58,17 +58,15 @@ Dog& GameSession::AddDog(const std::string& name) {
 
     if (map_ && !map_->GetRoads().empty()) {
         const Road& first_road = map_->GetRoads()[0];
-        
         Point start = first_road.GetStart();
-        Point end = first_road.GetEnd();
         
-        double x, y;
-        if (first_road.IsHorizontal()) {
-            x = (start.x + end.x) / 2.0;
-            y = start.y;
-        } else {
-            x = start.x; 
-            y = (start.y + end.y) / 2.0;
+        double x = static_cast<double>(start.x);
+        double y = static_cast<double>(start.y);
+        
+        if (first_road.IsVertical()) {
+            x += 0.4;  
+        } else if (first_road.IsHorizontal()) {
+            y += 0.4;  
         }
         
         dog.SetPos(x, y);
@@ -120,22 +118,18 @@ const Game::Maps& Game::GetMaps() const noexcept {
 
 void Game::UpdateAllSessions(double dt) {
     for (auto& [_, session] : sessions_) {
-        if (session) {
-            session->UpdateState(dt);
-        }
+        session->UpdateState(dt);
     }
 }
 
 // ================= DOG =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
-    if (speed_.vx == 0.0 && speed_.vy == 0.0) {
-        return;
-    }
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
-    double dt_seconds = dt / 1000.0;
+    double new_x = pos_.x + speed_.vx * dt;
+    double new_y = pos_.y + speed_.vy * dt;
 
     const Road* current_road = nullptr;
-
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(pos_.x, pos_.y)) {
             current_road = &road;
@@ -143,45 +137,51 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         }
     }
 
-    if (!current_road) {
-        return;
+    if (!current_road) return;
+
+    bool will_be_on_road = false;
+    for (const auto& road : roads) {
+        if (road.IsPointOnRoad(new_x, new_y)) {
+            will_be_on_road = true;
+            break;
+        }
     }
 
-    if (current_road->IsHorizontal()) {
-
-        double new_x = pos_.x + speed_.vx * dt_seconds;
-
-        double min_x = current_road->GetMinX() - 0.4;
-        double max_x = current_road->GetMaxX() + 0.4;
-
-        if (new_x < min_x) {
-            pos_.x = min_x;
-            speed_ = {0.0, 0.0};
-        } else if (new_x > max_x) {
-            pos_.x = max_x;
-            speed_ = {0.0, 0.0};
-        } else {
-            pos_.x = new_x;
-        }
-
+    if (will_be_on_road) {
+        pos_ = {new_x, new_y};
     } else {
+        double constrained_x = new_x;
+        double constrained_y = new_y;
+        
 
-        double new_y = pos_.y + speed_.vy * dt_seconds;
+        if (current_road->IsHorizontal()) {
+            double min_x = current_road->GetMinX() - 0.4;
+            double max_x = current_road->GetMaxX() + 0.4;
+            if (constrained_x < min_x) constrained_x = min_x;
+            if (constrained_x > max_x) constrained_x = max_x;
+            double road_y = current_road->GetStart().y;
+            if (constrained_y < road_y - 0.4) constrained_y = road_y - 0.4;
+            if (constrained_y > road_y + 0.4) constrained_y = road_y + 0.4;
+        } else {
+            double min_y = current_road->GetMinY() - 0.4;
+            double max_y = current_road->GetMaxY() + 0.4;
+            if (constrained_y < min_y) constrained_y = min_y;
+            if (constrained_y > max_y) constrained_y = max_y;
+            double road_x = current_road->GetStart().x;
+            if (constrained_x < road_x - 0.4) constrained_x = road_x - 0.4;
+            if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
+        }
+        
 
-        double min_y = current_road->GetMinY() - 0.4;
-        double max_y = current_road->GetMaxY() + 0.4;
-
-        if (new_y < min_y) {
-            pos_.y = min_y;
-            speed_ = {0.0, 0.0};
-        } else if (new_y > max_y) {
-            pos_.y = max_y;
+        if (constrained_x != new_x || constrained_y != new_y) {
+            pos_ = {constrained_x, constrained_y};
             speed_ = {0.0, 0.0};
         } else {
-            pos_.y = new_y;
+            pos_ = {new_x, new_y};
         }
     }
 }
+
 // ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
