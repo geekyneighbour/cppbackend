@@ -64,7 +64,6 @@ Dog& GameSession::AddDog(const std::string& name) {
         double x = static_cast<double>(start.x);
         double y = static_cast<double>(start.y);
         
-        // Добавляем смещение 0.4 в зависимости от типа дороги
         if (first_road.IsVertical()) {
             x += 0.4;
         } else if (first_road.IsHorizontal()) {
@@ -147,23 +146,28 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Ограничиваем движение пределами дороги
+    // Получаем границы дороги (с учетом половины ширины собаки 0.4)
     double min_x = current_road->GetMinX() - 0.4;
     double max_x = current_road->GetMaxX() + 0.4;
     double min_y = current_road->GetMinY() - 0.4;
     double max_y = current_road->GetMaxY() + 0.4;
 
+    // Применяем ограничения в зависимости от типа дороги
     if (current_road->IsHorizontal()) {
-        // Для горизонтальной дороги: y фиксирован, x может меняться
-        new_y = pos_.y; // Сохраняем y (собака не должна смещаться по вертикали)
+        // Горизонтальная дорога: Y фиксирован на уровне дороги
+        // X может меняться в пределах дороги
+        new_y = pos_.y; // Сохраняем Y (собака не должна уходить с дороги по вертикали)
         
+        // Ограничиваем X
         if (new_x < min_x) new_x = min_x;
         if (new_x > max_x) new_x = max_x;
     } 
     else if (current_road->IsVertical()) {
-        // Для вертикальной дороги: x фиксирован, y может меняться
-        new_x = pos_.x; // Сохраняем x (собака не должна смещаться по горизонтали)
+        // Вертикальная дорога: X фиксирован на уровне дороги
+        // Y может меняться в пределах дороги
+        new_x = pos_.x; // Сохраняем X (собака не должна уходить с дороги по горизонтали)
         
+        // Ограничиваем Y
         if (new_y < min_y) new_y = min_y;
         if (new_y > max_y) new_y = max_y;
     }
