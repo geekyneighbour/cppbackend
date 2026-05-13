@@ -130,7 +130,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         return;
     }
 
-
+    // Найти текущую дорогу
     const Road* current_road = nullptr;
     for (const auto& road : roads) {
         if (road.IsPointOnRoad(pos_.x, pos_.y)) {
@@ -143,54 +143,33 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         return;
     }
 
-
+    // Вычисляем новую позицию
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
+    // Ограничиваем движение пределами дороги
+    double min_x = current_road->GetMinX() - 0.4;
+    double max_x = current_road->GetMaxX() + 0.4;
+    double min_y = current_road->GetMinY() - 0.4;
+    double max_y = current_road->GetMaxY() + 0.4;
 
-    bool on_road = false;
-    for (const auto& road : roads) {
-        if (road.IsPointOnRoad(new_x, new_y)) {
-            on_road = true;
-            break;
-        }
-    }
-
-    if (on_road) {
-
-        pos_ = {new_x, new_y};
-    } else {
-
-        double constrained_x = new_x;
-        double constrained_y = new_y;
+    if (current_road->IsHorizontal()) {
+        // Для горизонтальной дороги: y фиксирован, x может меняться
+        new_y = pos_.y; // Сохраняем y (собака не должна смещаться по вертикали)
         
-        if (current_road->IsHorizontal()) {
-
-            double min_x = current_road->GetMinX() - 0.4;
-            double max_x = current_road->GetMaxX() + 0.4;
-            if (constrained_x < min_x) constrained_x = min_x;
-            if (constrained_x > max_x) constrained_x = max_x;
-            
-
-            double road_y = current_road->GetStart().y;
-            if (constrained_y < road_y - 0.4) constrained_y = road_y - 0.4;
-            if (constrained_y > road_y + 0.4) constrained_y = road_y + 0.4;
-        } else {
-
-            double min_y = current_road->GetMinY() - 0.4;
-            double max_y = current_road->GetMaxY() + 0.4;
-            if (constrained_y < min_y) constrained_y = min_y;
-            if (constrained_y > max_y) constrained_y = max_y;
-            
-
-            double road_x = current_road->GetStart().x;
-            if (constrained_x < road_x - 0.4) constrained_x = road_x - 0.4;
-            if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
-        }
+        if (new_x < min_x) new_x = min_x;
+        if (new_x > max_x) new_x = max_x;
+    } 
+    else if (current_road->IsVertical()) {
+        // Для вертикальной дороги: x фиксирован, y может меняться
+        new_x = pos_.x; // Сохраняем x (собака не должна смещаться по горизонтали)
         
-        pos_ = {constrained_x, constrained_y};
-
+        if (new_y < min_y) new_y = min_y;
+        if (new_y > max_y) new_y = max_y;
     }
+    
+    // Обновляем позицию
+    pos_ = {new_x, new_y};
 }
 
 // ================= ACTION =================
