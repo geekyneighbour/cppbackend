@@ -129,27 +129,41 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Определяем текущие границы (изначально — стоим на месте)
+
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
 
-    // Ищем все дороги, которые позволяют нам двигаться от текущей точки
+    bool found_road = false;
+
     for (const auto& road : roads) {
-        // Если мы движемся (или стоим) по горизонтали, проверяем вертикальные дороги
-        // на предмет того, пересекают ли они нашу текущую координату X
-        if (std::abs(pos_.x - road.GetStart().x) <= 0.4 + 1e-7) {
-            min_y = std::min(min_y, static_cast<double>(road.GetMinY()) - 0.4);
-            max_y = std::max(max_y, static_cast<double>(road.GetMaxY()) + 0.4);
-        }
-        
-        // Если мы движемся по вертикали, проверяем горизонтальные дороги
-        if (std::abs(pos_.y - road.GetStart().y) <= 0.4 + 1e-7) {
-            min_x = std::min(min_x, static_cast<double>(road.GetMinX()) - 0.4);
-            max_x = std::max(max_x, static_cast<double>(road.GetMaxX()) + 0.4);
+
+        double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
+        double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
+        double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
+        double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + 0.4;
+
+        if (pos_.x >= road_min_x && pos_.x <= road_max_x &&
+            pos_.y >= road_min_y && pos_.y <= road_max_y) {
+            
+            if (!found_road) {
+
+                min_x = road_min_x; max_x = road_max_x;
+                min_y = road_min_y; max_y = road_max_y;
+                found_road = true;
+            } else {
+
+                min_x = std::min(min_x, road_min_x);
+                max_x = std::max(max_x, road_max_x);
+                min_y = std::min(min_y, road_min_y);
+                max_y = std::max(max_y, road_max_y);
+            }
         }
     }
 
-    // Применяем ограничения для X
+
+    if (!found_road) return;
+
+
     if (new_x < min_x) {
         new_x = min_x;
         speed_.vx = 0.0;
@@ -158,7 +172,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         speed_.vx = 0.0;
     }
 
-    // Применяем ограничения для Y
     if (new_y < min_y) {
         new_y = min_y;
         speed_.vy = 0.0;
