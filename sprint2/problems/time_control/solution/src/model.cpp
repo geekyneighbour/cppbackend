@@ -129,42 +129,42 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Границы, в которых собака может находиться (с учетом ширины дороги 0.4)
+    // Определяем текущие границы (изначально — стоим на месте)
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
 
-    // Проходим по всем дорогам и расширяем доступные границы
+    // Ищем все дороги, которые позволяют нам двигаться от текущей точки
     for (const auto& road : roads) {
-        if (road.IsHorizontal()) {
-            // Если собака стоит на этой горизонтальной дороге по вертикали
-            if (std::abs(pos_.y - road.GetStart().y) <= 0.4 + 1e-9) {
-                min_x = std::min(min_x, road.GetMinX() - 0.4);
-                max_x = std::max(max_x, road.GetMaxX() + 0.4);
-            }
-        } else {
-            // Если собака стоит на этой вертикальной дороге по горизонтали
-            if (std::abs(pos_.x - road.GetStart().x) <= 0.4 + 1e-9) {
-                min_y = std::min(min_y, road.GetMinY() - 0.4);
-                max_y = std::max(max_y, road.GetMaxY() + 0.4);
-            }
+        // Если мы движемся (или стоим) по горизонтали, проверяем вертикальные дороги
+        // на предмет того, пересекают ли они нашу текущую координату X
+        if (std::abs(pos_.x - road.GetStart().x) <= 0.4 + 1e-7) {
+            min_y = std::min(min_y, static_cast<double>(road.GetMinY()) - 0.4);
+            max_y = std::max(max_y, static_cast<double>(road.GetMaxY()) + 0.4);
+        }
+        
+        // Если мы движемся по вертикали, проверяем горизонтальные дороги
+        if (std::abs(pos_.y - road.GetStart().y) <= 0.4 + 1e-7) {
+            min_x = std::min(min_x, static_cast<double>(road.GetMinX()) - 0.4);
+            max_x = std::max(max_x, static_cast<double>(road.GetMaxX()) + 0.4);
         }
     }
 
-    // Ограничиваем движение
+    // Применяем ограничения для X
     if (new_x < min_x) {
         new_x = min_x;
-        speed_.vx = 0;
+        speed_.vx = 0.0;
     } else if (new_x > max_x) {
         new_x = max_x;
-        speed_.vx = 0;
+        speed_.vx = 0.0;
     }
 
+    // Применяем ограничения для Y
     if (new_y < min_y) {
         new_y = min_y;
-        speed_.vy = 0;
+        speed_.vy = 0.0;
     } else if (new_y > max_y) {
         new_y = max_y;
-        speed_.vy = 0;
+        speed_.vy = 0.0;
     }
 
     pos_ = {new_x, new_y};
