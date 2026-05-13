@@ -1,7 +1,6 @@
 #include "model.h"
 #include <random>
 #include <stdexcept>
-#include <cmath>
 
 namespace model {
 
@@ -65,9 +64,9 @@ Dog& GameSession::AddDog(const std::string& name) {
         double y = static_cast<double>(start.y);
         
         if (first_road.IsVertical()) {
-            x += 0.4;
+            x += 0.4;  
         } else if (first_road.IsHorizontal()) {
-            y += 0.4;
+            y += 0.4;  
         }
         
         dog.SetPos(x, y);
@@ -125,54 +124,49 @@ void Game::UpdateAllSessions(double dt) {
 
 // ================= DOG =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
-    if (speed_.vx == 0.0 && speed_.vy == 0.0) {
-        return;
-    }
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
-    // Найти текущую дорогу
-    const Road* current_road = nullptr;
-    for (const auto& road : roads) {
-        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
-            current_road = &road;
-            break;
-        }
-    }
-
-    if (!current_road) {
-        return;
-    }
-
-    // Вычисляем новую позицию
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    // Получаем границы дороги (с учетом половины ширины собаки 0.4)
-    double min_x = current_road->GetMinX() - 0.4;
-    double max_x = current_road->GetMaxX() + 0.4;
-    double min_y = current_road->GetMinY() - 0.4;
-    double max_y = current_road->GetMaxY() + 0.4;
+    // Границы, в которых собака может находиться (с учетом ширины дороги 0.4)
+    double min_x = pos_.x, max_x = pos_.x;
+    double min_y = pos_.y, max_y = pos_.y;
 
-    // Применяем ограничения в зависимости от типа дороги
-    if (current_road->IsHorizontal()) {
-        // Горизонтальная дорога: Y фиксирован на уровне дороги
-        // X может меняться в пределах дороги
-        new_y = pos_.y; // Сохраняем Y (собака не должна уходить с дороги по вертикали)
-        
-        // Ограничиваем X
-        if (new_x < min_x) new_x = min_x;
-        if (new_x > max_x) new_x = max_x;
-    } 
-    else if (current_road->IsVertical()) {
-        // Вертикальная дорога: X фиксирован на уровне дороги
-        // Y может меняться в пределах дороги
-        new_x = pos_.x; // Сохраняем X (собака не должна уходить с дороги по горизонтали)
-        
-        // Ограничиваем Y
-        if (new_y < min_y) new_y = min_y;
-        if (new_y > max_y) new_y = max_y;
+    // Проходим по всем дорогам и расширяем доступные границы
+    for (const auto& road : roads) {
+        if (road.IsHorizontal()) {
+            // Если собака стоит на этой горизонтальной дороге по вертикали
+            if (std::abs(pos_.y - road.GetStart().y) <= 0.4 + 1e-9) {
+                min_x = std::min(min_x, road.GetMinX() - 0.4);
+                max_x = std::max(max_x, road.GetMaxX() + 0.4);
+            }
+        } else {
+            // Если собака стоит на этой вертикальной дороге по горизонтали
+            if (std::abs(pos_.x - road.GetStart().x) <= 0.4 + 1e-9) {
+                min_y = std::min(min_y, road.GetMinY() - 0.4);
+                max_y = std::max(max_y, road.GetMaxY() + 0.4);
+            }
+        }
     }
-    
-    // Обновляем позицию
+
+    // Ограничиваем движение
+    if (new_x < min_x) {
+        new_x = min_x;
+        speed_.vx = 0;
+    } else if (new_x > max_x) {
+        new_x = max_x;
+        speed_.vx = 0;
+    }
+
+    if (new_y < min_y) {
+        new_y = min_y;
+        speed_.vy = 0;
+    } else if (new_y > max_y) {
+        new_y = max_y;
+        speed_.vy = 0;
+    }
+
     pos_ = {new_x, new_y};
 }
 
