@@ -125,7 +125,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads)
 
     const Road* road = nullptr;
 
-    // 1. находим дорогу, на которой сейчас стоит собака
     for (const auto& r : roads) {
         if (r.IsPointOnRoad(pos_.x, pos_.y)) {
             road = &r;
@@ -137,52 +136,40 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads)
         return;
     }
 
-    double new_x = pos_.x + speed_.vx * dt;
-    double new_y = pos_.y + speed_.vy * dt;
+    PointDouble next = {
+        pos_.x + speed_.vx * dt,
+        pos_.y + speed_.vy * dt
+    };
 
     double min_x = road->GetMinX() - 0.4;
     double max_x = road->GetMaxX() + 0.4;
     double min_y = road->GetMinY() - 0.4;
     double max_y = road->GetMaxY() + 0.4;
 
-    PointDouble new_pos = {new_x, new_y};
+    bool horizontal = road->IsHorizontal();
+    bool vertical = road->IsVertical();
 
-    // 2. горизонтальная дорога
-    if (road->IsHorizontal()) {
+    if (horizontal) {
+        next.y = pos_.y;
 
-        // фиксируем Y (движение только вдоль X)
-        new_pos.y = pos_.y;
-
-        // проверяем границы
-        if (new_pos.x < min_x) {
-            new_pos.x = min_x;
+        if (next.x < min_x || next.x > max_x) {
             speed_ = {0.0, 0.0};
-        }
-        else if (new_pos.x > max_x) {
-            new_pos.x = max_x;
-            speed_ = {0.0, 0.0};
+            return; 
         }
 
-        pos_ = new_pos;
+        pos_ = next;
         return;
     }
 
-    // 3. вертикальная дорога
-    if (road->IsVertical()) {
+    if (vertical) {
+        next.x = pos_.x;
 
-        // фиксируем X (движение только вдоль Y)
-        new_pos.x = pos_.x;
-
-        if (new_pos.y < min_y) {
-            new_pos.y = min_y;
+        if (next.y < min_y || next.y > max_y) {
             speed_ = {0.0, 0.0};
-        }
-        else if (new_pos.y > max_y) {
-            new_pos.y = max_y;
-            speed_ = {0.0, 0.0};
+            return; 
         }
 
-        pos_ = new_pos;
+        pos_ = next;
         return;
     }
 }
