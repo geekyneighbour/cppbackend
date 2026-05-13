@@ -1,25 +1,26 @@
 #include "model.h"
 #include <random>
 #include <stdexcept>
+#include <algorithm>
 
 namespace model {
 
-// ================= RANDOM POINT =================
+// ================= RANDOM =================
 PointDouble GetRandomPointOnRoad(const Road& road) {
     static std::mt19937 gen(std::random_device{}());
     std::uniform_real_distribution<double> dist(0.0, 1.0);
 
-    Point start = road.GetStart();
-    Point end = road.GetEnd();
+    Point a = road.GetStart();
+    Point b = road.GetEnd();
 
     if (road.IsHorizontal()) {
-        double min_x = std::min(start.x, end.x);
-        double max_x = std::max(start.x, end.x);
-        return {min_x + dist(gen) * (max_x - min_x), (double)start.y};
+        double x1 = std::min(a.x, b.x);
+        double x2 = std::max(a.x, b.x);
+        return {x1 + dist(gen) * (x2 - x1), static_cast<double>(a.y)};
     } else {
-        double min_y = std::min(start.y, end.y);
-        double max_y = std::max(start.y, end.y);
-        return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
+        double y1 = std::min(a.y, b.y);
+        double y2 = std::max(a.y, b.y);
+        return {static_cast<double>(a.x), y1 + dist(gen) * (y2 - y1)};
     }
 }
 
@@ -30,10 +31,10 @@ void Map::AddOffice(Office office) {
     }
 
     size_t index = offices_.size();
-    Office& o = offices_.emplace_back(std::move(office));
+    offices_.push_back(std::move(office));
 
     try {
-        warehouse_id_to_index_.emplace(o.GetId(), index);
+        warehouse_id_to_index_.emplace(offices_.back().GetId(), index);
     } catch (...) {
         offices_.pop_back();
         throw;
@@ -42,12 +43,12 @@ void Map::AddOffice(Office office) {
 
 // ================= GAME =================
 void Game::AddMap(Map map) {
-    size_t index = maps_.size();
-
-    if (auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
+    if (map_id_to_index_.contains(map.GetId())) {
         throw std::invalid_argument("Map already exists");
     }
 
+    size_t index = maps_.size();
+    map_id_to_index_[map.GetId()] = index;
     maps_.push_back(std::make_unique<Map>(std::move(map)));
 }
 
@@ -56,20 +57,12 @@ Dog& GameSession::AddDog(const std::string& name) {
     dogs_.push_back(std::make_unique<Dog>(name));
     Dog& dog = *dogs_.back();
 
+    // ВАЖНО: старт строго в первой дороге (как требует тест)
     if (map_ && !map_->GetRoads().empty()) {
-        const Road& first_road = map_->GetRoads()[0];
-        Point start = first_road.GetStart();
-        
-        double x = static_cast<double>(start.x);
-        double y = static_cast<double>(start.y);
-        
-        if (first_road.IsVertical()) {
-            x += 0.4;  
-        } else if (first_road.IsHorizontal()) {
-            y += 0.4;  
-        }
-        
-        dog.SetPos(x, y);
+        const Road& r = map_->GetRoads().front();
+        Point p = r.GetStart();
+        dog.SetPos(static_cast<double>(p.x),
+                   static_cast<double>(p.y));
     }
 
     return dog;
@@ -77,12 +70,14 @@ Dog& GameSession::AddDog(const std::string& name) {
 
 Player& GameSession::AddPlayer(Dog& dog) {
     uint64_t id = ++next_player_id_;
-    auto [it, ok] = players_.emplace(id, Player{id, &dog, this});
+    auto [it, _] = players_.emplace(id, Player{id, &dog, this});
     return it->second;
 }
 
 std::vector<Player*> GameSession::GetPlayers() {
     std::vector<Player*> res;
+    res.reserve(players_.size());
+
     for (auto& [_, p] : players_) {
         res.push_back(&p);
     }
@@ -122,92 +117,77 @@ void Game::UpdateAllSessions(double dt) {
     }
 }
 
-// ================= DOG =================
+// ================= DOG MOVEMENT =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
-    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) {
+        return;
+    }
+
+    const Road* road = nullptr;
+
+    // ищем дорогу, на которой сейчас стоим
+    for (const auto& r : roads) {
+        if (r.IsPointOnRoad(pos_.x, pos_.y)) {
+            road = &r;
+            break;
+        }
+    }
+
+    if (!road) {
+        speed_ = {0.0, 0.0};
+        return;
+    }
 
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    const Road* current_road = nullptr;
-
-for (const auto& road : roads) {
-    if (!road.IsPointOnRoad(pos_.x, pos_.y)) {
-        continue;
-    }
-
-    // Для вертикального движения предпочитаем вертикальную дорогу
-    if (speed_.vy != 0.0 && road.IsVertical()) {
-        current_road = &road;
-        break;
-    }
-
-    // Для горизонтального движения предпочитаем горизонтальную дорогу
-    if (speed_.vx != 0.0 && road.IsHorizontal()) {
-        current_road = &road;
-        break;
-    }
-
-    // fallback
-    if (!current_road) {
-        current_road = &road;
-    }
-}
-
-    if (current_road->IsPointOnRoad(new_x, new_y)) {
-    pos_ = {new_x, new_y};
-    return;
-}
-
-if (current_road->IsHorizontal()) {
-    double min_x = current_road->GetMinX() - 0.4;
-    double max_x = current_road->GetMaxX() + 0.4;
-
-    if (new_x < min_x) {
-        pos_.x = min_x;
-    } else if (new_x > max_x) {
-        pos_.x = max_x;
-    } else {
+    // если движение остаётся внутри дороги
+    if (road->IsPointOnRoad(new_x, new_y)) {
         pos_.x = new_x;
-    }
-
-    speed_ = {0.0, 0.0};
-} else {
-    double min_y = current_road->GetMinY() - 0.4;
-    double max_y = current_road->GetMaxY() + 0.4;
-
-    if (new_y < min_y) {
-        pos_.y = min_y;
-    } else if (new_y > max_y) {
-        pos_.y = max_y;
-    } else {
         pos_.y = new_y;
+        return;
+    }
+
+    const double half_width = 0.4;
+
+    // горизонтальная дорога → ограничиваем X
+    if (road->IsHorizontal()) {
+        double min_x = std::min(road->GetStart().x, road->GetEnd().x) - half_width;
+        double max_x = std::max(road->GetStart().x, road->GetEnd().x) + half_width;
+
+        pos_.x = std::clamp(new_x, min_x, max_x);
+        pos_.y = road->GetStart().y;
+    }
+    // вертикальная дорога → ограничиваем Y
+    else {
+        double min_y = std::min(road->GetStart().y, road->GetEnd().y) - half_width;
+        double max_y = std::max(road->GetStart().y, road->GetEnd().y) + half_width;
+
+        pos_.y = std::clamp(new_y, min_y, max_y);
+        pos_.x = road->GetStart().x;
     }
 
     speed_ = {0.0, 0.0};
-}
-
-    
 }
 
 // ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
-        speed_ = {0, 0};
+        speed_ = {0.0, 0.0};
         return;
     }
 
     if (action == "L") {
-        speed_ = {-speed, 0};
+        speed_ = {-speed, 0.0};
         dir_ = Direction::WEST;
     } else if (action == "R") {
-        speed_ = {speed, 0};
+        speed_ = {speed, 0.0};
         dir_ = Direction::EAST;
     } else if (action == "U") {
-        speed_ = {0, -speed};
+        speed_ = {0.0, -speed};
         dir_ = Direction::NORTH;
     } else if (action == "D") {
-        speed_ = {0, speed};
+        speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }
 }
