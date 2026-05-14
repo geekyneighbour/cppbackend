@@ -392,6 +392,7 @@ private:
     std::vector<std::unique_ptr<Dog>> dogs_;
     std::unordered_map<uint64_t, Player> players_;
     uint64_t next_player_id_ = 0;
+	std::mt19937 random_gen_{std::random_device{}()};
 };
 
 class Game {

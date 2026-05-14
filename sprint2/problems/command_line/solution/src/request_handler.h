@@ -110,6 +110,7 @@ public:
     {
         std::string target(req.target());
         
+        // Удаляем query string если есть
         size_t query_pos = target.find('?');
         if (query_pos != std::string::npos) {
             target = target.substr(0, query_pos);
@@ -148,6 +149,7 @@ private:
     Strand api_strand_;
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
+
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -249,7 +251,7 @@ private:
     http::response<http::string_body> HandleApiRequest(const Req& req) {
         std::string path(req.target());
         
-
+        // Удаляем query string если есть
         size_t query_pos = path.find('?');
         if (query_pos != std::string::npos) {
             path = path.substr(0, query_pos);
@@ -534,8 +536,7 @@ private:
         }
 		
 		if (path == "/api/v1/game/tick") {
-			if (req.target() == "/api/v1/game/tick") {
-    if (auto_tick_mode_) {
+			if (auto_tick_mode_) {
         return MakeStringResponse(http::status::bad_request, 
             json::serialize(json::object{{"code", "badRequest"}, {"message", "Invalid endpoint"}}),
             req.version(), req.keep_alive(), "application/json");
