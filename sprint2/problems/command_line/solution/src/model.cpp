@@ -52,27 +52,34 @@ void Game::AddMap(Map map) {
 }
 
 // ================= SESSION =================
-Dog& GameSession::AddDog(const std::string& name) {
-    dogs_.push_back(std::make_unique<Dog>(name));
-    Dog& dog = *dogs_.back();
-
-    if (map_ && !map_->GetRoads().empty()) {
-        const Road& first_road = map_->GetRoads()[0];
-        Point start = first_road.GetStart();
-        
-        double x = static_cast<double>(start.x);
-        double y = static_cast<double>(start.y);
-        
-        if (first_road.IsVertical()) {
-            x += 0.4;  
-        } else if (first_road.IsHorizontal()) {
-            y += 0.4;  
-        }
-        
-        dog.SetPos(x, y);
+Dog& GameSession::AddDog(std::string_view name, bool randomize) {
+    const auto& roads = map_->GetRoads();
+    if (roads.empty()) {
+        throw std::runtime_error("Map has no roads");
     }
 
-    return dog;
+    PointDouble spawn_pos;
+
+    if (randomize) {
+
+        std::uniform_int_distribution<size_t> dist(0, roads.size() - 1);
+        const auto& road = roads[dist(random_gen_)];
+        spawn_pos = GetRandomPointOnRoad(road);
+    } else {
+
+        const auto& first_road = roads[0];
+        spawn_pos = {
+            static_cast<double>(first_road.GetStart().x),
+            static_cast<double>(first_road.GetStart().y)
+        };
+    }
+
+
+    auto new_dog = std::make_unique<Dog>(std::string(name));
+    new_dog->SetPos(spawn_pos.x, spawn_pos.y);
+    
+    dogs_.push_back(std::move(new_dog));
+    return *dogs_.back();
 }
 
 Player& GameSession::AddPlayer(Dog& dog) {
@@ -129,57 +136,58 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-    const Road* current_road = nullptr;
+
+    double min_x = pos_.x, max_x = pos_.x;
+    double min_y = pos_.y, max_y = pos_.y;
+
+    bool found_road = false;
+
     for (const auto& road : roads) {
-        if (road.IsPointOnRoad(pos_.x, pos_.y)) {
-            current_road = &road;
-            break;
+
+        double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
+        double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
+        double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
+        double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + 0.4;
+
+        if (pos_.x >= road_min_x && pos_.x <= road_max_x &&
+            pos_.y >= road_min_y && pos_.y <= road_max_y) {
+            
+            if (!found_road) {
+
+                min_x = road_min_x; max_x = road_max_x;
+                min_y = road_min_y; max_y = road_max_y;
+                found_road = true;
+            } else {
+
+                min_x = std::min(min_x, road_min_x);
+                max_x = std::max(max_x, road_max_x);
+                min_y = std::min(min_y, road_min_y);
+                max_y = std::max(max_y, road_max_y);
+            }
         }
     }
 
-    if (!current_road) return;
 
-    bool will_be_on_road = false;
-    for (const auto& road : roads) {
-        if (road.IsPointOnRoad(new_x, new_y)) {
-            will_be_on_road = true;
-            break;
-        }
+    if (!found_road) return;
+
+
+    if (new_x < min_x) {
+        new_x = min_x;
+        speed_.vx = 0.0;
+    } else if (new_x > max_x) {
+        new_x = max_x;
+        speed_.vx = 0.0;
     }
 
-    if (will_be_on_road) {
-        pos_ = {new_x, new_y};
-    } else {
-        double constrained_x = new_x;
-        double constrained_y = new_y;
-        
-
-        if (current_road->IsHorizontal()) {
-            double min_x = current_road->GetMinX() - 0.4;
-            double max_x = current_road->GetMaxX() + 0.4;
-            if (constrained_x < min_x) constrained_x = min_x;
-            if (constrained_x > max_x) constrained_x = max_x;
-            double road_y = current_road->GetStart().y;
-            if (constrained_y < road_y - 0.4) constrained_y = road_y - 0.4;
-            if (constrained_y > road_y + 0.4) constrained_y = road_y + 0.4;
-        } else {
-            double min_y = current_road->GetMinY() - 0.4;
-            double max_y = current_road->GetMaxY() + 0.4;
-            if (constrained_y < min_y) constrained_y = min_y;
-            if (constrained_y > max_y) constrained_y = max_y;
-            double road_x = current_road->GetStart().x;
-            if (constrained_x < road_x - 0.4) constrained_x = road_x - 0.4;
-            if (constrained_x > road_x + 0.4) constrained_x = road_x + 0.4;
-        }
-        
-
-        if (constrained_x != new_x || constrained_y != new_y) {
-            pos_ = {constrained_x, constrained_y};
-            speed_ = {0.0, 0.0};
-        } else {
-            pos_ = {new_x, new_y};
-        }
+    if (new_y < min_y) {
+        new_y = min_y;
+        speed_.vy = 0.0;
+    } else if (new_y > max_y) {
+        new_y = max_y;
+        speed_.vy = 0.0;
     }
+
+    pos_ = {new_x, new_y};
 }
 
 // ================= ACTION =================
