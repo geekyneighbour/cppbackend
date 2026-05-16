@@ -110,7 +110,6 @@ public:
     {
         std::string target(req.target());
         
-        // Удаляем query string если есть
         size_t query_pos = target.find('?');
         if (query_pos != std::string::npos) {
             target = target.substr(0, query_pos);
@@ -137,7 +136,6 @@ public:
             return;
         }
 
-        // Обработка статических файлов
         send_wrapper(HandleFileRequest(req, target));
     }
 	
@@ -206,7 +204,7 @@ private:
     res.set(http::field::cache_control, "no-cache");
 
     json::object error{
-        {"code", "badRequest"},  // <-- ИЗМЕНЕНО: было "invalidArgument", стало "badRequest"
+        {"code", "badRequest"},  
         {"message", message}
     };
 
@@ -251,7 +249,6 @@ private:
     http::response<http::string_body> HandleApiRequest(const Req& req) {
         std::string path(req.target());
         
-        // Удаляем query string если есть
         size_t query_pos = path.find('?');
         if (query_pos != std::string::npos) {
             path = path.substr(0, query_pos);
@@ -259,7 +256,6 @@ private:
         
         auto method = req.method();
 
-        // Handle /api/v1/maps (GET)
         if (path == "/api/v1/maps") {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
@@ -343,7 +339,6 @@ private:
             return res;
         }
 
-        // Handle /api/v1/game/join (POST)
         if (path == "/api/v1/game/join") {
             if (method != http::verb::post)
                 return InvalidMethod(req, "POST");
@@ -394,7 +389,6 @@ private:
             }
         }
 
-        // Handle /api/v1/game/players (GET)
         if (path == "/api/v1/game/players") {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
@@ -429,7 +423,6 @@ private:
             return res;
         }
         
-        // Handle /api/v1/game/state (GET)
         if (path == "/api/v1/game/state") {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
@@ -482,7 +475,6 @@ private:
             return res;
         }
         
-        // Handle /api/v1/game/player/action (POST)
         if (path == "/api/v1/game/player/action") {
             if (method != http::verb::post)
                 return InvalidMethod(req, "POST");
