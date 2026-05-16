@@ -370,7 +370,7 @@ private:
                     return NotFound(req);
 
                 auto& session = game_.FindOrCreateSession(map);
-                auto& dog = session.AddDog(user);
+                auto& dog = session.AddDog(user, true);
                 auto& player = session.AddPlayer(dog);
 
                 std::string token = GenerateToken();
@@ -537,9 +537,7 @@ private:
 		
 		if (path == "/api/v1/game/tick") {
 			if (auto_tick_mode_) {
-        return MakeStringResponse(http::status::bad_request, 
-            json::serialize(json::object{{"code", "badRequest"}, {"message", "Invalid endpoint"}}),
-            req.version(), req.keep_alive(), "application/json");
+        return BadRequest(req, "Invalid endpoint");
     }
     if (method != http::verb::post)
         return InvalidMethod(req, "POST");
