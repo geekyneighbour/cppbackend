@@ -102,31 +102,30 @@ public:
         return std::max(start_.y, end_.y);
     }
     
-bool IsPointOnRoad(double x, double y, double dog_width = 0.8) const {
+bool IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
     double half_dog = dog_width / 2.0;
-    double tolerance = 1e-9;  
     
     if (IsHorizontal()) {
         double road_y = start_.y;
 
-        if (std::abs(y - road_y) > half_dog + tolerance) return false;
+        if (std::abs(y - road_y) > half_dog + TOLERANCE_) return false;
         
 
         double min_x = GetMinX() - half_dog;
         double max_x = GetMaxX() + half_dog;
         
-        return x >= min_x - tolerance && x <= max_x + tolerance;
+        return x >= min_x - TOLERANCE_ && x <= max_x + TOLERANCE_;
         
     } else {
         double road_x = start_.x;
 
-        if (std::abs(x - road_x) > half_dog + tolerance) return false;
+        if (std::abs(x - road_x) > half_dog + TOLERANCE_) return false;
         
 
         double min_y = GetMinY() - half_dog;
         double max_y = GetMaxY() + half_dog;
         
-        return y >= min_y - tolerance && y <= max_y + tolerance;
+        return y >= min_y - TOLERANCE_ && y <= max_y + TOLERANCE_;
     }
 }
     
@@ -171,6 +170,8 @@ void ConstrainMovement(double& x, double& y, const PointDouble& old_pos) const {
 private:
     Point start_;
     Point end_;
+	static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
+    static constexpr double TOLERANCE_ = 1e-9;
 };
 
 class Building {
@@ -287,7 +288,7 @@ public:
             if (road.IsHorizontal()) {
                 double road_y = road.GetStart().y;
                 dy = std::abs(pos.y - road_y);
-                if (pos.x >= road.GetMinX() - 0.4 && pos.x <= road.GetMaxX() + 0.4) {
+                if (pos.x >= road.GetMinX() - HALF_WIDTH_ && pos.x <= road.GetMaxX() + HALF_WIDTH_) {
                     if (dy < min_dist) {
                         min_dist = dy;
                         nearest = &road;
@@ -296,7 +297,7 @@ public:
             } else {
                 double road_x = road.GetStart().x;
                 dx = std::abs(pos.x - road_x);
-                if (pos.y >= road.GetMinY() - 0.4 && pos.y <= road.GetMaxY() + 0.4) {
+                if (pos.y >= road.GetMinY() - HALF_WIDTH_ && pos.y <= road.GetMaxY() + HALF_WIDTH_) {
                     if (dx < min_dist) {
                         min_dist = dx;
                         nearest = &road;
@@ -320,6 +321,7 @@ private:
     
     std::optional<double> dog_speed_;
     inline static double default_dog_speed_ = 1.0;
+	static constexpr double HALF_WIDTH_ = 0.4;
 };
 
 class Dog {

@@ -147,6 +147,39 @@ private:
     Strand api_strand_;
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
+	
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
+    boost::json::object obj;
+    obj["x0"] = road.GetStart().x;
+    obj["y0"] = road.GetStart().y;
+    if (road.IsHorizontal()) {
+        obj["x1"] = road.GetEnd().x;
+    } else {
+        obj["y1"] = road.GetEnd().y;
+    }
+    jv = std::move(obj);
+}
+
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building) {
+    const auto& bounds = building.GetBounds();
+    jv = boost::json::object{
+        {"x", bounds.position.x},
+        {"y", bounds.position.y},
+        {"w", bounds.size.width},
+        {"h", bounds.size.height}
+    };
+}
+
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Office& office) {
+    jv = boost::json::object{
+        {"id", *office.GetId()},
+        {"x", office.GetPosition().x},
+        {"y", office.GetPosition().y},
+        {"offsetX", office.GetOffset().dx},
+        {"offsetY", office.GetOffset().dy}
+    };
+}
+
 
 
     // ================= TOKEN =================
@@ -247,6 +280,15 @@ private:
     // ================= API =================
     template <typename Req>
     http::response<http::string_body> HandleApiRequest(const Req& req) {
+		constexpr size_t MAPS_PREFIX_LENGTH = 13;
+		constexpr std::string MAPS = "/api/v1/maps";
+		constexpr std::string MAPS2 = "/api/v1/maps/";
+		constexpr std::string JOIN = "/api/v1/game/join";
+		constexpr std::string PLAYERS = "/api/v1/game/players";
+		constexpr std::string STATE = "/api/v1/game/state";
+		constexpr std::string ACTION = "/api/v1/game/player/action";
+		constexpr std::string TICK = "/api/v1/game/tick";
+
         std::string path(req.target());
         
         size_t query_pos = path.find('?');
@@ -256,7 +298,7 @@ private:
         
         auto method = req.method();
 
-        if (path == "/api/v1/maps") {
+        if (path == MAPS) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
 
@@ -277,11 +319,11 @@ private:
         }
         
 
-        if (path.starts_with("/api/v1/maps/") && path.size() > 13) {
+        if (path.starts_with(MAPS2) && path.size() > MAPS_PREFIX_LENGTH) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
                 
-            std::string map_id = path.substr(13);
+            std::string map_id = path.substr(MAPS_PREFIX_LENGTH);
             const auto* map = game_.FindMap(model::Map::Id{map_id});
             if (!map) {
                 return NotFound(req);
@@ -291,46 +333,10 @@ private:
             json::object result;
             result["id"] = *map->GetId();
             result["name"] = map->GetName();
-            
-
-            json::array roads_array;
-            for (const auto& road : map->GetRoads()) {
-                json::object road_obj;
-                road_obj["x0"] = road.GetStart().x;
-                road_obj["y0"] = road.GetStart().y;
-                if (road.IsHorizontal()) {
-                    road_obj["x1"] = road.GetEnd().x;
-                } else {
-                    road_obj["y1"] = road.GetEnd().y;
-                }
-                roads_array.push_back(road_obj);
-            }
-            result["roads"] = roads_array;
-
-            json::array buildings_array;
-            for (const auto& building : map->GetBuildings()) {
-                json::object building_obj;
-                building_obj["x"] = building.GetBounds().position.x;
-                building_obj["y"] = building.GetBounds().position.y;
-                building_obj["w"] = building.GetBounds().size.width;
-                building_obj["h"] = building.GetBounds().size.height;
-                buildings_array.push_back(building_obj);
-            }
-            result["buildings"] = buildings_array;
-            
-
-            json::array offices_array;
-            for (const auto& office : map->GetOffices()) {
-                json::object office_obj;
-                office_obj["id"] = *office.GetId();
-                office_obj["x"] = office.GetPosition().x;
-                office_obj["y"] = office.GetPosition().y;
-                office_obj["offsetX"] = office.GetOffset().dx;
-                office_obj["offsetY"] = office.GetOffset().dy;
-                offices_array.push_back(office_obj);
-            }
-            result["offices"] = offices_array;
-            
+            result["roads"] = boost::json::value_from(map->GetRoads());
+			result["buildings"] = boost::json::value_from(map->GetBuildings());
+			result["offices"] = boost::json::value_from(map->GetOffices());
+			
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, "application/json");
             res.set(http::field::cache_control, "no-cache");
@@ -339,7 +345,7 @@ private:
             return res;
         }
 
-        if (path == "/api/v1/game/join") {
+        if (path == JOIN) {
             if (method != http::verb::post)
                 return InvalidMethod(req, "POST");
                 
@@ -389,7 +395,7 @@ private:
             }
         }
 
-        if (path == "/api/v1/game/players") {
+        if (path == PLAYERS) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
 
@@ -423,7 +429,7 @@ private:
             return res;
         }
         
-        if (path == "/api/v1/game/state") {
+        if (path == STATE) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
 
@@ -475,7 +481,7 @@ private:
             return res;
         }
         
-        if (path == "/api/v1/game/player/action") {
+        if (path == ACTION) {
             if (method != http::verb::post)
                 return InvalidMethod(req, "POST");
                 
@@ -527,7 +533,7 @@ private:
             }
         }
 		
-		if (path == "/api/v1/game/tick") {
+		if (path == TICK) {
 			if (auto_tick_mode_) {
         return BadRequest(req, "Invalid endpoint");
     }

@@ -15,12 +15,12 @@ PointDouble GetRandomPointOnRoad(const Road& road) {
     if (road.IsHorizontal()) {
         double min_x = std::min(start.x, end.x);
         double max_x = std::max(start.x, end.x);
-        return {min_x + dist(gen) * (max_x - min_x), (double)start.y};
-    } else {
-        double min_y = std::min(start.y, end.y);
-        double max_y = std::max(start.y, end.y);
-        return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
-    }
+        return {min_x + dist(gen) * (max_x - min_x), static_cast<double>(start.y)};
+    } 
+    double min_y = std::min(start.y, end.y);
+    double max_y = std::max(start.y, end.y);
+    return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
+    
 }
 
 // ================= MAP =================
@@ -115,8 +115,7 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);
-    if (it == map_id_to_index_.end()) return nullptr;
-    return maps_[it->second].get();
+	it == map_id_to_index_.end() ? return nullptr : return maps_[it->second].get();
 }
 
 const Game::Maps& Game::GetMaps() const noexcept {

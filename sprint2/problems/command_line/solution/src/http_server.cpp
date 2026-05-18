@@ -42,14 +42,24 @@ void SessionBase::Read() {
 }
 
 void SessionBase::OnRead(beast::error_code ec, std::size_t) {
-    if (ec == http::error::end_of_stream) return Close();
-    if (ec) { LogError(ec, "read"); return; }
+    if (ec == http::error::end_of_stream) {
+		return Close();
+		}
+    if (ec) {
+		LogError(ec, "read"); 
+		return; 
+		}
     HandleRequest(std::move(request_));
 }
 
 void SessionBase::OnWrite(bool close, beast::error_code ec, std::size_t) {
-    if (ec) { LogError(ec, "write"); return; }
-    if (close) return Close();
+    if (ec) {
+		LogError(ec, "write"); 
+		return; 
+		}
+    if (close) {
+		return Close();
+		}
     Read();
 }
 
