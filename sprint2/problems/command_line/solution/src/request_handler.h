@@ -148,7 +148,7 @@ private:
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
 	
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Road& road) {
     boost::json::object obj;
     obj["x0"] = road.GetStart().x;
     obj["y0"] = road.GetStart().y;
@@ -160,7 +160,7 @@ void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road&
     jv = std::move(obj);
 }
 
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building) {
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Building& building) {
     const auto& bounds = building.GetBounds();
     jv = boost::json::object{
         {"x", bounds.position.x},
@@ -170,7 +170,7 @@ void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Build
     };
 }
 
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Office& office) {
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Office& office) {
     jv = boost::json::object{
         {"id", *office.GetId()},
         {"x", office.GetPosition().x},
@@ -281,13 +281,13 @@ void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Offic
     template <typename Req>
     http::response<http::string_body> HandleApiRequest(const Req& req) {
 		constexpr size_t MAPS_PREFIX_LENGTH = 13;
-		constexpr std::string MAPS = "/api/v1/maps";
-		constexpr std::string MAPS2 = "/api/v1/maps/";
-		constexpr std::string JOIN = "/api/v1/game/join";
-		constexpr std::string PLAYERS = "/api/v1/game/players";
-		constexpr std::string STATE = "/api/v1/game/state";
-		constexpr std::string ACTION = "/api/v1/game/player/action";
-		constexpr std::string TICK = "/api/v1/game/tick";
+		constexpr std::string_view MAPS = "/api/v1/maps";
+		constexpr std::string_view MAPS2 = "/api/v1/maps/";
+		constexpr std::string_view JOIN = "/api/v1/game/join";
+		constexpr std::string_view PLAYERS = "/api/v1/game/players";
+		constexpr std::string_view STATE = "/api/v1/game/state";
+		constexpr std::string_view ACTION = "/api/v1/game/player/action";
+		constexpr std::string_view TICK = "/api/v1/game/tick";
 
         std::string path(req.target());
         

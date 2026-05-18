@@ -115,7 +115,7 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);
-	it == map_id_to_index_.end() ? return nullptr : return maps_[it->second].get();
+	return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
 }
 
 const Game::Maps& Game::GetMaps() const noexcept {
