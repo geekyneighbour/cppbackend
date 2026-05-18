@@ -147,38 +147,7 @@ private:
     Strand api_strand_;
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
-	
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Road& road) {
-    boost::json::object obj;
-    obj["x0"] = road.GetStart().x;
-    obj["y0"] = road.GetStart().y;
-    if (road.IsHorizontal()) {
-        obj["x1"] = road.GetEnd().x;
-    } else {
-        obj["y1"] = road.GetEnd().y;
-    }
-    jv = std::move(obj);
-}
 
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Building& building) {
-    const auto& bounds = building.GetBounds();
-    jv = boost::json::object{
-        {"x", bounds.position.x},
-        {"y", bounds.position.y},
-        {"w", bounds.size.width},
-        {"h", bounds.size.height}
-    };
-}
-
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const model::Office& office) {
-    jv = boost::json::object{
-        {"id", *office.GetId()},
-        {"x", office.GetPosition().x},
-        {"y", office.GetPosition().y},
-        {"offsetX", office.GetOffset().dx},
-        {"offsetY", office.GetOffset().dy}
-    };
-}
 
 
 
