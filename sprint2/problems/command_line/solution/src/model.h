@@ -434,8 +434,21 @@ private:
 
 PointDouble GetRandomPointOnRoad(const Road& road);
 
+}  // namespace model
+
+
+namespace boost {
+namespace json {
+    class value;
+    struct value_from_tag;
+} // namespace json
+} // namespace boost
+
+namespace model {
+
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road);
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building);
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Office& office);
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Map& map);
-}  // namespace model
+
+} // namespace model

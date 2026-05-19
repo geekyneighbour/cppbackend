@@ -211,13 +211,18 @@ void Dog::SetAction(const std::string& action, double speed) {
         dir_ = Direction::SOUTH;
     }
 }
+
+// Функции tag_invoke теперь корректно находятся внутри namespace model
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
-    jv = boost::json::object{
-        {"x0", road.GetStart().x},
-        {"y0", road.GetStart().y},
-        road.IsHorizontal() ? boost::json::key_value_pair{"x1", road.GetEnd().x} 
-                            : boost::json::key_value_pair{"y1", road.GetEnd().y}
-    };
+    boost::json::object obj;
+    obj["x0"] = road.GetStart().x;
+    obj["y0"] = road.GetStart().y;
+    if (road.IsHorizontal()) {
+        obj["x1"] = road.GetEnd().x;
+    } else {
+        obj["y1"] = road.GetEnd().y;
+    }
+    jv = std::move(obj);
 }
 
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building) {
