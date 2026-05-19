@@ -1,6 +1,7 @@
 #include "model.h"
 #include <random>
 #include <stdexcept>
+#include <boost/json.hpp>
 
 namespace model {
 
@@ -209,6 +210,44 @@ void Dog::SetAction(const std::string& action, double speed) {
         speed_ = {0, speed};
         dir_ = Direction::SOUTH;
     }
+}
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
+    jv = boost::json::object{
+        {"x0", road.GetStart().x},
+        {"y0", road.GetStart().y},
+        road.IsHorizontal() ? boost::json::key_value_pair{"x1", road.GetEnd().x} 
+                            : boost::json::key_value_pair{"y1", road.GetEnd().y}
+    };
+}
+
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building) {
+    const auto& bounds = building.GetBounds();
+    jv = boost::json::object{
+        {"x", bounds.position.x},
+        {"y", bounds.position.y},
+        {"w", bounds.size.width},
+        {"h", bounds.size.height}
+    };
+}
+
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Office& office) {
+    jv = boost::json::object{
+        {"id", *office.GetId()},
+        {"x", office.GetPosition().x},
+        {"y", office.GetPosition().y},
+        {"offsetX", office.GetOffset().dx},
+        {"offsetY", office.GetOffset().dy}
+    };
+}
+
+void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Map& map) {
+    jv = boost::json::object{
+        {"id", *map.GetId()},
+        {"name", map.GetName()},
+        {"roads", boost::json::value_from(map.GetRoads())},
+        {"buildings", boost::json::value_from(map.GetBuildings())},
+        {"offices", boost::json::value_from(map.GetOffices())}
+    };
 }
 
 } // namespace model
