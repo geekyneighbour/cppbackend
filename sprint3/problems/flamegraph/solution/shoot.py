@@ -9,7 +9,6 @@ import time
 AMMUNITION = [
     'localhost:8080/api/v1/maps',
     'localhost:8080/api/v1/maps/map1',
-    'localhost:8080/api/v1/maps/map2',
 ]
 
 def parse_args():
@@ -43,10 +42,8 @@ def stop_process(proc, signum=signal.SIGTERM):
 
 def generate_flamegraph():
     p1 = subprocess.Popen(['perf', 'script', '-i', 'perf.data'], stdout=subprocess.PIPE)
-    
-	FlameGraph (лежит рядом)
     p2 = subprocess.Popen(['./FlameGraph/stackcollapse-perf.pl'], stdin=p1.stdout, stdout=subprocess.PIPE)
-    p1.stdout.close() # Разрешаем p1 получать SIGPIPE
+    p1.stdout.close()
     
     with open('graph.svg', 'w') as svg_file:
         p3 = subprocess.Popen(['./FlameGraph/flamegraph.pl'], stdin=p2.stdout, stdout=svg_file)
@@ -56,28 +53,18 @@ def generate_flamegraph():
 def main():
     args = parse_args()
 
-    print("Starting server...")
     server_proc = start_server(args.server)
-
     time.sleep(0.5)
 
-    print(f"Starting perf record for server PID: {server_proc.pid}...")
     perf_proc = start_perf(server_proc.pid)
-    
     time.sleep(0.5)
 
-    print("Shooting ammunition...")
     make_shots()
 
-    print("Stopping perf record...")
     stop_process(perf_proc, signal.SIGINT)
-
-    print("Stopping server...")
     stop_process(server_proc, signal.SIGTERM)
 
-    print("Generating flamegraph (graph.svg)...")
     generate_flamegraph()
-    print("Done!")
 
 if __name__ == '__main__':
     main()
