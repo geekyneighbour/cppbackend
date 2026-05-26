@@ -1,0 +1,21 @@
+overload:
+  enabled: false
+
+phantom:
+  address: 127.0.0.1:8080
+  ammofile: /sprint3/problems/ammo/solution/ammo.txt
+  ammo_type: uri
+  instances: 10000
+  load_profile:
+    load_type: rps
+    schedule: const(100000, 1m)
+  ssl: false
+
+autostop:
+  enabled: false
+
+console:
+  enabled: true
+
+telegraf:
+  enabled: false
