@@ -38,10 +38,10 @@ public:
 
     template <typename Request, typename Send, typename Endpoint>
     void operator()(Request&& req, Send&& send, Endpoint endpoint) {
-        json::object data_req{
-            {"ip", endpoint.address().to_string()},
-            {"URI", std::string(req.target())},
-            {"method", std::string(req.method_string())}
+        json::object data_req{\
+            {"ip", endpoint.address().to_string()},\
+            {"URI", std::string(req.target())},\
+            {"method", std::string(req.method_string())}\
         };
 
         BOOST_LOG_TRIVIAL(info)
@@ -54,10 +54,10 @@ public:
             auto end_time = std::chrono::steady_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
 
-            json::object data_resp{
-                {"response_time", duration},
-                {"code", response.result_int()},
-                {"content_type", std::string(response[http::field::content_type])}
+            json::object data_resp{\
+                {"response_time", duration},\
+                {"code", response.result_int()},\
+                {"content_type", std::string(response[http::field::content_type])}\
             };
 
             BOOST_LOG_TRIVIAL(info)
@@ -218,7 +218,7 @@ private:
             return;
         }
 
-        // 2. Конкретная карта
+        // 2. Детализация конкретной карты
         if (target.starts_with("/api/v1/maps/")) {
             if (req.method() != http::verb::get && req.method() != http::verb::head) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Invalid method", req.version());
@@ -243,7 +243,7 @@ private:
             return;
         }
 
-        // 3. Вход в игру (Исправлено под сигнатуры вашей модели)
+        // 3. Вход в игровую сессию (Join game)
         if (target == "/api/v1/game/join" || target == "/api/v1/game/join/") {
             if (req.method() != http::verb::post) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Only POST method is allowed", req.version());
@@ -274,25 +274,28 @@ private:
                     return;
                 }
 
-                // Исправлено: Используем корректное имя метода FindOrCreateSession
-                auto& session = game_.FindOrCreateSession(map);
+                // Исправлено: FindOrCreateSession возвращает указатель model::GameSession*
+                auto* session = game_.FindOrCreateSession(map);
+                if (!session) {
+                    send(MakeJsonResponse(http::status::bad_request, "mapNotFound", "Session not found", req.version()));
+                    return;
+                }
                 
-                // Исправлено: Конструируем Player в соответствии с вашей сигнатурой из модели
-                // Создаем собаку для игрока
+                // Создаем сущность собаки для игрока
                 auto dog_ptr = std::make_shared<model::Dog>(user_name);
                 
-                // Генерируем ID игрока (внутренний счетчик или на основе размера сессии)
-                uint32_t next_id = static_cast<uint32_t>(session.GetPlayers().size() + 1);
+                // Рассчитываем ID нового игрока через стрелочку `->`
+                uint32_t next_id = static_cast<uint32_t>(session->GetPlayers().size() + 1);
                 auto player_id = model::Player::Id{next_id};
                 
-                // Передаем в конструктор: Id, shared_ptr<Dog>, session_id (в качестве session_id используем строку карты)
+                // Передаем аргументы: Id, shared_ptr<Dog>, session_id (в качестве которого выступает строка id карты)
                 auto player_ptr = std::make_unique<model::Player>(player_id, dog_ptr, map_id_str);
                 model::Player* player = player_ptr.get();
                 
-                // Добавляем игрока в сессию
-                session.AddPlayer(std::move(player_ptr));
+                // Добавляем игрока в сессию через стрелочку `->`
+                session->AddPlayer(std::move(player_ptr));
 
-                // Генерируем токен и регистрируем в хранилище токенов
+                // Генерация токена аутентификации
                 std::string token = GenerateToken();
                 player_tokens_.AddPlayer(token, player);
 
@@ -307,7 +310,7 @@ private:
             return;
         }
 
-        // 4. Состояние игры (Исправлено получение сессии через ID карты из конфига игрока)
+        // 4. Получение игрового состояния (Game state)
         if (target == "/api/v1/game/state" || target == "/api/v1/game/state/") {
             if (req.method() != http::verb::get && req.method() != http::verb::head) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Invalid method", req.version());
@@ -334,8 +337,8 @@ private:
                 return;
             }
 
-            // Исправлено: Находим сессию через FindOrCreateSession по объекту карты из Game
-            auto map_id = model::Map::Id{player->GetSessionId()}; // Поле session_id хранит у нас строку-идентификатор карты
+            // Находим карту по сохраненному идентификатору в player->GetSessionId()
+            auto map_id = model::Map::Id{player->GetSessionId()};
             const auto* map = game_.FindMap(map_id);
             
             if (!map) {
@@ -346,12 +349,22 @@ private:
                 return;
             }
 
-            auto& session = game_.FindOrCreateSession(map);
-            send(MakeJsonResponse(http::status::ok, GetSessionState(&session), req.version()));
+            // Исправлено: FindOrCreateSession возвращает указатель model::GameSession*
+            auto* session = game_.FindOrCreateSession(map);
+            if (!session) {
+                json::object empty_state;
+                empty_state["players"] = json::object{};
+                empty_state["lostObjects"] = json::object{};
+                send(MakeJsonResponse(http::status::ok, std::move(empty_state), req.version()));
+                return;
+            }
+
+            // Исправлено: Передаем указатель session напрямую без взятия адреса (&)
+            send(MakeJsonResponse(http::status::ok, GetSessionState(session), req.version()));
             return;
         }
 
-        // 5. Игровой тик
+        // 5. Игровой такт/тик (Game tick)
         if (target == "/api/v1/game/tick" || target == "/api/v1/game/tick/") {
             if (req.method() != http::verb::post) {
                 send(MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Only POST method is allowed", req.version()));
@@ -385,7 +398,7 @@ private:
     json::object GetSessionState(const model::GameSession* session) {
         json::object root_obj;
 
-        // Игроки
+        // 1. Сериализация игроков (Собак)
         json::object players_json;
         for (const auto& player : session->GetPlayers()) {
             const auto& dog = player->GetDog();
@@ -403,7 +416,7 @@ private:
         }
         root_obj["players"] = std::move(players_json);
 
-        // Предметы
+        // 2. Сериализация динамически сгенерированных предметов (Loot/Lost Objects)
         json::object lost_objects_json;
         for (const auto& [id, obj] : session->GetLostObjects()) {
             json::object item_json;
