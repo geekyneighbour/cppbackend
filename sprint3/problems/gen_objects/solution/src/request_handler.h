@@ -274,25 +274,29 @@ private:
                     return;
                 }
 
-                // Исправлено: FindOrCreateSession возвращает указатель model::GameSession*
                 auto* session = game_.FindOrCreateSession(map);
                 if (!session) {
                     send(MakeJsonResponse(http::status::bad_request, "mapNotFound", "Session not found", req.version()));
                     return;
                 }
                 
-                // Создаем сущность собаки для игрока
-                auto dog_ptr = std::make_shared<model::Dog>(user_name);
-                
-                // Рассчитываем ID нового игрока через стрелочку `->`
+                // Рассчитываем ID нового игрока и собаки
                 uint32_t next_id = static_cast<uint32_t>(session->GetPlayers().size() + 1);
                 auto player_id = model::Player::Id{next_id};
+                auto dog_id = model::Dog::Id{next_id};
                 
-                // Передаем аргументы: Id, shared_ptr<Dog>, session_id (в качестве которого выступает строка id карты)
+                // Определяем стартовую точку на карте (на первой дороге)
+                model::PointDouble start_pos{0.0, 0.0};
+                if (!map->GetRoads().empty()) {
+                    start_pos = model::GetRandomPointOnRoad(map->GetRoads().front());
+                }
+
+                // Исправлено: Передаем 3 аргумента (id, name, pos) для создания Dog
+                auto dog_ptr = std::make_shared<model::Dog>(dog_id, user_name, start_pos);
+                
                 auto player_ptr = std::make_unique<model::Player>(player_id, dog_ptr, map_id_str);
                 model::Player* player = player_ptr.get();
                 
-                // Добавляем игрока в сессию через стрелочку `->`
                 session->AddPlayer(std::move(player_ptr));
 
                 // Генерация токена аутентификации
@@ -337,7 +341,6 @@ private:
                 return;
             }
 
-            // Находим карту по сохраненному идентификатору в player->GetSessionId()
             auto map_id = model::Map::Id{player->GetSessionId()};
             const auto* map = game_.FindMap(map_id);
             
@@ -349,7 +352,6 @@ private:
                 return;
             }
 
-            // Исправлено: FindOrCreateSession возвращает указатель model::GameSession*
             auto* session = game_.FindOrCreateSession(map);
             if (!session) {
                 json::object empty_state;
@@ -359,7 +361,6 @@ private:
                 return;
             }
 
-            // Исправлено: Передаем указатель session напрямую без взятия адреса (&)
             send(MakeJsonResponse(http::status::ok, GetSessionState(session), req.version()));
             return;
         }
@@ -409,35 +410,4 @@ private:
             std::string dir_str = "N";
             if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "S";
             else if (dog->GetDirection() == model::Direction::WEST) dir_str = "W";
-            else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
-            dog_json["dir"] = dir_str;
-
-            players_json[std::to_string(*player->GetId())] = std::move(dog_json);
-        }
-        root_obj["players"] = std::move(players_json);
-
-        // 2. Сериализация динамически сгенерированных предметов (Loot/Lost Objects)
-        json::object lost_objects_json;
-        for (const auto& [id, obj] : session->GetLostObjects()) {
-            json::object item_json;
-            item_json["type"] = obj.type;
-            item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
-            
-            lost_objects_json[std::to_string(id)] = std::move(item_json);
-        }
-        root_obj["lostObjects"] = std::move(lost_objects_json);
-
-        return root_obj;
-    }
-
-    model::Game& game_;
-    const infra::ExtraData& extra_data_;
-    fs::path static_path_;
-    Strand api_strand_;
-    bool tick_mode_ = false;
-
-    model::PlayerTokens player_tokens_;
-    std::random_device random_device_;
-};
-
-} // namespace http_handler
+            else if (dog->GetDirection() == model::Direction::EAST) dir_
