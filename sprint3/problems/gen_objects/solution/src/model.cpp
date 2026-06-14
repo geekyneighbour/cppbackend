@@ -136,6 +136,7 @@ void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Map& 
     obj["roads"] = boost::json::value_from(map.GetRoads());
     obj["buildings"] = boost::json::value_from(map.GetBuildings());
     obj["offices"] = boost::json::value_from(map.GetOffices());
+	obj["lootTypes"] = boost::json::array{};
     jv = std::move(obj);
 }
 
