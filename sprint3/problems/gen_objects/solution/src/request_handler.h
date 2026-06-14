@@ -259,7 +259,7 @@ private:
             for (const auto& [id, obj] : session->GetLostObjects()) {
                 json::object item_json;
                 item_json["type"] = obj.type;
-                item_json["pos"] = json::array{obj.pos.x, obj.pos.y};
+                item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
                 lost_objects_json[std::to_string(id)] = std::move(item_json);
             }
             root_obj["lostObjects"] = std::move(lost_objects_json);
