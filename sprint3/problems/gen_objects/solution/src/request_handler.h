@@ -112,6 +112,16 @@ public:
     }
 
 private:
+
+    std::string GenerateToken() {
+        std::stringstream ss;
+        ss << std::hex << std::setfill('0');
+        for (int i = 0; i < 4; ++i) {
+            ss << std::setw(8) << random_device_();
+        }
+        return ss.str();
+    }
+
     static http::response<http::string_body> MakeJsonResponse(http::status status, json::value&& body, unsigned version) {
         http::response<http::string_body> res{status, version};
         res.set(http::field::content_type, "application/json");
@@ -187,12 +197,12 @@ private:
         send(std::move(res));
     }
 
-    // Маршрутизация API-запросов
+
     template <typename Body, typename Allocator, typename Send>
     void HandleApiRequest(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
         std::string_view target = req.target();
 
-        // 1. Получение списка карт
+
         if (target == "/api/v1/maps" || target == "/api/v1/maps/") {
             if (req.method() != http::verb::get && req.method() != http::verb::head) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Invalid method", req.version());
@@ -211,7 +221,7 @@ private:
             return;
         }
 
-        // 2. Получение конкретной карты
+
         if (target.starts_with("/api/v1/maps/")) {
             if (req.method() != http::verb::get && req.method() != http::verb::head) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Invalid method", req.version());
@@ -231,14 +241,67 @@ private:
                 return;
             }
 
-            json::value map_json = json::value_from(*map);
-            map_json.as_object()["lootTypes"] = extra_data_.GetLootTypes(map_id);
 
+            json::value map_json = json::value_from(*map);
             send(MakeJsonResponse(http::status::ok, std::move(map_json), req.version()));
             return;
         }
 
-        // 3. Состояние игры (Временная заглушка, возвращает пустое состояние согласно вашей логике)
+
+        if (target == "/api/v1/game/join" || target == "/api/v1/game/join/") {
+            if (req.method() != http::verb::post) {
+                auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Only POST method is allowed", req.version());
+                res.set(http::field::allow, "POST");
+                send(std::move(res));
+                return;
+            }
+
+            try {
+                auto body = json::parse(req.body()).as_object();
+                if (!body.contains("userName") || !body.contains("mapId")) {
+                    send(MakeJsonResponse(http::status::bad_request, "invalidArgument", "Invalid join game JSON", req.version()));
+                    return;
+                }
+
+                std::string user_name = json::value_to<std::string>(body.at("userName"));
+                std::string map_id_str = json::value_to<std::string>(body.at("mapId"));
+
+                if (user_name.empty()) {
+                    send(MakeJsonResponse(http::status::bad_request, "invalidArgument", "Invalid name", req.version()));
+                    return;
+                }
+
+                auto map_id = model::Map::Id{map_id_str};
+                const auto* map = game_.FindMap(map_id);
+                if (!map) {
+                    send(MakeJsonResponse(http::status::not_found, "mapNotFound", "Map not found", req.version()));
+                    return;
+                }
+
+
+                auto& session = game_.GetOrCreateSession(map);
+                
+
+                auto player_ptr = std::make_unique<model::Player>(user_name, map);
+                model::Player* player = player_ptr.get();
+                session.AddPlayer(std::move(player_ptr));
+
+
+                std::string token = GenerateToken();
+                player_tokens_.AddPlayer(token, player);
+
+                json::object resp_obj;
+                resp_obj["authToken"] = token;
+                resp_obj["playerId"] = *player->GetId();
+
+                send(MakeJsonResponse(http::status::ok, std::move(resp_obj), req.version()));
+            } catch (...) {
+                send(MakeJsonResponse(http::status::bad_request, "invalidArgument", "Join game failure", req.version()));
+            }
+            return;
+        }
+
+
         if (target == "/api/v1/game/state" || target == "/api/v1/game/state/") {
             if (req.method() != http::verb::get && req.method() != http::verb::head) {
                 auto res = MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Invalid method", req.version());
@@ -247,8 +310,27 @@ private:
                 return;
             }
 
-            const model::GameSession* session = nullptr; 
 
+            auto auth_header = req[http::field::authorization];
+            if (auth_header.empty() || !auth_header.starts_with("Bearer ") || auth_header.size() <= 7) {
+                send(MakeJsonResponse(http::status::unauthorized, "invalidToken", "Authorization header is required", req.version()));
+                return;
+            }
+
+            std::string token = std::string(auth_header.substr(7));
+            if (token.size() != 32) { // Длина сгенерированного hex-токена
+                send(MakeJsonResponse(http::status::unauthorized, "invalidToken", "Invalid token format", req.version()));
+                return;
+            }
+
+            auto* player = player_tokens_.FindPlayerByToken(token);
+            if (!player) {
+                send(MakeJsonResponse(http::status::unauthorized, "unknownToken", "Player token not found", req.version()));
+                return;
+            }
+
+
+            const auto* session = game_.FindSession(player->GetMap());
             if (!session) {
                 json::object empty_state;
                 empty_state["players"] = json::object{};
@@ -261,7 +343,7 @@ private:
             return;
         }
 
-        // 4. Игровой тик (Обновление состояния)
+
         if (target == "/api/v1/game/tick" || target == "/api/v1/game/tick/") {
             if (req.method() != http::verb::post) {
                 send(MakeJsonResponse(http::status::method_not_allowed, "invalidMethod", "Only POST method is allowed", req.version()));
@@ -292,11 +374,11 @@ private:
         send(MakeJsonResponse(http::status::bad_request, "badRequest", "Bad request", req.version()));
     }
 
-    // Формирование JSON-состояния сессии
+
     json::object GetSessionState(const model::GameSession* session) {
         json::object root_obj;
 
-        // Игроки
+
         json::object players_json;
         for (const auto& player : session->GetPlayers()) {
             const auto& dog = player->GetDog();
@@ -319,7 +401,7 @@ private:
         for (const auto& [id, obj] : session->GetLostObjects()) {
             json::object item_json;
             item_json["type"] = obj.type;
-            item_json["pos"] = json::array({obj.pos.x, obj.pos.y}); // Здесь круглые скобки исправлены
+            item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
             
             lost_objects_json[std::to_string(id)] = std::move(item_json);
         }
@@ -333,6 +415,9 @@ private:
     fs::path static_path_;
     Strand api_strand_;
     bool tick_mode_ = false;
+
+    model::PlayerTokens player_tokens_;
+    std::random_device random_device_;
 };
 
 } // namespace http_handler
