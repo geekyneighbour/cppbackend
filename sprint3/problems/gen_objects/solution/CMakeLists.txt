@@ -21,6 +21,8 @@ add_executable(game_server
 	src/json_loader.cpp
 	src/logging.h
 	src/request_handler.h
+	src/loot_generator.h   
+    	src/loot_generator.cpp
 )
 
 
