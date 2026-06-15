@@ -240,12 +240,8 @@ private:
 
             json::object map_json = json::value_from(*map).as_object();
             
-            // Извлекаем и добавляем lootTypes из extra_data, чтобы удовлетворить тесты
-            if (auto it = extra_data_.loot_types.find(std::string(map_id_str)); it != extra_data_.loot_types.end()) {
-                map_json["lootTypes"] = it->second;
-            } else {
-                map_json["lootTypes"] = json::array{};
-            }
+            // Исправлено: корректный доступ к публичному методу GetLootTypes вместо прямого обращения к приватному полю
+            map_json["lootTypes"] = extra_data_.GetLootTypes(map_id);
 
             send(MakeJsonResponse(http::status::ok, std::move(map_json), req.version()));
             return;
@@ -383,8 +379,8 @@ private:
                     return;
                 }
 
-                // Исправлено: Считываем как int64_t через to_number для предотвращения исключений bad_cast
-                int64_t delta_ms = body_json.as_object().at("timeDelta").to_number<int64_t>();
+                // Исправлено: считываем значение как int64_t безопасным вызовом .as_int64()
+                int64_t delta_ms = body_json.as_object().at("timeDelta").as_int64();
                 game_.UpdateAllSessions(static_cast<double>(delta_ms) / 1000.0);
 
                 send(MakeJsonResponse(http::status::ok, json::object{}, req.version()));
