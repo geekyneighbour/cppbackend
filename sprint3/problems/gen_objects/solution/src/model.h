@@ -306,7 +306,7 @@ public:
     GameSession* FindOrCreateSession(const Map* map);
     const Map* FindMap(const Map::Id& id) const;
     const Maps& GetMaps() const noexcept;
-    void AddMap(Map map);
+    Map& AddMap(Map map);
     void UpdateAllSessions(double time_delta_seconds);
 
     void SetLootGeneratorConfig(std::chrono::milliseconds period, double probability) {

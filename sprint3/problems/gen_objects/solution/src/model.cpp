@@ -83,12 +83,13 @@ const Game::Maps& Game::GetMaps() const noexcept {
     return maps_;
 }
 
-void Game::AddMap(Map map) {
+Map& Game::AddMap(Map map) {
     const size_t index = maps_.size();
     if (auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
         throw std::invalid_argument("Duplicate map");
     }
     maps_.push_back(std::make_unique<Map>(std::move(map)));
+    return *maps_.back();
 }
 
 void Game::UpdateAllSessions(double time_delta_seconds) {

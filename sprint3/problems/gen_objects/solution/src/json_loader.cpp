@@ -115,14 +115,16 @@ model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& e
             if (auto offices = map_obj.if_contains("offices")) {
                 AddOffices(offices->as_array(), map);
             }
+			
+			auto& inserted_map = game.AddMap(std::move(map));
 
             if (map_obj.contains("lootTypes")) {
-                auto loot_types_arr = map_obj.at("lootTypes").as_array();
-                map.SetLootTypesCount(loot_types_arr.size());
-                extra_data.SaveLootTypes(map.GetId(), loot_types_arr);
-            }
+				auto loot_types_arr = map_obj.at("lootTypes").as_array();
+				inserted_map.SetLootTypesCount(loot_types_arr.size());
+				extra_data.SaveLootTypes(inserted_map.GetId(), loot_types_arr);
+			}
 
-            game.AddMap(std::move(map));
+
         }
 
     } catch (const std::exception& e) {
