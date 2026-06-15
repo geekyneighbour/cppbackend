@@ -76,14 +76,16 @@ model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& e
         LoadGlobalSettings(obj);
 
         if (obj.contains("lootGeneratorConfig")) {
-            const auto& loot_config = obj.at("lootGeneratorConfig").as_object();
-            double period_sec = loot_config.at("period").as_double();
-            double probability = loot_config.at("probability").as_double();
-            game.SetLootGeneratorConfig(
-                std::chrono::duration<double>{period_sec},
-                probability
-            );
-        }
+			const auto& loot_config = obj.at("lootGeneratorConfig").as_object();
+			double period_sec = loot_config.at("period").as_double();
+			double probability = loot_config.at("probability").as_double();
+    
+			auto period_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+				std::chrono::duration<double>(period_sec)
+			);
+    
+    game.SetLootGeneratorConfig(period_ms, probability);
+}
 
         if (!obj.contains("maps")) return game;
 

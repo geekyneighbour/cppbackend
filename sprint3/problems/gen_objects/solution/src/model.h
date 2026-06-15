@@ -309,10 +309,10 @@ public:
     Map& AddMap(Map map);
     void UpdateAllSessions(double time_delta_seconds);
 
-    void SetLootGeneratorConfig(std::chrono::duration<double> period, double probability) {
-        loot_period_ = period;
-        loot_probability_ = probability;
-    }
+    void SetLootGeneratorConfig(std::chrono::milliseconds period, double probability) {
+		loot_period_ = period;
+		loot_probability_ = probability;
+	}
 
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
@@ -321,7 +321,7 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-    std::chrono::duration<double> loot_period_{5.0};
+    std::chrono::milliseconds loot_period_{5000};
     double loot_probability_ = 0.5;
 };
 
