@@ -36,18 +36,19 @@ void Map::AddOffice(Office office) {
 
 // ================= GAME SESSION =================
 void GameSession::Update(std::chrono::milliseconds time_delta) {
+
+
     unsigned looter_count = static_cast<unsigned>(players_.size());
     unsigned loot_count = static_cast<unsigned>(lost_objects_.size());
     
 
     unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
     
-    
+
     if (count_to_generate == 0 && loot_count < looter_count && looter_count > 0) {
         count_to_generate = 1;
     }
     
-
     if (count_to_generate > 0 && !map_->GetRoads().empty() && map_->GetLootTypesCount() > 0) {
         static std::mt19937 gen(std::random_device{}());
         std::uniform_int_distribution<size_t> road_dist(0, map_->GetRoads().size() - 1);

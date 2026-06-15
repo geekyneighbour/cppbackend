@@ -289,7 +289,7 @@ public:
         return lost_objects_;
     }
 
-    void Update(std::chrono::duration<double> time_delta);
+    void Update(std::chrono::milliseconds time_delta);
 
 private:
     const Map* map_;
