@@ -289,7 +289,7 @@ public:
         return lost_objects_;
     }
 
-    void Update(std::chrono::milliseconds time_delta);
+    void Update(std::chrono::duration<double> time_delta);
 
 private:
     const Map* map_;
@@ -309,7 +309,7 @@ public:
     Map& AddMap(Map map);
     void UpdateAllSessions(double time_delta_seconds);
 
-    void SetLootGeneratorConfig(std::chrono::milliseconds period, double probability) {
+    void SetLootGeneratorConfig(std::chrono::duration<double> period, double probability) {
         loot_period_ = period;
         loot_probability_ = probability;
     }
@@ -321,7 +321,7 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-    std::chrono::milliseconds loot_period_{5000};
+    std::chrono::duration<double> loot_period_{5.0};
     double loot_probability_ = 0.5;
 };
 

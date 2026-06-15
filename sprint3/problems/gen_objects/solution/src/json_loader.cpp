@@ -80,7 +80,7 @@ model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& e
             double period_sec = loot_config.at("period").as_double();
             double probability = loot_config.at("probability").as_double();
             game.SetLootGeneratorConfig(
-                std::chrono::milliseconds(static_cast<int64_t>(period_sec * 1000.0)),
+                std::chrono::duration<double>{period_sec},
                 probability
             );
         }
