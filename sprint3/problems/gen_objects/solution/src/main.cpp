@@ -93,8 +93,9 @@ int main(int argc, const char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
         // Проверка флага автоматического обновления времени
+		std::shared_ptr<Ticker> ticker;
         if (args->tick_period) {
-            auto ticker = std::make_shared<Ticker>(
+            ticker = std::make_shared<Ticker>(
                 api_strand,
                 std::chrono::milliseconds(*args->tick_period),
                 [&game](std::chrono::milliseconds delta) {
