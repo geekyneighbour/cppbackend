@@ -410,4 +410,35 @@ private:
             std::string dir_str = "N";
             if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "S";
             else if (dog->GetDirection() == model::Direction::WEST) dir_str = "W";
-            else if (dog->GetDirection() == model::Direction::EAST) dir_
+            else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
+            dog_json["dir"] = dir_str;
+
+            players_json[std::to_string(*player->GetId())] = std::move(dog_json);
+        }
+        root_obj["players"] = std::move(players_json);
+
+        // 2. Сериализация динамически сгенерированных предметов (Loot/Lost Objects)
+        json::object lost_objects_json;
+        for (const auto& [id, obj] : session->GetLostObjects()) {
+            json::object item_json;
+            item_json["type"] = obj.type;
+            item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
+            
+            lost_objects_json[std::to_string(id)] = std::move(item_json);
+        }
+        root_obj["lostObjects"] = std::move(lost_objects_json);
+
+        return root_obj;
+    }
+
+    model::Game& game_;
+    const infra::ExtraData& extra_data_;
+    fs::path static_path_;
+    Strand api_strand_;
+    bool tick_mode_ = false;
+
+    model::PlayerTokens player_tokens_;
+    std::random_device random_device_;
+};
+
+} // namespace http_handler
