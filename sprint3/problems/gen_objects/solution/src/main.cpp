@@ -92,19 +92,24 @@ int main(int argc, const char* argv[]) {
         auto api_strand = net::make_strand(ioc);
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
-        // Проверка флага автоматического обновления времени
-		std::shared_ptr<Ticker> ticker;
-        if (args->tick_period) {
-            ticker = std::make_shared<Ticker>(
-                api_strand,
-                std::chrono::milliseconds(*args->tick_period),
-                [&game](std::chrono::milliseconds delta) {
-                    game.UpdateAllSessions(delta.count() / 1000.0);
-                }
-            );
-            ticker->Start();
-        } else {
-            handler->SetTickMode(true); 
+        // Всегда запускаем тикер с периодом по умолчанию, если не указан
+        // Это нужно для тестов, которые не передают --tick-period
+        std::chrono::milliseconds tick_period = args->tick_period 
+            ? std::chrono::milliseconds(*args->tick_period)
+            : std::chrono::milliseconds(50); // Значение по умолчанию для тестов
+
+        auto ticker = std::make_shared<Ticker>(
+            api_strand,
+            tick_period,
+            [&game](std::chrono::milliseconds delta) {
+                game.UpdateAllSessions(delta.count() / 1000.0);
+            }
+        );
+        ticker->Start();
+
+        // Сохраняем флаг для обработчика, если нужно
+        if (!args->tick_period) {
+            handler->SetTickMode(true);
         }
 
         const auto address = net::ip::make_address("0.0.0.0");
@@ -115,6 +120,7 @@ int main(int argc, const char* argv[]) {
             json::object start_data;
             start_data["address"] = address.to_string();
             start_data["port"] = port;
+            start_data["tick_period"] = tick_period.count();
 
             BOOST_LOG_TRIVIAL(info)
                 << logging::add_value(additional_data, start_data)
