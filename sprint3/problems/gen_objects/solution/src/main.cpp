@@ -103,13 +103,13 @@ int main(int argc, const char* argv[]) {
 
         if (use_automatic_tick) {
             auto ticker = std::make_shared<Ticker>(
-                api_strand,
-                tick_period,
-                [&game](std::chrono::milliseconds delta) {
-                    game.UpdateAllSessions(delta.count() / 1000.0);
-                }
-            );
-            ticker->Start();
+    net::make_strand(ioc),
+    tick_period,
+    [&game](std::chrono::milliseconds delta) {
+        game.UpdateAllSessions(delta); // Передаем объект delta напрямую
+    }
+);
+ticker->Start();
         }
 
         {

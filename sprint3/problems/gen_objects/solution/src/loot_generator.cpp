@@ -5,41 +5,29 @@
 
 namespace loot_gen {
 
-unsigned LootGenerator::Generate(TimeInterval time_delta,
-                                 unsigned loot_count,
-                                 unsigned looter_count)
-{
+unsigned LootGenerator::Generate(TimeInterval time_delta, unsigned loot_count,
+                                 unsigned looter_count) {
     time_without_loot_ += time_delta;
 
-    unsigned generated = 0;
+
+    const unsigned loot_shortage = loot_count > looter_count ? 0u : looter_count - loot_count;
+
+ 
+    const double ratio = std::chrono::duration<double>{time_without_loot_} / base_interval_;
 
 
-    while (time_without_loot_ >= base_interval_) {
-        time_without_loot_ -= base_interval_;
+    const double probability
+        = std::clamp((1.0 - std::pow(1.0 - probability_, ratio)) * random_generator_(), 0.0, 1.0);
 
-        if (random_generator_() < probability_) {
-            ++generated;
-        }
+
+    const unsigned generated_loot = static_cast<unsigned>(std::round(loot_shortage * probability));
+
+    
+    if (generated_loot > 0) {
+        time_without_loot_ = {};
     }
 
-
-    if (looter_count > 0 && loot_count == 0 && time_without_loot_.count() > 0) {
-
-        if (random_generator_() < probability_ || probability_ >= 0.9) {
-            ++generated;
-        }
-    }
-
-    unsigned loot_shortage =
-        (loot_count < looter_count)
-        ? (looter_count - loot_count)
-        : 0;
-
-    if (generated > loot_shortage) {
-        generated = loot_shortage;
-    }
-
-    return generated;
+    return generated_loot;
 }
 
 

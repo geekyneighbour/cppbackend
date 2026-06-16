@@ -316,7 +316,7 @@ public:
     const Map* FindMap(const Map::Id& id) const;
     const Maps& GetMaps() const noexcept;
     Map& AddMap(Map map);
-    void UpdateAllSessions(double time_delta_seconds);
+    void UpdateAllSessions(std::chrono::milliseconds delta);
 
     void SetLootGeneratorConfig(std::chrono::milliseconds period, double probability) {
 		loot_period_ = period;

@@ -93,13 +93,10 @@ Map& Game::AddMap(Map map) {
 }
 
 
-void Game::UpdateAllSessions(double time_delta_seconds) {
-    std::chrono::milliseconds delta_ms{
-        static_cast<int64_t>(std::round(time_delta_seconds * 1000.0))
-    };
-    
+void Game::UpdateAllSessions(std::chrono::milliseconds delta) {
     for (auto& [map_ptr, session] : sessions_) {
-        session->Update(delta_ms);
+
+        session->Tick(delta); 
     }
 }
 

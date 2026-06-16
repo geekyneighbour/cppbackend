@@ -387,7 +387,7 @@ private:
                 }
 
                 int64_t delta_ms = body_json.as_object().at("timeDelta").as_int64();
-                game_.UpdateAllSessions(static_cast<double>(delta_ms) / 1000.0);
+				game.UpdateAllSessions(std::chrono::milliseconds(delta_ms));
 
                 send(MakeJsonResponse(http::status::ok, json::object{}, req.version()));
             } catch (...) {
