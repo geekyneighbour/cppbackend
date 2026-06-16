@@ -64,10 +64,8 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
 GameSession* Game::FindOrCreateSession(const Map* map) {
     if (!sessions_.contains(map)) {
         sessions_[map] = std::make_unique<GameSession>(map, loot_period_, loot_probability_);
-        
-        for (int i = 0; i < 5; ++i) {
-            sessions_[map]->Update(std::chrono::milliseconds(5000));
-        }
+        // Немедленно обновляем сессию, чтобы лут появился при первом запросе
+        sessions_[map]->Update(std::chrono::milliseconds(100));
     }
     return sessions_.at(map).get();
 }

@@ -415,17 +415,20 @@ private:
         root_obj["players"] = std::move(players_json);
 
 
-        json::object lost_objects_json;
-        for (const auto& [id, obj] : session->GetLostObjects()) {
+        const auto& lost_objects = session->GetLostObjects();
+    if (!lost_objects.empty()) {
+        for (const auto& [id, obj] : lost_objects) {
             json::object item_json;
             item_json["type"] = obj.type;
             item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
-            
             lost_objects_json[std::to_string(id)] = std::move(item_json);
         }
-        root_obj["lostObjects"] = std::move(lost_objects_json);
+    }
+    
 
-        return root_obj;
+    root_obj["lostObjects"] = std::move(lost_objects_json);
+
+    return root_obj;
     }
 
 private:
