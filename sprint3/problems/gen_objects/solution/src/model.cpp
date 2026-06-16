@@ -4,6 +4,7 @@
 #include <boost/json.hpp>
 #include <cmath>
 
+
 namespace model {
 
 // ================= RANDOM POINT =================
@@ -42,6 +43,13 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
     
     unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
     
+    // Отладочное логирование
+    BOOST_LOG_TRIVIAL(debug) << "GameSession::Update: delta=" << time_delta.count() 
+                             << "ms, looter_count=" << looter_count 
+                             << ", loot_count=" << loot_count
+                             << ", count_to_generate=" << count_to_generate
+                             << ", roads=" << map_->GetRoads().size()
+                             << ", loot_types=" << map_->GetLootTypesCount();
 
     if (count_to_generate > 0 && !map_->GetRoads().empty() && map_->GetLootTypesCount() > 0) {
         static std::mt19937 gen(std::random_device{}());
@@ -57,6 +65,10 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
             
             uint32_t id = next_loot_id_++;
             lost_objects_[id] = LostObject{id, loot_type, spawn_pos};
+            
+            BOOST_LOG_TRIVIAL(debug) << "Generated loot: id=" << id 
+                                     << ", type=" << loot_type
+                                     << ", pos=(" << spawn_pos.x << ", " << spawn_pos.y << ")";
         }
     }
 }
@@ -64,7 +76,10 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
 // ================= GAME =================
 GameSession* Game::FindOrCreateSession(const Map* map) {
     if (!sessions_.contains(map)) {
+        BOOST_LOG_TRIVIAL(info) << "Creating new session for map: " << *map->GetId();
         sessions_[map] = std::make_unique<GameSession>(map, loot_period_, loot_probability_);
+        
+        sessions_[map]->Update(std::chrono::milliseconds(100));
     }
     return sessions_.at(map).get();
 }
@@ -94,6 +109,9 @@ void Game::UpdateAllSessions(double time_delta_seconds) {
     std::chrono::milliseconds delta_ms{
         static_cast<int64_t>(std::round(time_delta_seconds * 1000.0))
     };
+    
+    BOOST_LOG_TRIVIAL(debug) << "UpdateAllSessions called, delta_ms=" << delta_ms.count() 
+                             << ", sessions count=" << sessions_.size();
     
     for (auto& [map_ptr, session] : sessions_) {
         session->Update(delta_ms);
