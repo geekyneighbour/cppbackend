@@ -419,12 +419,8 @@ private:
     root_obj["players"] = std::move(players_json);
 
     json::object lost_objects_json;
-    
-    auto lost_objects = session->GetLostObjects();
-    BOOST_LOG_TRIVIAL(debug) 
-        << "Returning " << lost_objects.size() << " lost objects in state";
-    
-    for (const auto& [id, obj] : lost_objects) {
+   
+    for (const auto& [id, obj] : session->GetLostObjects()) {
         json::object item_json;
         item_json["type"] = static_cast<int64_t>(obj.type);
         item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
