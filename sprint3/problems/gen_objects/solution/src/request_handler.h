@@ -296,10 +296,15 @@ private:
                 }
 
                 auto dog_ptr = std::make_shared<model::Dog>(dog_id, user_name, start_pos);
-                auto player_ptr = std::make_unique<model::Player>(player_id, dog_ptr, map_id_str);
-                model::Player* player = player_ptr.get();
+                auto player_ptr = std::make_shared<model::Player>(
+    player_id,
+    dog_ptr,
+    map_id_str
+);
+
+               model::Player* player = player_ptr.get();
                 
-                session->AddPlayer(std::move(player_ptr));
+                session->AddPlayer(player_ptr);
 
                 std::string token = GenerateToken();
                 player_tokens_.AddPlayer(token, player);
@@ -420,7 +425,8 @@ private:
 
     for (const auto& [id, obj] : session->GetLostObjects()) {
         json::object item_json;
-        item_json["type"] = obj.type;
+        item_json["type"] =
+    static_cast<int64_t>(obj.type);
         item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
         lost_objects_json[std::to_string(id)] = std::move(item_json);
     }

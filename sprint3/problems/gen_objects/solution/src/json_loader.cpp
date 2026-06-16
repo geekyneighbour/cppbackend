@@ -78,8 +78,12 @@ model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& e
 if (obj.contains("lootGeneratorConfig")) {
     const auto& loot_config = obj.at("lootGeneratorConfig").as_object();
 
-    auto period_ms = std::chrono::milliseconds(
-        static_cast<long long>(loot_config.at("period").as_double())
+    double period_sec =
+    loot_config.at("period").as_double();
+
+auto period_ms =
+    std::chrono::milliseconds(
+        static_cast<long long>(period_sec * 1000.0)
     );
 
     double probability = loot_config.at("probability").as_double();
