@@ -44,10 +44,6 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
 
     unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
     
-
-    if (count_to_generate == 0 && loot_count < looter_count && looter_count > 0) {
-        count_to_generate = 1;
-    }
     
     if (count_to_generate > 0 && !map_->GetRoads().empty() && map_->GetLootTypesCount() > 0) {
         static std::mt19937 gen(std::random_device{}());
