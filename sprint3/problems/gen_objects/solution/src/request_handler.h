@@ -405,8 +405,6 @@ private:
     for (const auto& player : session->GetPlayers()) {
         const auto& dog = player->GetDog();
         json::object dog_json;
-        
-
         dog_json["pos"] = json::array({dog->GetPosition().x, dog->GetPosition().y});
         dog_json["speed"] = json::array({dog->GetSpeed().vx, dog->GetSpeed().vy});
         
@@ -417,23 +415,9 @@ private:
         else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
         dog_json["dir"] = dir_str;
 
-
-        dog_json["score"] = player->GetScore(); 
-
-
-        json::array bag_json;
-        for (const auto& item : dog->GetBag()) { 
-            json::object item_obj;
-            item_obj["id"] = item.id;
-            item_obj["type"] = item.type;
-            bag_json.push_back(std::move(item_obj));
-        }
-        dog_json["bag"] = std::move(bag_json);
-
         players_json[std::to_string(*player->GetId())] = std::move(dog_json);
     }
     root_obj["players"] = std::move(players_json);
-
 
     json::object lost_objects_json;
     for (const auto& [id, obj] : session->GetLostObjects()) {
