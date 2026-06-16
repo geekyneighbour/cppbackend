@@ -96,7 +96,7 @@ Map& Game::AddMap(Map map) {
 void Game::UpdateAllSessions(std::chrono::milliseconds delta) {
     for (auto& [map_ptr, session] : sessions_) {
 
-        session->Tick(delta); 
+        session->Update(delta); 
     }
 }
 
