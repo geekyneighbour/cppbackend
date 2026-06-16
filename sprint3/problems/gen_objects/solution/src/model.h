@@ -325,8 +325,8 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-    std::chrono::milliseconds loot_period_{5000};
-    double loot_probability_ = 0.5;
+    std::chrono::milliseconds loot_period_{100};
+    double loot_probability_ = 1.0;
 };
 
 class PlayerTokens {
