@@ -42,6 +42,13 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
     
     unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
     
+    if (count_to_generate > 0) {
+        BOOST_LOG_TRIVIAL(debug) 
+            << "Generating " << count_to_generate << " loot objects, "
+            << "loot_count=" << loot_count << ", looter_count=" << looter_count
+            << ", map loot types=" << map_->GetLootTypesCount();
+    }
+    
     if (count_to_generate > 0 && !map_->GetRoads().empty() && map_->GetLootTypesCount() > 0) {
         static std::mt19937 gen(std::random_device{}());
         std::uniform_int_distribution<size_t> road_dist(0, map_->GetRoads().size() - 1);
@@ -56,6 +63,11 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
             
             uint32_t id = next_loot_id_++;
             lost_objects_[id] = LostObject{id, loot_type, spawn_pos};
+            
+            BOOST_LOG_TRIVIAL(debug) 
+                << "Created loot object id=" << id 
+                << ", type=" << loot_type 
+                << ", pos=(" << spawn_pos.x << "," << spawn_pos.y << ")";
         }
     }
 }

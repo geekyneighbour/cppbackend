@@ -17,6 +17,10 @@ public:
         , probability_{probability}
         , random_generator_{std::move(random_gen)} {
     }
+	
+	 void ForceInitialGeneration() {
+        time_without_loot_ = base_interval_;
+    }
 
     
     unsigned Generate(TimeInterval time_delta, unsigned loot_count, unsigned looter_count);

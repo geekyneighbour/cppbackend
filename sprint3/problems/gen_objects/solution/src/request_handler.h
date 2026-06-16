@@ -399,8 +399,7 @@ private:
     }
 
     json::object GetSessionState(const model::GameSession* session) {
-        json::object root_obj;
-
+    json::object root_obj;
 
     json::object players_json;
     for (const auto& player : session->GetPlayers()) {
@@ -419,23 +418,23 @@ private:
     }
     root_obj["players"] = std::move(players_json);
 
-
     json::object lost_objects_json;
     
-
-    for (const auto& [id, obj] : session->GetLostObjects()) {
+    auto lost_objects = session->GetLostObjects();
+    BOOST_LOG_TRIVIAL(debug) 
+        << "Returning " << lost_objects.size() << " lost objects in state";
+    
+    for (const auto& [id, obj] : lost_objects) {
         json::object item_json;
-        item_json["type"] =
-    static_cast<int64_t>(obj.type);
+        item_json["type"] = static_cast<int64_t>(obj.type);
         item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
         lost_objects_json[std::to_string(id)] = std::move(item_json);
     }
     
-
     root_obj["lostObjects"] = std::move(lost_objects_json);
 
     return root_obj;
-    }
+}
 
 private:
     model::Game& game_;

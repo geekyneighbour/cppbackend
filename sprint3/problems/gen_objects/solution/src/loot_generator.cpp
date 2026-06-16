@@ -13,10 +13,19 @@ unsigned LootGenerator::Generate(TimeInterval time_delta,
 
     unsigned generated = 0;
 
+
     while (time_without_loot_ >= base_interval_) {
         time_without_loot_ -= base_interval_;
 
         if (random_generator_() < probability_) {
+            ++generated;
+        }
+    }
+
+
+    if (looter_count > 0 && loot_count == 0 && time_without_loot_.count() > 0) {
+
+        if (random_generator_() < probability_ || probability_ >= 0.9) {
             ++generated;
         }
     }

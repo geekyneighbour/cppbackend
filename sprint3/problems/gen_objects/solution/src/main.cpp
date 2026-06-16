@@ -85,23 +85,19 @@ int main(int argc, const char* argv[]) {
         const unsigned num_threads = std::max(1u, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
 
-        // Инфраструктурное хранилище для lootTypes
         infra::ExtraData extra_data;
         model::Game game = json_loader::LoadGame(args->config_file, extra_data);
 
         auto api_strand = net::make_strand(ioc);
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
-        // Всегда запускаем тикер
-        // Если tick_period не указан, используем значение по умолчанию 50 мс
-        // Это необходимо для работы тестов
         std::chrono::milliseconds tick_period;
-        if (args->tick_period) {
-            tick_period = std::chrono::milliseconds(*args->tick_period);
-        } else {
-            tick_period = std::chrono::milliseconds(50); // Значение по умолчанию для тестов
-            handler->SetTickMode(true);
-        }
+    if (args->tick_period) {
+        tick_period = std::chrono::milliseconds(*args->tick_period);
+    } else {
+        tick_period = std::chrono::milliseconds(10);
+        handler->SetTickMode(true);
+    }
 
         auto ticker = std::make_shared<Ticker>(
             api_strand,
@@ -112,7 +108,6 @@ int main(int argc, const char* argv[]) {
         );
         ticker->Start();
 
-        // Логируем информацию о запуске
         {
             json::object start_data;
             start_data["address"] = "0.0.0.0";
