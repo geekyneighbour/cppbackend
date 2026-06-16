@@ -92,21 +92,26 @@ int main(int argc, const char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
         std::chrono::milliseconds tick_period;
-    if (args->tick_period) {
-        tick_period = std::chrono::milliseconds(*args->tick_period);
-    } else {
-        tick_period = std::chrono::milliseconds(10);
-        handler->SetTickMode(true);
-    }
+    bool use_automatic_tick = false;
+        std::chrono::milliseconds tick_period{0};
 
-        auto ticker = std::make_shared<Ticker>(
-            api_strand,
-            tick_period,
-            [&game](std::chrono::milliseconds delta) {
-                game.UpdateAllSessions(delta.count() / 1000.0);
-            }
-        );
-        ticker->Start();
+        if (args->tick_period) {
+            tick_period = std::chrono::milliseconds(*args->tick_period);
+            use_automatic_tick = true;
+        } else {
+            handler->SetTickMode(true);
+        }
+
+        if (use_automatic_tick) {
+            auto ticker = std::make_shared<Ticker>(
+                api_strand,
+                tick_period,
+                [&game](std::chrono::milliseconds delta) {
+                    game.UpdateAllSessions(delta.count() / 1000.0);
+                }
+            );
+            ticker->Start();
+        }
 
         {
             json::object start_data;
