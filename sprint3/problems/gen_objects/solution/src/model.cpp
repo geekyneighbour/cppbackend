@@ -63,8 +63,11 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
 // ================= GAME =================
 GameSession* Game::FindOrCreateSession(const Map* map) {
     if (!sessions_.contains(map)) {
-        sessions_[map] = std::make_unique<GameSession>(map, loot_period_, loot_probability_);
-
+        auto session = std::make_unique<GameSession>(map, loot_period_, loot_probability_);
+        
+        session->GetLootGenerator().ForceInitialGeneration(); 
+        
+        sessions_[map] = std::move(session);
     }
     return sessions_.at(map).get();
 }

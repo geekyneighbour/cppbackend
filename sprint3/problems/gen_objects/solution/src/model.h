@@ -296,6 +296,8 @@ public:
     }
 
     void Update(std::chrono::milliseconds time_delta);
+	
+	loot_gen::LootGenerator& GetLootGenerator() { return loot_gen_; }
 
 private:
     const Map* map_;
