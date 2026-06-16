@@ -92,11 +92,16 @@ int main(int argc, const char* argv[]) {
         auto api_strand = net::make_strand(ioc);
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
-        // Всегда запускаем тикер с периодом по умолчанию, если не указан
-        // Это нужно для тестов, которые не передают --tick-period
-        std::chrono::milliseconds tick_period = args->tick_period 
-            ? std::chrono::milliseconds(*args->tick_period)
-            : std::chrono::milliseconds(50); // Значение по умолчанию для тестов
+        // Всегда запускаем тикер
+        // Если tick_period не указан, используем значение по умолчанию 50 мс
+        // Это необходимо для работы тестов
+        std::chrono::milliseconds tick_period;
+        if (args->tick_period) {
+            tick_period = std::chrono::milliseconds(*args->tick_period);
+        } else {
+            tick_period = std::chrono::milliseconds(50); // Значение по умолчанию для тестов
+            handler->SetTickMode(true);
+        }
 
         auto ticker = std::make_shared<Ticker>(
             api_strand,
@@ -107,25 +112,21 @@ int main(int argc, const char* argv[]) {
         );
         ticker->Start();
 
-        // Сохраняем флаг для обработчика, если нужно
-        if (!args->tick_period) {
-            handler->SetTickMode(true);
-        }
-
-        const auto address = net::ip::make_address("0.0.0.0");
-        constexpr net::ip::port_type port = 8080;
-        net::ip::tcp::endpoint endpoint{address, port};
-
+        // Логируем информацию о запуске
         {
             json::object start_data;
-            start_data["address"] = address.to_string();
-            start_data["port"] = port;
+            start_data["address"] = "0.0.0.0";
+            start_data["port"] = 8080;
             start_data["tick_period"] = tick_period.count();
 
             BOOST_LOG_TRIVIAL(info)
                 << logging::add_value(additional_data, start_data)
                 << "server started";
         }
+
+        const auto address = net::ip::make_address("0.0.0.0");
+        constexpr net::ip::port_type port = 8080;
+        net::ip::tcp::endpoint endpoint{address, port};
 
         http_server::ServeHttp(ioc, endpoint,
             [handler](auto&& req, auto&& send, auto&& endpoint) {
