@@ -91,7 +91,6 @@ int main(int argc, const char* argv[]) {
         auto api_strand = net::make_strand(ioc);
         auto handler = std::make_shared<http_handler::RequestHandler>(game, extra_data, args->www_root, api_strand);
 
-        std::chrono::milliseconds tick_period;
     bool use_automatic_tick = false;
         std::chrono::milliseconds tick_period{0};
 

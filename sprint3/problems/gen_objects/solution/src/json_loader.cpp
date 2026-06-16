@@ -78,15 +78,25 @@ model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& e
 if (obj.contains("lootGeneratorConfig")) {
     const auto& loot_config = obj.at("lootGeneratorConfig").as_object();
 
-    double period_sec =
-    loot_config.at("period").as_double();
+    double period_sec = 0.0;
+    auto period_val = loot_config.at("period");
+    if (period_val.is_double()) {
+        period_sec = period_val.as_double();
+    } else if (period_val.is_int64()) {
+        period_sec = static_cast<double>(period_val.as_int64());
+    }
 
-auto period_ms =
-    std::chrono::milliseconds(
+    auto period_ms = std::chrono::milliseconds(
         static_cast<long long>(period_sec * 1000.0)
     );
 
-    double probability = loot_config.at("probability").as_double();
+    double probability = 0.0;
+    auto prob_val = loot_config.at("probability");
+    if (prob_val.is_double()) {
+        probability = prob_val.as_double();
+    } else if (prob_val.is_int64()) {
+        probability = static_cast<double>(prob_val.as_int64());
+    }
 
     game.SetLootGeneratorConfig(period_ms, probability);
 }
