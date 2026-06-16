@@ -409,11 +409,11 @@ private:
         dog_json["speed"] = json::array({dog->GetSpeed().vx, dog->GetSpeed().vy});
         
 
-        std::string dir_str = "N"; 
-        if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "S";
-        else if (dog->GetDirection() == model::Direction::WEST) dir_str = "W";
-        else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
-        dog_json["dir"] = dir_str;
+        std::string dir_str = "U"; // NORTH -> U (Up)
+		if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "D"; 
+		else if (dog->GetDirection() == model::Direction::WEST) dir_str = "L";  
+		else if (dog->GetDirection() == model::Direction::EAST) dir_str = "R";  
+		dog_json["dir"] = dir_str;
 
         players_json[std::to_string(*player->GetId())] = std::move(dog_json);
     }
