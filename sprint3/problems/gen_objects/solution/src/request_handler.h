@@ -285,6 +285,7 @@ private:
                     send(MakeJsonResponse(http::status::bad_request, "mapNotFound", "Session not found", req.version()));
                     return;
                 }
+				session->GetLootGenerator().ForceInitialGeneration();
                 
                 uint32_t next_id = static_cast<uint32_t>(session->GetPlayers().size() + 1);
                 auto player_id = model::Player::Id{next_id};

@@ -272,10 +272,14 @@ private:
 class GameSession {
 public:
 	GameSession(const Map* map, std::chrono::milliseconds loot_period, double loot_probability)
-		: map_(map)
-		, loot_gen_(loot_period, loot_probability) {
-    
-		loot_gen_.ForceInitialGeneration(); 
+    : map_(map)
+    , loot_gen_(loot_period, loot_probability, []() {
+        static std::mt19937 g(std::random_device{}());
+        std::uniform_real_distribution<double> d(0.0, 1.0);
+        return d(g);
+    }) 
+{
+    loot_gen_.ForceInitialGeneration();
 }
 
     const Map* GetMap() const noexcept { return map_; }
