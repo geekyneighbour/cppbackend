@@ -2,6 +2,7 @@
 #include <random>
 #include <stdexcept>
 #include <boost/json.hpp>
+#include <cmath>
 
 namespace model {
 
@@ -93,7 +94,10 @@ Map& Game::AddMap(Map map) {
 
 
 void Game::UpdateAllSessions(double time_delta_seconds) {
-    std::chrono::milliseconds delta_ms{static_cast<int64_t>(time_delta_seconds * 1000.0)};
+    std::chrono::milliseconds delta_ms{
+        static_cast<int64_t>(std::round(time_delta_seconds * 1000.0))
+    };
+    
     for (auto& [map_ptr, session] : sessions_) {
         session->Update(delta_ms);
     }
