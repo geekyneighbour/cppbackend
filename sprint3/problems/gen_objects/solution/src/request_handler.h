@@ -397,32 +397,32 @@ private:
         json::object root_obj;
 
 
-        json::object players_json;
-        for (const auto& player : session->GetPlayers()) {
-            const auto& dog = player->GetDog();
-            json::object dog_json;
-            dog_json["pos"] = json::array({dog->GetPosition().x, dog->GetPosition().y});
-            dog_json["speed"] = json::array({dog->GetSpeed().vx, dog->GetSpeed().vy});
-            
-            std::string dir_str = "U"; 
-            if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "S";
-            else if (dog->GetDirection() == model::Direction::WEST) dir_str = "W";
-            else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
-            dog_json["dir"] = dir_str;
+    json::object players_json;
+    for (const auto& player : session->GetPlayers()) {
+        const auto& dog = player->GetDog();
+        json::object dog_json;
+        dog_json["pos"] = json::array({dog->GetPosition().x, dog->GetPosition().y});
+        dog_json["speed"] = json::array({dog->GetSpeed().vx, dog->GetSpeed().vy});
+        
+        std::string dir_str = "U"; 
+        if (dog->GetDirection() == model::Direction::SOUTH) dir_str = "S";
+        else if (dog->GetDirection() == model::Direction::WEST) dir_str = "W";
+        else if (dog->GetDirection() == model::Direction::EAST) dir_str = "E";
+        dog_json["dir"] = dir_str;
 
-            players_json[std::to_string(*player->GetId())] = std::move(dog_json);
-        }
-        root_obj["players"] = std::move(players_json);
+        players_json[std::to_string(*player->GetId())] = std::move(dog_json);
+    }
+    root_obj["players"] = std::move(players_json);
 
 
-        const auto& lost_objects = session->GetLostObjects();
-    if (!lost_objects.empty()) {
-        for (const auto& [id, obj] : lost_objects) {
-            json::object item_json;
-            item_json["type"] = obj.type;
-            item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
-            lost_objects_json[std::to_string(id)] = std::move(item_json);
-        }
+    json::object lost_objects_json;
+    
+
+    for (const auto& [id, obj] : session->GetLostObjects()) {
+        json::object item_json;
+        item_json["type"] = obj.type;
+        item_json["pos"] = json::array({obj.pos.x, obj.pos.y});
+        lost_objects_json[std::to_string(id)] = std::move(item_json);
     }
     
 
