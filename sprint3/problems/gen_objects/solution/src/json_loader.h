@@ -1,14 +1,26 @@
+// json_loader.h - обновленная версия
 #pragma once
 
 #include <filesystem>
 #include <boost/json.hpp>
 
 #include "model.h"
-#include "extra_data.h"
+#include "loot_generator.h"
 
 namespace json_loader {
 
-model::Game LoadGame(const std::filesystem::path& json_path, infra::ExtraData& extra_data);
+struct LootGeneratorConfig {
+    std::chrono::milliseconds period;
+    double probability;
+};
+
+struct LootTypesStorage {
+    std::unordered_map<model::Map::Id, boost::json::array, util::TaggedHasher<model::Map::Id>> map_loot_types;
+};
+
+model::Game LoadGame(const std::filesystem::path& json_path);
+LootGeneratorConfig LoadLootGeneratorConfig(const std::filesystem::path& json_path);
+LootTypesStorage LoadLootTypes(const std::filesystem::path& json_path);
 
 void AddRoads(const boost::json::array& roads_array, model::Map& map);
 void AddBuildings(const boost::json::array& buildings_array, model::Map& map);

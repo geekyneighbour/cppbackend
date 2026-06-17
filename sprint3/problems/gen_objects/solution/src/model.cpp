@@ -1,8 +1,8 @@
+// model.cpp - обновленная версия
 #include "model.h"
 #include <random>
 #include <stdexcept>
 #include <boost/json.hpp>
-#include <cmath>
 
 namespace model {
 
@@ -32,91 +32,210 @@ void Map::AddOffice(Office office) {
 
     size_t index = offices_.size();
     Office& o = offices_.emplace_back(std::move(office));
-    warehouse_id_to_index_[o.GetId()] = index;
+
+    try {
+        warehouse_id_to_index_.emplace(o.GetId(), index);
+    } catch (...) {
+        offices_.pop_back();
+        throw;
+    }
 }
 
 // ================= GAME SESSION =================
-void GameSession::Update(std::chrono::milliseconds time_delta) {
-    unsigned looter_count = static_cast<unsigned>(players_.size());
-    
-    if (looter_count == 0) {
-        looter_count = 1; 
-    }
-
-    unsigned loot_count = static_cast<unsigned>(lost_objects_.size());
-    
-    unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
-    
-    if (count_to_generate > 0 && !map_->GetRoads().empty() && map_->GetLootTypesCount() > 0) {
-        static std::mt19937 gen(std::random_device{}());
-        std::uniform_int_distribution<size_t> road_dist(0, map_->GetRoads().size() - 1);
-        std::uniform_int_distribution<uint32_t> type_dist(0, map_->GetLootTypesCount() - 1);
-        
-        for (unsigned i = 0; i < count_to_generate; ++i) {
-    if (map_->GetRoads().empty()) break;
-
-
+Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     const auto& roads = map_->GetRoads();
-    size_t road_index = std::rand() % roads.size();
-    const auto& road = roads[road_index];
-
-
-    PointDouble spawn_pos = GetRandomPointOnRoad(road);
-
-
-    uint32_t loot_type = 0;
-    if (map_->GetLootTypesCount() > 0) {
-        loot_type = std::rand() % map_->GetLootTypesCount();
+    if (roads.empty()) {
+        throw std::runtime_error("Map has no roads");
     }
 
+    PointDouble spawn_pos;
 
-    uint32_t obj_id = next_lost_object_id_++;
-    lost_objects_[obj_id] = LostObject{obj_id, loot_type, spawn_pos};
+    if (randomize) {
+        std::uniform_int_distribution<size_t> dist(0, roads.size() - 1);
+        const auto& road = roads[dist(random_gen_)];
+        spawn_pos = GetRandomPointOnRoad(road);
+    } else {
+        const auto& first_road = roads[0];
+        spawn_pos = {
+            static_cast<double>(first_road.GetStart().x),
+            static_cast<double>(first_road.GetStart().y)
+        };
+    }
+
+    auto new_dog = std::make_unique<Dog>(std::string(name));
+    new_dog->SetPos(spawn_pos.x, spawn_pos.y);
+    
+    dogs_.push_back(std::move(new_dog));
+    return *dogs_.back();
 }
+
+Player& GameSession::AddPlayer(Dog& dog) {
+    uint64_t id = ++next_player_id_;
+    auto [it, ok] = players_.emplace(id, Player{id, &dog, this});
+    return it->second;
+}
+
+std::vector<Player*> GameSession::GetPlayers() {
+    std::vector<Player*> res;
+    for (auto& [_, p] : players_) {
+        res.push_back(&p);
+    }
+    return res;
+}
+
+void GameSession::AddLoot(const Loot& loot) {
+    loot_.push_back(loot);
+}
+
+void GameSession::AddLoot(int type, PointDouble pos) {
+    Loot loot;
+    loot.id = ++next_loot_id_;
+    loot.type = type;
+    loot.pos = pos;
+    loot.collected = false;
+    loot_.push_back(loot);
+}
+
+void GameSession::GenerateLoot(unsigned count) {
+    if (!map_ || count == 0) return;
+    
+    const auto& roads = map_->GetRoads();
+    if (roads.empty()) return;
+    
+    size_t loot_types = map_->GetLootTypesCount();
+    if (loot_types == 0) return;
+    
+    std::uniform_int_distribution<size_t> road_dist(0, roads.size() - 1);
+    std::uniform_int_distribution<size_t> type_dist(0, loot_types - 1);
+    
+    for (unsigned i = 0; i < count; ++i) {
+        const auto& road = roads[road_dist(random_gen_)];
+        PointDouble pos = GetRandomPointOnRoad(road);
+        int type = static_cast<int>(type_dist(random_gen_));
+        AddLoot(type, pos);
+    }
+}
+
+void GameSession::UpdateState(double dt) {
+    if (!map_) return;
+
+    for (auto& dog : dogs_) {
+        dog->UpdatePosition(dt, map_->GetRoads());
     }
 }
 
 // ================= GAME =================
-GameSession* Game::FindOrCreateSession(const Map* map) {
-    if (!sessions_.contains(map)) {
-        auto session = std::make_unique<GameSession>(map, loot_period_, loot_probability_);
-        
-        session->GetLootGenerator().ForceInitialGeneration(); 
-        
-        sessions_[map] = std::move(session);
+GameSession& Game::FindOrCreateSession(const Map* map) {
+    auto& ptr = sessions_[map];
+    if (!ptr) {
+        ptr = std::make_unique<GameSession>(map);
     }
-    return sessions_.at(map).get();
+    return *ptr;
 }
 
 const Map* Game::FindMap(const Map::Id& id) const {
-    if (auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-        return maps_.at(it->second).get();
-    }
-    return nullptr;
+    auto it = map_id_to_index_.find(id);
+    return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
 }
 
 const Game::Maps& Game::GetMaps() const noexcept {
     return maps_;
 }
 
-Map& Game::AddMap(Map map) {
-    const size_t index = maps_.size();
+void Game::AddMap(Map map) {
+    size_t index = maps_.size();
+
     if (auto [it, inserted] = map_id_to_index_.emplace(map.GetId(), index); !inserted) {
-        throw std::invalid_argument("Duplicate map");
+        throw std::invalid_argument("Map already exists");
     }
+
     maps_.push_back(std::make_unique<Map>(std::move(map)));
-    return *maps_.back();
 }
 
-
-void Game::UpdateAllSessions(std::chrono::milliseconds delta) {
-    for (auto& [map_ptr, session] : sessions_) {
-
-        session->Update(delta); 
+void Game::UpdateAllSessions(double dt) {
+    for (auto& [_, session] : sessions_) {
+        session->UpdateState(dt);
     }
 }
 
-// ================= JSON TAG INVOKE =================
+// ================= DOG =================
+void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
+    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
+
+    double new_x = pos_.x + speed_.vx * dt;
+    double new_y = pos_.y + speed_.vy * dt;
+
+    double min_x = pos_.x, max_x = pos_.x;
+    double min_y = pos_.y, max_y = pos_.y;
+
+    bool found_road = false;
+
+    for (const auto& road : roads) {
+        double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
+        double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
+        double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
+        double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + 0.4;
+
+        if (pos_.x >= road_min_x && pos_.x <= road_max_x &&
+            pos_.y >= road_min_y && pos_.y <= road_max_y) {
+            
+            if (!found_road) {
+                min_x = road_min_x; max_x = road_max_x;
+                min_y = road_min_y; max_y = road_max_y;
+                found_road = true;
+            } else {
+                min_x = std::min(min_x, road_min_x);
+                max_x = std::max(max_x, road_max_x);
+                min_y = std::min(min_y, road_min_y);
+                max_y = std::max(max_y, road_max_y);
+            }
+        }
+    }
+
+    if (!found_road) return;
+
+    if (new_x < min_x) {
+        new_x = min_x;
+        speed_.vx = 0.0;
+    } else if (new_x > max_x) {
+        new_x = max_x;
+        speed_.vx = 0.0;
+    }
+
+    if (new_y < min_y) {
+        new_y = min_y;
+        speed_.vy = 0.0;
+    } else if (new_y > max_y) {
+        new_y = max_y;
+        speed_.vy = 0.0;
+    }
+
+    pos_ = {new_x, new_y};
+}
+
+// ================= ACTION =================
+void Dog::SetAction(const std::string& action, double speed) {
+    if (action.empty()) {
+        speed_ = {0, 0};
+        return;
+    }
+
+    if (action == "L") {
+        speed_ = {-speed, 0};
+        dir_ = Direction::WEST;
+    } else if (action == "R") {
+        speed_ = {speed, 0};
+        dir_ = Direction::EAST;
+    } else if (action == "U") {
+        speed_ = {0, -speed};
+        dir_ = Direction::NORTH;
+    } else if (action == "D") {
+        speed_ = {0, speed};
+        dir_ = Direction::SOUTH;
+    }
+}
+
+// ================= JSON CONVERSIONS =================
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
     boost::json::object obj;
     obj["x0"] = road.GetStart().x;
@@ -150,12 +269,14 @@ void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Offic
 }
 
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Map& map) {
-    boost::json::object obj;
-    obj["id"] = *map.GetId();
-    obj["name"] = map.GetName();
-    obj["roads"] = boost::json::value_from(map.GetRoads());
-    obj["buildings"] = boost::json::value_from(map.GetBuildings());
-    obj["offices"] = boost::json::value_from(map.GetOffices());
+    boost::json::object obj = {
+        {"id", *map.GetId()},
+        {"name", map.GetName()},
+        {"roads", boost::json::value_from(map.GetRoads())},
+        {"buildings", boost::json::value_from(map.GetBuildings())},
+        {"offices", boost::json::value_from(map.GetOffices())}
+    };
+    // lootTypes не добавляем в value_from, они загружаются отдельно
     jv = std::move(obj);
 }
 
