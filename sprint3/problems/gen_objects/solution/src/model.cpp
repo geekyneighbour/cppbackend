@@ -38,6 +38,11 @@ void Map::AddOffice(Office office) {
 // ================= GAME SESSION =================
 void GameSession::Update(std::chrono::milliseconds time_delta) {
     unsigned looter_count = static_cast<unsigned>(players_.size());
+    
+    if (looter_count == 0) {
+        looter_count = 1; 
+    }
+
     unsigned loot_count = static_cast<unsigned>(lost_objects_.size());
     
     unsigned count_to_generate = loot_gen_.Generate(time_delta, loot_count, looter_count);
@@ -48,15 +53,26 @@ void GameSession::Update(std::chrono::milliseconds time_delta) {
         std::uniform_int_distribution<uint32_t> type_dist(0, map_->GetLootTypesCount() - 1);
         
         for (unsigned i = 0; i < count_to_generate; ++i) {
-            const auto& roads = map_->GetRoads();
-            const auto& random_road = roads[road_dist(gen)];
-            
-            PointDouble spawn_pos = GetRandomPointOnRoad(random_road);
-            uint32_t loot_type = type_dist(gen);
-            
-            uint32_t id = next_loot_id_++;
-            lost_objects_[id] = LostObject{id, loot_type, spawn_pos};
-        }
+    if (map_->GetRoads().empty()) break;
+
+
+    const auto& roads = map_->GetRoads();
+    size_t road_index = std::rand() % roads.size();
+    const auto& road = roads[road_index];
+
+
+    PointDouble spawn_pos = GetRandomPointOnRoad(road);
+
+
+    uint32_t loot_type = 0;
+    if (map_->GetLootTypesCount() > 0) {
+        loot_type = std::rand() % map_->GetLootTypesCount();
+    }
+
+
+    uint32_t obj_id = next_lost_object_id_++;
+    lost_objects_[obj_id] = LostObject{obj_id, loot_type, spawn_pos};
+}
     }
 }
 
