@@ -30,7 +30,7 @@ namespace po = boost::program_options;
 
 using namespace std::literals;
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, \"TimeStamp\", boost::posix_time::ptime)
+BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
 
 struct Args {
     std::optional<uint64_t> tick_period;

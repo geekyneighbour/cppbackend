@@ -18,6 +18,7 @@
 #include <optional>
 #include <chrono>
 #include <fstream>
+#include <string_view>
 
 namespace http_handler {
 
@@ -25,6 +26,8 @@ namespace http = boost::beast::http;
 namespace json = boost::json;
 namespace fs = std::filesystem;
 namespace net = boost::asio;
+
+using namespace std::literals; // Добавлено для корректной работы ""sv
 
 // ================= LOGGING =================
 template <typename Handler>
@@ -208,8 +211,6 @@ private:
         map_obj["buildings"] = json::value_from(map->GetBuildings());
         map_obj["offices"] = json::value_from(map->GetOffices());
 
-        // Загрузка служебной информации lootTypes из внешнего хранилища,
-        // сохраняя независимость бизнес-модели от структуры JSON
         if (const auto* loot_types = json_loader::ExtraDataStorage::GetInstance().GetLootTypes(*map->GetId())) {
             map_obj["lootTypes"] = *loot_types;
         } else {
@@ -343,7 +344,6 @@ private:
         auto session = player->GetSession();
         json::object response_obj;
         
-        // Массив игроков и их характеристик
         json::object players_obj;
         for (const auto& dog : session->GetDogs()) {
             json::object dog_obj;
@@ -362,7 +362,6 @@ private:
         }
         response_obj["players"] = players_obj;
 
-        // Массив потерянных предметов (lostObjects) на карте
         json::object lost_obj;
         for (const auto& [id, item] : session->GetLostObjects()) {
             json::object item_json;
@@ -591,4 +590,13 @@ public:
         }
     }
 
-    void SetTickMode(bool manual)
+    void SetTickMode(bool manual) {
+        api_handler_.SetTickMode(manual);
+    }
+
+private:
+    ApiRequestHandler api_handler_;
+    FileRequestHandler file_handler_;
+};
+
+}  // namespace http_handler

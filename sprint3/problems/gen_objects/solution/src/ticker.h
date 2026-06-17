@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/asio/strand.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/system/error_code.hpp>
 #include <memory>
 #include <functional>
 #include <chrono>
