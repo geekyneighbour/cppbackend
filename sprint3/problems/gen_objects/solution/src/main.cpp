@@ -81,7 +81,7 @@ void SetupLogger() {
         boost::log::keywords::auto_flush = true,
         boost::log::keywords::format = (
             expr::stream
-                << "{\"timestamp\":\"" << expr::format_date_time<boost::posix_time::ptime>(timestamp, "%Y-%m-%d %H:%M:%S.%f")
+                << "{\"timestamp\":\"" << expr::format_date_time(timestamp, "%Y-%m-%d %H:%M:%S.%f")
                 << "\",\"data\":" << expr::smessage << "}"
         )
     );

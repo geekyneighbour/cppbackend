@@ -45,7 +45,7 @@ Dog* GameSession::AddDog(const std::string& dog_name, bool randomize_spawn) {
     auto dog = std::make_shared<Dog>(dog_name, next_dog_id_++);
     if (randomize_spawn && !map_->GetRoads().empty()) {
         static std::mt19937 gen(std::random_device{}());
-        std::uniform_int_map<size_t> dist(0, map_->GetRoads().size() - 1);
+        std::uniform_int_distribution<size_t> dist(0, map_->GetRoads().size() - 1);
         size_t road_idx = std::uniform_int_distribution<size_t>(0, map_->GetRoads().size() - 1)(gen);
         dog->SetPosition(GetRandomPointOnRoad(map_->GetRoads()[road_idx]));
     } else if (!map_->GetRoads().empty()) {
