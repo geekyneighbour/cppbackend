@@ -15,6 +15,9 @@ unsigned LootGenerator::Generate(TimeInterval time_delta, unsigned loot_count, u
         return 0;
     }
     
+    // Если прошло мало времени, но это первый вызов - генерируем лут
+    bool is_first_generation = (time_without_loot_ == time_delta && loot_count == 0);
+    
     double base_interval_ms = static_cast<double>(base_interval_.count());
     double time_delta_ms = static_cast<double>(time_without_loot_.count());
     
@@ -22,8 +25,18 @@ unsigned LootGenerator::Generate(TimeInterval time_delta, unsigned loot_count, u
     double p = 1.0 - std::pow(1.0 - probability_, time_delta_ms / base_interval_ms);
     double random_value = random_gen_();
     
-    if (random_value <= p) {
-        unsigned generated_loot = static_cast<unsigned>(std::round(random_value / p));
+    // Для первого вызова или если вероятность высокая
+    if (is_first_generation || random_value <= p) {
+        unsigned generated_loot;
+        if (is_first_generation) {
+            // При первом вызове генерируем хотя бы 1 предмет
+            generated_loot = 1;
+        } else {
+            // Иначе вычисляем количество
+            generated_loot = static_cast<unsigned>(std::round(random_value / p));
+            generated_loot = std::max(1u, generated_loot);
+        }
+        
         unsigned available_slots = looter_count - loot_count;
         unsigned loot_to_add = std::min(generated_loot, available_slots);
         if (loot_to_add > 0) {

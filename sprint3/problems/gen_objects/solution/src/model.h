@@ -63,13 +63,13 @@ public:
     constexpr static VerticalTag VERTICAL{};
 
     Road(HorizontalTag, Point start, Coord end_x) noexcept
-        : start_{start}
-        , end_{end_x, start.y} {
+        : start_{std::min(start.x, end_x), start.y}
+        , end_{std::max(start.x, end_x), start.y} {
     }
 
     Road(VerticalTag, Point start, Coord end_y) noexcept
-        : start_{start}
-        , end_{end_y, start.x} {
+        : start_{start.x, std::min(start.y, end_y)}
+        , end_{start.x, std::max(start.y, end_y)} {
     }
 
     bool IsHorizontal() const noexcept {
@@ -193,7 +193,6 @@ public:
 
     void AddOffice(Office office);
 
-    // Установка количества типов трофеев для генерации в правильном диапазоне
     void SetLootTypesCount(size_t count) noexcept {
         loot_types_count_ = count;
     }

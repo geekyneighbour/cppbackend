@@ -20,7 +20,7 @@ PointDouble GetRandomPointOnRoad(const Road& road) {
     } 
     double min_y = std::min(start.y, end.y);
     double max_y = std::max(start.y, end.y);
-    return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
+    return {static_cast<double>(start.x), min_y + dist(gen) * (max_y - min_y)};
 }
 
 // ================= MAP =================
@@ -53,6 +53,28 @@ Dog* GameSession::AddDog(const std::string& dog_name, bool randomize_spawn) {
         dog->SetPosition({static_cast<double>(start.x), static_cast<double>(start.y)});
     }
     dogs_.push_back(dog);
+    
+    // Немедленно генерируем лут при добавлении игрока
+    if (map_->GetLootTypesCount() > 0) {
+        // Инициализируем генерацию с небольшим тиком
+        std::chrono::milliseconds init_delta(100); // 100ms для начальной генерации
+        unsigned loot_to_generate = loot_generator_.Generate(init_delta, lost_objects_.size(), dogs_.size());
+        if (loot_to_generate > 0 && !map_->GetRoads().empty()) {
+            static std::mt19937 gen(std::random_device{}());
+            std::uniform_int_distribution<size_t> road_dist(0, map_->GetRoads().size() - 1);
+            std::uniform_int_distribution<int> type_dist(0, static_cast<int>(map_->GetLootTypesCount() - 1));
+
+            for (unsigned i = 0; i < loot_to_generate; ++i) {
+                size_t road_idx = road_dist(gen);
+                int loot_type = type_dist(gen);
+                PointDouble loot_pos = GetRandomPointOnRoad(map_->GetRoads()[road_idx]);
+
+                uint32_t loot_id = next_loot_id_++;
+                lost_objects_[loot_id] = LostObject{loot_id, loot_type, loot_pos};
+            }
+        }
+    }
+    
     return dog.get();
 }
 
@@ -61,6 +83,7 @@ void GameSession::Update(double time_delta) {
         dog->UpdatePosition(time_delta);
     }
 
+    // Если нет типов лута, не генерируем
     if (map_->GetLootTypesCount() == 0) {
         return;
     }
@@ -126,12 +149,14 @@ void Game::UpdateAllSessions(double time_delta) {
 // ================= TAG_INVOKE =================
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
     boost::json::object obj;
-    obj["x0"] = road.GetStart().x;
-    obj["y0"] = road.GetStart().y;
+    Point start = road.GetStart();
+    Point end = road.GetEnd();
+    obj["x0"] = start.x;
+    obj["y0"] = start.y;
     if (road.IsHorizontal()) {
-        obj["x1"] = road.GetEnd().x;
+        obj["x1"] = end.x;
     } else {
-        obj["y1"] = road.GetEnd().y;
+        obj["y1"] = end.y;
     }
     jv = std::move(obj);
 }
