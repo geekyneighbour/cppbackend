@@ -23,6 +23,8 @@ add_executable(game_server
 	src/request_handler.h
 	src/loot_generator.h   
     	src/loot_generator.cpp
+	src/geom.h
+	src/ticker.h
 )
 
 
