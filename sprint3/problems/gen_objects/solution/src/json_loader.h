@@ -7,11 +7,11 @@
 
 namespace json_loader {
 
-model::Game LoadGame(const std::filesystem::path& json_path);
+void LoadGame(const std::filesystem::path& json_path, model::Game& game);
 
 void AddRoads(const boost::json::array& roads_array, model::Map& map);
 void AddBuildings(const boost::json::array& buildings_array, model::Map& map);
 void AddOffices(const boost::json::array& offices_array, model::Map& map);
-void LoadGlobalSettings(const boost::json::object& root_obj);
+void LoadGlobalSettings(const boost::json::object& root_obj, model::Game& game);
 
 }  // namespace json_loader

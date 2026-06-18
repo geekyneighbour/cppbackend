@@ -71,13 +71,16 @@ int main(int argc, char* argv[]) {
 
         auto strand = net::make_strand(ioc);
 
-        // 🔧 ВАЖНО: создаём LootGenerator (минимальная дефолтная версия)
-        loot_gen::LootGenerator generator;
+        // Создаём LootGenerator
+        loot_gen::LootGenerator generator(
+            std::chrono::milliseconds(1000),
+            0.5
+        );
 
         // Game теперь требует generator
         model::Game game(generator);
 
-        // загружаем конфиг
+        // Загружаем конфиг
         json_loader::LoadGame(args->config_file, game);
 
         auto handler = std::make_shared<http_handler::RequestHandler>(

@@ -14,10 +14,7 @@ void LoadGlobalSettings(const boost::json::object& root_obj, model::Game& game) 
         double period = obj.at("period").as_double();
         double probability = obj.at("probability").as_double();
 
-        game.SetLootConfig(
-            std::chrono::milliseconds(static_cast<int>(period * 1000)),
-            probability
-        );
+        model::Game::SetLootGeneratorConfig(period, probability);
     }
 
     if (auto speed = root_obj.if_contains("defaultDogSpeed")) {
@@ -84,14 +81,7 @@ void AddOffices(const boost::json::array& offices_array, model::Map& map) {
     }
 }
 
-model::Game LoadGame(const std::filesystem::path& json_path) {
-     loot_gen::LootGenerator generator{
-        std::chrono::milliseconds(1000),
-        0.5
-    };
-
-    model::Game game(generator);
-
+void LoadGame(const std::filesystem::path& json_path, model::Game& game) {
     std::ifstream file(json_path);
     if (!file.is_open()) {
         throw std::runtime_error("Cannot open config file");
@@ -127,7 +117,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             AddOffices(offices->as_array(), map);
         }
 
-
         if (auto loot = map_obj.if_contains("lootTypes")) {
             if (loot->is_array()) {
                 map.SetLootTypes(loot->as_array());
@@ -136,8 +125,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         game.AddMap(std::move(map));
     }
-
-    return game;
 }
 
 } // namespace json_loader

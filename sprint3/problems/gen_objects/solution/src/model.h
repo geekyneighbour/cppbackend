@@ -89,7 +89,7 @@ public:
         return end_;
     }
 	
-	 double GetMinX() const noexcept {
+    double GetMinX() const noexcept {
         return std::min(start_.x, end_.x);
     }
     
@@ -105,75 +105,66 @@ public:
         return std::max(start_.y, end_.y);
     }
     
-bool IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
-    double half_dog = dog_width / 2.0;
-    
-    if (IsHorizontal()) {
-        double road_y = start_.y;
-
-        if (std::abs(y - road_y) > half_dog + TOLERANCE_) return false;
+    bool IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
+        double half_dog = dog_width / 2.0;
         
-
-        double min_x = GetMinX() - half_dog;
-        double max_x = GetMaxX() + half_dog;
-        
-        return x >= min_x - TOLERANCE_ && x <= max_x + TOLERANCE_;
-        
-    } else {
-        double road_x = start_.x;
-
-        if (std::abs(x - road_x) > half_dog + TOLERANCE_) return false;
-        
-
-        double min_y = GetMinY() - half_dog;
-        double max_y = GetMaxY() + half_dog;
-        
-        return y >= min_y - TOLERANCE_ && y <= max_y + TOLERANCE_;
+        if (IsHorizontal()) {
+            double road_y = start_.y;
+            if (std::abs(y - road_y) > half_dog + TOLERANCE_) return false;
+            
+            double min_x = GetMinX() - half_dog;
+            double max_x = GetMaxX() + half_dog;
+            
+            return x >= min_x - TOLERANCE_ && x <= max_x + TOLERANCE_;
+            
+        } else {
+            double road_x = start_.x;
+            if (std::abs(x - road_x) > half_dog + TOLERANCE_) return false;
+            
+            double min_y = GetMinY() - half_dog;
+            double max_y = GetMaxY() + half_dog;
+            
+            return y >= min_y - TOLERANCE_ && y <= max_y + TOLERANCE_;
+        }
     }
-}
     
-
-void ConstrainMovement(double& x, double& y, const PointDouble& old_pos) const {
-    double dog_half = 0.4;  
-    
-    if (IsHorizontal()) {
-
-        double min_x = GetMinX() - dog_half;
-        double max_x = GetMaxX() + dog_half;
+    void ConstrainMovement(double& x, double& y, const PointDouble& old_pos) const {
+        double dog_half = 0.4;  
         
-
-        if (x < min_x) x = min_x;
-        if (x > max_x) x = max_x;
-        
-
-        double road_y = start_.y;
-        double min_y = road_y - dog_half;
-        double max_y = road_y + dog_half;
-        
-        if (y < min_y) y = min_y;
-        if (y > max_y) y = max_y;
-        
-    } else {
-
-        double min_y = GetMinY() - dog_half;
-        double max_y = GetMaxY() + dog_half;
-        
-        if (y < min_y) y = min_y;
-        if (y > max_y) y = max_y;
-        
-        double road_x = start_.x;
-        double min_x = road_x - dog_half;
-        double max_x = road_x + dog_half;
-        
-        if (x < min_x) x = min_x;
-        if (x > max_x) x = max_x;
+        if (IsHorizontal()) {
+            double min_x = GetMinX() - dog_half;
+            double max_x = GetMaxX() + dog_half;
+            
+            if (x < min_x) x = min_x;
+            if (x > max_x) x = max_x;
+            
+            double road_y = start_.y;
+            double min_y = road_y - dog_half;
+            double max_y = road_y + dog_half;
+            
+            if (y < min_y) y = min_y;
+            if (y > max_y) y = max_y;
+            
+        } else {
+            double min_y = GetMinY() - dog_half;
+            double max_y = GetMaxY() + dog_half;
+            
+            if (y < min_y) y = min_y;
+            if (y > max_y) y = max_y;
+            
+            double road_x = start_.x;
+            double min_x = road_x - dog_half;
+            double max_x = road_x + dog_half;
+            
+            if (x < min_x) x = min_x;
+            if (x > max_x) x = max_x;
+        }
     }
-}
 
 private:
     Point start_;
     Point end_;
-	static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
+    static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
     static constexpr double TOLERANCE_ = 1e-9;
 };
 
@@ -273,7 +264,7 @@ public:
         default_dog_speed_ = speed;
     }
 	
-	const Road* FindRoadAtPoint(double x, double y) const {
+    const Road* FindRoadAtPoint(double x, double y) const {
         for (const auto& road : roads_) {
             if (road.IsPointOnRoad(x, y)) {
                 return &road;
@@ -311,17 +302,17 @@ public:
         return nearest;
     }
 	
-	void SetLootTypes(boost::json::array arr) {
-    loot_types_ = std::move(arr);
-}
+    void SetLootTypes(boost::json::array arr) {
+        loot_types_ = std::move(arr);
+    }
 
-const boost::json::array& GetLootTypes() const {
-    return loot_types_;
-}
+    const boost::json::array& GetLootTypes() const {
+        return loot_types_;
+    }
 
-size_t GetLootTypesCount() const {
-    return loot_types_.size();
-}
+    size_t GetLootTypesCount() const {
+        return loot_types_.size();
+    }
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -336,8 +327,8 @@ private:
     
     std::optional<double> dog_speed_;
     inline static double default_dog_speed_ = 1.0;
-	static constexpr double HALF_WIDTH_ = 0.4;
-	boost::json::array loot_types_;
+    static constexpr double HALF_WIDTH_ = 0.4;
+    boost::json::array loot_types_;
 };
 
 class Dog {
@@ -365,7 +356,7 @@ public:
     
     void SetAction(const std::string& action, double speed);
 	
-	void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
+    void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
 
 private:
     std::string name_;
@@ -396,55 +387,62 @@ private:
 
 class GameSession {
 public:
+    struct LostObject {
+        int type = 0;
+        model::PointDouble pos;
+    };
+
+    GameSession(const Map* map) 
+        : map_(map)
+        , loot_generator_(std::chrono::milliseconds(1000), 0.5) {}
+
     GameSession(const Map* map, loot_gen::LootGenerator generator)
-    : map_(map)
-    , loot_generator_(std::move(generator)) {}
+        : map_(map)
+        , loot_generator_(std::move(generator)) {}
 
     Dog& AddDog(std::string_view name, bool randomize);
     Player& AddPlayer(Dog& dog);
     std::vector<Player*> GetPlayers();
     const Map* GetMap() const { return map_; }
-	void UpdateState(double time_delta);
-	const std::vector<std::unique_ptr<Dog>>& GetDogs() const { return dogs_; }
-	
-	struct LostObject {
-    int type = 0;
-    model::PointDouble pos;
-};
+    void UpdateState(double time_delta);
+    const std::vector<std::unique_ptr<Dog>>& GetDogs() const { return dogs_; }
+    const std::unordered_map<int, LostObject>& GetLoot() const {
+        return lost_objects_;
+    }
 
 private:
     const Map* map_ = nullptr;
     std::vector<std::unique_ptr<Dog>> dogs_;
     std::unordered_map<uint64_t, Player> players_;
     uint64_t next_player_id_ = 0;
-	std::mt19937 random_gen_{std::random_device{}()};
-	loot_gen::LootGenerator loot_generator_;
-std::unordered_map<int, LostObject> lost_objects_;
-int next_loot_id_ = 0;
+    std::mt19937 random_gen_{std::random_device{}()};
+    loot_gen::LootGenerator loot_generator_;
+    std::unordered_map<int, LostObject> lost_objects_;
+    int next_loot_id_ = 0;
 };
 
 class Game {
 public:
+    struct LootConfig {
+        double period = 1.0;
+        double probability = 0.5;
+    };
 
-Game(loot_gen::LootGenerator generator)
-    : loot_generator_(std::move(generator)) {}
+    Game(loot_gen::LootGenerator generator)
+        : loot_generator_(std::move(generator)) {}
+    
     using Maps = std::vector<std::unique_ptr<Map>>;
+    
+    static void SetLootGeneratorConfig(double period, double probability) {
+        loot_config_.period = period;
+        loot_config_.probability = probability;
+    }
     
     GameSession& FindOrCreateSession(const Map* map);
     const Map* FindMap(const Map::Id& id) const;
     const Maps& GetMaps() const noexcept;
     void AddMap(Map map);
-	void UpdateAllSessions(double time_delta);
-	struct LootConfig {
-    double period = 1.0;
-    double probability = 0.5;
-};
-static void SetLootGeneratorConfig(double period, double probability) {
-    loot_config_.period = period;
-    loot_config_.probability = probability;
-}
-
-	
+    void UpdateAllSessions(double time_delta);
 
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
@@ -453,8 +451,8 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-	loot_gen::LootGenerator loot_generator_;
-	static inline LootConfig loot_config_;
+    loot_gen::LootGenerator loot_generator_;
+    static inline LootConfig loot_config_{1.0, 0.5};
 };
 
 class PlayerTokens {

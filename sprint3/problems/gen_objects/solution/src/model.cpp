@@ -62,19 +62,16 @@ Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     PointDouble spawn_pos;
 
     if (randomize) {
-
         std::uniform_int_distribution<size_t> dist(0, roads.size() - 1);
         const auto& road = roads[dist(random_gen_)];
         spawn_pos = GetRandomPointOnRoad(road);
     } else {
-
         const auto& first_road = roads[0];
         spawn_pos = {
             static_cast<double>(first_road.GetStart().x),
             static_cast<double>(first_road.GetStart().y)
         };
     }
-
 
     auto new_dog = std::make_unique<Dog>(std::string(name));
     new_dog->SetPos(spawn_pos.x, spawn_pos.y);
@@ -103,32 +100,33 @@ void GameSession::UpdateState(double dt) {
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
     }
-	unsigned new_loot = loot_generator_.Generate(
-    std::chrono::milliseconds(static_cast<int>(dt * 1000)),
-    lost_objects_.size(),
-    dogs_.size()
-);
-
-for (unsigned i = 0; i < new_loot; ++i) {
-    const auto& roads = map_->GetRoads();
-    if (roads.empty()) continue;
-
-    std::uniform_int_distribution<size_t> road_dist(0, roads.size() - 1);
-    static std::mt19937 gen(std::random_device{}());
-
-    const Road& road = roads[road_dist(gen)];
-    auto pos = GetRandomPointOnRoad(road);
-
-    std::uniform_int_distribution<int> type_dist(
-        0, map_->GetLootTypesCount() - 1
+    
+    unsigned new_loot = loot_generator_.Generate(
+        std::chrono::milliseconds(static_cast<int>(dt * 1000)),
+        lost_objects_.size(),
+        dogs_.size()
     );
 
-    LostObject obj;
-    obj.type = type_dist(gen);
-    obj.pos = pos;
+    for (unsigned i = 0; i < new_loot; ++i) {
+        const auto& roads = map_->GetRoads();
+        if (roads.empty()) continue;
 
-    lost_objects_[next_loot_id_++] = obj;
-}
+        std::uniform_int_distribution<size_t> road_dist(0, roads.size() - 1);
+        static std::mt19937 gen(std::random_device{}());
+
+        const Road& road = roads[road_dist(gen)];
+        auto pos = GetRandomPointOnRoad(road);
+
+        std::uniform_int_distribution<int> type_dist(
+            0, map_->GetLootTypesCount() - 1
+        );
+
+        LostObject obj;
+        obj.type = type_dist(gen);
+        obj.pos = pos;
+
+        lost_objects_[next_loot_id_++] = obj;
+    }
 }
 
 // ================= GAME =================
@@ -142,7 +140,7 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);
-	return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
+    return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
 }
 
 const Game::Maps& Game::GetMaps() const noexcept {
@@ -162,14 +160,12 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
 
     bool found_road = false;
 
     for (const auto& road : roads) {
-
         double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
         double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
         double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
@@ -179,12 +175,10 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
             pos_.y >= road_min_y && pos_.y <= road_max_y) {
             
             if (!found_road) {
-
                 min_x = road_min_x; max_x = road_max_x;
                 min_y = road_min_y; max_y = road_max_y;
                 found_road = true;
             } else {
-
                 min_x = std::min(min_x, road_min_x);
                 max_x = std::max(max_x, road_max_x);
                 min_y = std::min(min_y, road_min_y);
@@ -193,9 +187,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         }
     }
 
-
     if (!found_road) return;
-
 
     if (new_x < min_x) {
         new_x = min_x;
@@ -238,7 +230,7 @@ void Dog::SetAction(const std::string& action, double speed) {
     }
 }
 
-// Функции tag_invoke теперь корректно находятся внутри namespace model
+// Функции tag_invoke
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
     boost::json::object obj;
     obj["x0"] = road.GetStart().x;

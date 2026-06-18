@@ -257,7 +257,7 @@ private:
 		constexpr std::string_view STATE = "/api/v1/game/state";
 		constexpr std::string_view ACTION = "/api/v1/game/player/action";
 		constexpr std::string_view TICK = "/api/v1/game/tick";
-		constexpr std::string_view MAPS_ID = "/api/v1/maps/{id}"
+		constexpr std::string_view MAPS_ID = "/api/v1/maps/{id}";
 
         std::string path(req.target());
         
