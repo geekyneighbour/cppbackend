@@ -96,18 +96,24 @@ void GameSession::UpdateLoot(double dt) {
     unsigned current = lost_objects_.size();
 
     unsigned add = loot_generator_->Generate(
-        std::chrono::milliseconds((int)(dt * 1000)),
+        std::chrono::milliseconds(static_cast<int>(dt * 1000)),
         current,
         looters
     );
 
-    for (unsigned i = 0; i < add; ++i) {
-        int type = rand() % map_->GetLootTypes().size();
-        auto p = GetRandomPointOnRoad(map_->GetRoads()[rand() % map_->GetRoads().size()]);
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
 
-        boost::json::object obj;
+    for (unsigned i = 0; i < add; ++i) {
+        std::uniform_int_distribution<> type_dist(0, map_->GetLootTypes().size() - 1);
+        std::uniform_int_distribution<> road_dist(0, map_->GetRoads().size() - 1);
+        
+        int type = type_dist(gen);
+        auto p = GetRandomPointOnRoad(map_->GetRoads()[road_dist(gen)]);
+
+        json::object obj;
         obj["type"] = type;
-        obj["pos"] = {p.x, p.y};
+        obj["pos"] = json::array{p.x, p.y};
 
         lost_objects_[std::to_string(lost_objects_.size())] = obj;
     }

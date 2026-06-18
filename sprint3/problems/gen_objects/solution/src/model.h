@@ -88,7 +88,7 @@ public:
     using Id = util::Tagged<std::string, Map>;
     using Roads = std::vector<Road>;
     using Buildings = std::vector<Building>;
-
+    using Offices = std::vector<Office>;
     using LootTypes = boost::json::array;
 
     Map(Id id, std::string name) noexcept
@@ -99,23 +99,34 @@ public:
 
     const Roads& GetRoads() const noexcept { return roads_; }
     const Buildings& GetBuildings() const noexcept { return buildings_; }
+    const Offices& GetOffices() const noexcept { return offices_; }
 
     void AddRoad(const Road& r) { roads_.push_back(r); }
     void AddBuilding(const Building& b) { buildings_.push_back(b); }
+    void AddOffice(const Office& o) { offices_.push_back(o); }
 
     const LootTypes& GetLootTypes() const noexcept { return loot_types_; }
     void SetLootTypes(LootTypes lt) { loot_types_ = std::move(lt); }
 
     size_t GetLootTypesCount() const noexcept { return loot_types_.size(); }
 
+    void SetDogSpeed(double speed) noexcept { dog_speed_ = speed; }
+    double GetDogSpeed() const noexcept { return dog_speed_; }
+
+    static void SetDefaultDogSpeed(double speed) noexcept { default_dog_speed_ = speed; }
+    static double GetDefaultDogSpeed() noexcept { return default_dog_speed_; }
+
 private:
     Id id_;
     std::string name_;
     Roads roads_;
     Buildings buildings_;
-
+    Offices offices_;
     LootTypes loot_types_;
+    double dog_speed_ = default_dog_speed_;
+    static inline double default_dog_speed_ = 1.0;
 };
+
 
 // ================= DOG =================
 class Dog {
@@ -196,6 +207,21 @@ private:
     std::unique_ptr<loot_gen::LootGenerator> loot_generator_;
 };
 
+class PlayerTokens {
+public:
+    void AddPlayer(const std::string& token, Player* player) {
+        tokens_[token] = player;
+    }
+
+    Player* FindPlayerByToken(const std::string& token) const {
+        auto it = tokens_.find(token);
+        return it != tokens_.end() ? it->second : nullptr;
+    }
+
+private:
+    std::unordered_map<std::string, Player*> tokens_;
+};
+
 // ================= GAME =================
 class Game {
 public:
@@ -205,25 +231,16 @@ public:
     };
 
     void AddMap(Map map);
-
     const Map* FindMap(const Map::Id& id) const;
-
     std::vector<std::unique_ptr<Map>>& GetMaps() noexcept;
-
     GameSession& FindOrCreateSession(const Map* map);
-
     void UpdateAllSessions(double dt);
-
     void SetLootGeneratorConfig(LootGeneratorConfig cfg);
     const LootGeneratorConfig& GetLootGeneratorConfig() const noexcept;
 
 private:
     std::vector<std::unique_ptr<Map>> maps_;
-
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-
-    std::unordered_map<std::string, size_t> map_index_;
-
     LootGeneratorConfig loot_cfg_{std::chrono::milliseconds(5000), 0.5};
 };
 

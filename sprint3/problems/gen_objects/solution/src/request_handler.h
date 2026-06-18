@@ -17,6 +17,76 @@
 #include <optional>
 #include <chrono>
 #include <algorithm>
+#include <fstream>
+
+
+namespace boost::json {
+
+// Сериализация Point
+template<>
+struct value_from<model::Point> {
+    static void value_from_impl(const model::Point& p, value& v) {
+        v = object{{"x", p.x}, {"y", p.y}};
+    }
+};
+
+// Сериализация PointDouble
+template<>
+struct value_from<model::PointDouble> {
+    static void value_from_impl(const model::PointDouble& p, value& v) {
+        v = object{{"x", p.x}, {"y", p.y}};
+    }
+};
+
+// Сериализация Road
+template<>
+struct value_from<model::Road> {
+    static void value_from_impl(const model::Road& r, value& v) {
+        auto start = r.GetStart();
+        auto end = r.GetEnd();
+        object obj;
+        obj["x0"] = start.x;
+        obj["y0"] = start.y;
+        if (r.IsHorizontal()) {
+            obj["x1"] = end.x;
+        } else {
+            obj["y1"] = end.y;
+        }
+        v = obj;
+    }
+};
+
+// Сериализация Building
+template<>
+struct value_from<model::Building> {
+    static void value_from_impl(const model::Building& b, value& v) {
+        auto rect = b.GetBounds();
+        v = object{
+            {"x", rect.position.x},
+            {"y", rect.position.y},
+            {"w", rect.size.width},
+            {"h", rect.size.height}
+        };
+    }
+};
+
+// Сериализация Office
+template<>
+struct value_from<model::Office> {
+    static void value_from_impl(const model::Office& o, value& v) {
+        auto pos = o.GetPosition();
+        auto off = o.GetOffset();
+        v = object{
+            {"id", *o.GetId()},
+            {"x", pos.x},
+            {"y", pos.y},
+            {"offsetX", off.dx},
+            {"offsetY", off.dy}
+        };
+    }
+};
+
+} // namespace boost::json
 
 namespace http_handler {
 
@@ -146,18 +216,20 @@ private:
             [](unsigned char c){ return std::isxdigit(c); });
     }
 
-    std::string GenerateToken() {
-        static std::random_device rd;
-        static std::mt19937_64 g1(rd()), g2(rd());
 
-        auto hex = [](uint64_t v){
-            std::ostringstream ss;
-            ss << std::hex << std::setw(16) << std::setfill('0') << v;
-            return ss.str();
-        };
 
-        return hex(g1) + hex(g2);
-    }
+std::string GenerateToken() {
+    static std::random_device rd;
+    static std::mt19937_64 gen(rd());
+
+    auto hex = [](uint64_t v) -> std::string {
+        std::ostringstream ss;
+        ss << std::hex << std::setw(16) << std::setfill('0') << v;
+        return ss.str();
+    };
+
+    return hex(gen()) + hex(gen());
+}
 
     // ================= RESPONSES =================
     auto BadRequest(const auto& req, const std::string& msg) {
@@ -307,13 +379,12 @@ private:
             const auto* map = game_.FindMap(model::Map::Id{id});
             if (!map) return NotFound(req);
 
-            json::object obj{
-                {"id", *map->GetId()},
-                {"name", map->GetName()},
-                {"roads", json::value_from(map->GetRoads())},
-                {"buildings", json::value_from(map->GetBuildings())},
-                {"offices", json::value_from(map->GetOffices())}
-            };
+            json::object obj;
+obj["id"] = *map->GetId();
+obj["name"] = map->GetName();
+obj["roads"] = json::value_from(map->GetRoads());
+obj["buildings"] = json::value_from(map->GetBuildings());
+obj["offices"] = json::value_from(map->GetOffices());
 
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.body() = json::serialize(obj);
