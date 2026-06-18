@@ -5,6 +5,7 @@
 #include <memory>
 #include <random>
 #include <optional>  
+#include <boost/json.hpp>
 
 #include "tagged.h"
 #include "loot_generator.h"

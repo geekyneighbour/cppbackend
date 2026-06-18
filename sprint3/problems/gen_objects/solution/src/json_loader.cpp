@@ -85,7 +85,12 @@ void AddOffices(const boost::json::array& offices_array, model::Map& map) {
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {
-    model::Game game;
+     loot_gen::LootGenerator generator{
+        std::chrono::milliseconds(1000),
+        0.5
+    };
+
+    model::Game game(generator);
 
     std::ifstream file(json_path);
     if (!file.is_open()) {
@@ -122,7 +127,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             AddOffices(offices->as_array(), map);
         }
 
-        // ⭐ LOOT TYPES
+
         if (auto loot = map_obj.if_contains("lootTypes")) {
             if (loot->is_array()) {
                 map.SetLootTypes(loot->as_array());

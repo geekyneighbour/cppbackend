@@ -14,21 +14,16 @@
 #include <thread>
 #include <csignal>
 #include <optional>
-#include <vector>
 
 #include "json_loader.h"
 #include "request_handler.h"
 #include "http_server.h"
 #include "logging.h"
 #include "ticker.h"
+#include "loot_generator.h"
 
 namespace net = boost::asio;
-namespace json = boost::json;
-namespace logging = boost::log;
-namespace expr = boost::log::expressions;
 namespace po = boost::program_options;
-
-using namespace std::literals;
 
 struct Args {
     std::optional<uint64_t> tick_period;
@@ -67,19 +62,31 @@ int main(int argc, char* argv[]) {
         auto args = ParseCommandLine(argc, argv);
         if (!args) return 0;
 
-        model::Game game = json_loader::LoadGame(args->config_file);
-
         net::io_context ioc;
-
         net::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait([&](auto, auto){ ioc.stop(); });
+
+        signals.async_wait([&](auto, auto) {
+            ioc.stop();
+        });
 
         auto strand = net::make_strand(ioc);
 
+        // 🔧 ВАЖНО: создаём LootGenerator (минимальная дефолтная версия)
+        loot_gen::LootGenerator generator;
+
+        // Game теперь требует generator
+        model::Game game(generator);
+
+        // загружаем конфиг
+        json_loader::LoadGame(args->config_file, game);
+
         auto handler = std::make_shared<http_handler::RequestHandler>(
-            args->www_root, strand, game
+            args->www_root,
+            strand,
+            game
         );
 
+        // tick режим
         if (args->tick_period) {
             auto ticker = std::make_shared<Ticker>(
                 strand,
@@ -88,22 +95,25 @@ int main(int argc, char* argv[]) {
                     game.UpdateAllSessions(delta.count() / 1000.0);
                 }
             );
-            ticker->Start();
 
+            ticker->Start();
             handler->SetTickMode(true);
         }
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
 
-        http_server::ServeHttp(ioc, {address, port},
+        http_server::ServeHttp(
+            ioc,
+            {address, port},
             [handler](auto&& req, auto&& send, auto&& endpoint) {
                 (*handler)(
                     std::move(req),
                     std::forward<decltype(send)>(send),
                     endpoint
                 );
-            });
+            }
+        );
 
         ioc.run();
 
