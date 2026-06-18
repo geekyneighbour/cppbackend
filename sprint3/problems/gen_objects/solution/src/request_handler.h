@@ -258,7 +258,6 @@ private:
 		constexpr std::string_view ACTION = "/api/v1/game/player/action";
 		constexpr std::string_view TICK = "/api/v1/game/tick";
 		constexpr std::string_view MAP_ID = "/api/v1/maps/{id}";
-		constexpr std::string_view STATE = "/api/v1/game/state";
 
         std::string path(req.target());
         
@@ -276,8 +275,8 @@ private:
             json::array arr;
             for (const auto& map : game_.GetMaps()) {
                 arr.push_back(json::object{
-                    {"id", *map->GetId()},
-                    {"name", map->GetName()}
+                    {"id", *map.GetId()},
+                    {"name", map.GetName()}
                 });
             }
 
@@ -342,8 +341,8 @@ private:
                     return NotFound(req);
 
                 auto& session = game_.FindOrCreateSession(map);
-                auto& dog = session.AddDog(user, true);
-                auto& player = session.AddPlayer(dog);
+                auto& dog = session->AddDog(user, true);
+                auto& player = session->AddPlayer(dog);
 
                 std::string token = GenerateToken();
                 tokens_.AddPlayer(token, &player);
@@ -387,7 +386,7 @@ private:
             json::object players_obj;
 
             for (model::Player* p : session->GetPlayers()) {
-                players_obj[std::to_string(p->GetId())] = json::object{
+                players_obj[std::to_string(*p->GetId())] = json::object{
                     {"name", p->GetDog()->GetName()}
                 };
             }
