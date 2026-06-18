@@ -130,11 +130,9 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             model::Map map(model::Map::Id{id}, name);
             
             if (map_obj.contains("lootTypes")) {
-                const auto& loot_types = map_obj.at("lootTypes").as_array();
-                map.SetLootTypesCount(loot_types.size());
-                
-                game.GetExtraDataManager().AddLootTypes(map.GetId(), loot_types);
-            }
+    const auto& loot_types = map_obj.at("lootTypes").as_array();
+    game.GetExtraDataManager().AddLootTypes(map.GetId(), loot_types);
+}
             
             if (auto speed = map_obj.if_contains("dogSpeed")) {
                 if (speed->is_double()) {

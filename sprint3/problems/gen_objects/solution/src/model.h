@@ -1,25 +1,21 @@
 #pragma once
+
 #include <string>
 #include <unordered_map>
 #include <vector>
 #include <memory>
-#include <random>
-#include <optional>  
+#include <optional>
 #include <chrono>
 
 #include "tagged.h"
-#include "loot_generator.h"
 #include "extra_data.h"
 
 namespace model {
-    
-using namespace std::string_literals;
 
 using Dimension = int;
-using Coord = Dimension;
 
 struct Point {
-    Coord x, y;
+    Dimension x, y;
 };
 
 struct Size {
@@ -40,265 +36,138 @@ struct PointDouble {
 };
 
 struct Speed {
-    double vx, vy;
+    double vx = 0.0;
+    double vy = 0.0;
 };
 
 enum class Direction {
-    NORTH,
-    SOUTH,
-    WEST,
-    EAST
+    NORTH, SOUTH, WEST, EAST, NONE
 };
 
-class Road {
-    struct HorizontalTag {
-        explicit HorizontalTag() = default;
-    };
-
-    struct VerticalTag {
-        explicit VerticalTag() = default;
-    };
-
+class Dog {
 public:
-    constexpr static HorizontalTag HORIZONTAL{};
-    constexpr static VerticalTag VERTICAL{};
+    Dog() = default;
 
-    Road(HorizontalTag, Point start, Coord end_x) noexcept
-        : start_{start}
-        , end_{end_x, start.y} {
-    }
+    const std::string& GetName() const { return name_; }
+    void SetName(std::string name) { name_ = std::move(name); }
 
-    Road(VerticalTag, Point start, Coord end_y) noexcept
-        : start_{start}
-        , end_{start.x, end_y} {
-    }
+    PointDouble GetPos() const noexcept { return pos_; }
+    void SetPos(PointDouble p) { pos_ = p; }
 
-    bool IsHorizontal() const noexcept {
-        return start_.y == end_.y;
-    }
+    Speed GetSpeed() const noexcept { return speed_; }
+    void SetSpeed(Speed s) { speed_ = s; }
 
-    bool IsVertical() const noexcept {
-        return start_.x == end_.x;
-    }
+    Direction GetDirection() const noexcept { return dir_; }
+    void SetDirection(Direction d) { dir_ = d; }
 
-    Point GetStart() const noexcept {
-        return start_;
-    }
+    void SetAction(const std::string& move, double speed) {
+        speed_ = {0, 0};
+        dir_ = Direction::NONE;
 
-    Point GetEnd() const noexcept {
-        return end_;
+        if (move == "L") { speed_.vx = -speed; dir_ = Direction::WEST; }
+        if (move == "R") { speed_.vx = speed;  dir_ = Direction::EAST; }
+        if (move == "U") { speed_.vy = -speed; dir_ = Direction::NORTH; }
+        if (move == "D") { speed_.vy = speed;  dir_ = Direction::SOUTH; }
     }
 
 private:
-    Point start_;
-    Point end_;
+    std::string name_;
+    PointDouble pos_{0,0};
+    Speed speed_{};
+    Direction dir_{Direction::NONE};
 };
 
-class Building {
+class GameSession;
+
+class Player {
 public:
-    explicit Building(Rectangle bounds) noexcept
-        : bounds_{bounds} {
-    }
+    using Id = util::Tagged<unsigned, Player>;
 
-    const Rectangle& GetBounds() const noexcept {
-        return bounds_;
-    }
+    Player(Id id, Dog* dog, GameSession* session)
+        : id_(id), dog_(dog), session_(session) {}
 
-private:
-    Rectangle bounds_;
-};
-
-class Office {
-public:
-    using Id = util::Tagged<std::string, Office>;
-
-    Office(Id id, Point position, Offset offset) noexcept
-        : id_{std::move(id)}
-        , position_{position}
-        , offset_{offset} {
-    }
-
-    const Id& GetId() const noexcept {
-        return id_;
-    }
-
-    Point GetPosition() const noexcept {
-        return position_;
-    }
-
-    Offset GetOffset() const noexcept {
-        return offset_;
-    }
+    const Id& GetId() const noexcept { return id_; }
+    Dog* GetDog() const noexcept { return dog_; }
+    GameSession* GetSession() const noexcept { return session_; }
 
 private:
     Id id_;
-    Point position_;
-    Offset offset_;
+    Dog* dog_;
+    GameSession* session_;
+};
+
+class GameSession {
+public:
+    Player& AddPlayer(const std::string& name) {
+        dogs_.push_back(std::make_unique<Dog>());
+        dogs_.back()->SetName(name);
+
+        players_.push_back(std::make_unique<Player>(
+            Player::Id{next_id_++},
+            dogs_.back().get(),
+            this
+        ));
+
+        return *players_.back();
+    }
+
+    const std::vector<std::unique_ptr<Player>>& GetPlayers() const {
+        return players_;
+    }
+
+private:
+    std::vector<std::unique_ptr<Player>> players_;
+    std::vector<std::unique_ptr<Dog>> dogs_;
+    unsigned next_id_ = 1;
 };
 
 class Map {
 public:
     using Id = util::Tagged<std::string, Map>;
-    using Roads = std::vector<Road>;
-    using Buildings = std::vector<Building>;
-    using Offices = std::vector<Office>;
 
-    Map(Id id, std::string name) noexcept
-        : id_{std::move(id)}
-        , name_{std::move(name)} {
-    }
+    Map(Id id, std::string name)
+        : id_(std::move(id)), name_(std::move(name)) {}
 
-    const Id& GetId() const noexcept {
-        return id_;
-    }
+    const Id& GetId() const { return id_; }
+    const std::string& GetName() const { return name_; }
 
-    const std::string& GetName() const noexcept {
-        return name_;
-    }
-
-    const Buildings& GetBuildings() const noexcept {
-        return buildings_;
-    }
-
-    const Roads& GetRoads() const noexcept {
-        return roads_;
-    }
-
-    const Offices& GetOffices() const noexcept {
-        return offices_;
-    }
-
-    void AddRoad(Road road) {
-        roads_.emplace_back(std::move(road));
-    }
-
-    void AddBuilding(Building building) {
-        buildings_.emplace_back(std::move(building));
-    }
-
-    void AddOffice(Office office);
-
-    void SetDogSpeed(double speed) noexcept {
-        dog_speed_ = speed;
-    }
-
-    double GetDogSpeed() const noexcept {
-        return dog_speed_.value_or(default_dog_speed_);
-    }
-
-    static void SetDefaultDogSpeed(double speed) noexcept {
-        default_dog_speed_ = speed;
-    }
-
-    // ИСПРАВЛЕНО: Добавлено подчёркивание к переменной default_dog_speed_
-    static double GetDefaultDogSpeed() noexcept { 
-        return default_dog_speed_; 
-    }
+    double GetDogSpeed() const { return dog_speed_; }
+    void SetDogSpeed(double s) { dog_speed_ = s; }
 
 private:
-    using OfficeIdHasher = util::TaggedHasher<Office::Id>;
-    using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, OfficeIdHasher>;
-
     Id id_;
     std::string name_;
-    Roads roads_;
-    Buildings buildings_;
-
-    OfficeIdToIndex warehouse_id_to_index_;
-    Offices offices_;
-    std::optional<double> dog_speed_;
-    inline static double default_dog_speed_ = 1.0;
-};
-
-class Dog {
-public:
-    // ИСПРАВЛЕНО: Добавлен метод GetPos() для использования в request_handler.h
-    PointDouble GetPos() const noexcept { return pos_; }
-private:
-    PointDouble pos_{0.0, 0.0};
-};
-
-class Player {
-public:
-    using Id = util::Tagged<unsigned int, Player>;
-    const Id& GetId() const noexcept { return id_; }
-    Dog* GetDog() const noexcept { return dog_; }
-private:
-    Id id_{0};
-    Dog* dog_ = nullptr;
-};
-
-class GameSession {
-public:
-    // ИСПРАВЛЕНО: Генератор принимается по неконстантной ссылке
-    void Update(std::chrono::milliseconds time_delta, loot_gen::LootGenerator& loot_generator);
-
-    // ИСПРАВЛЕНО: Методы-заглушки для корректной компиляции request_handler.h
-    const std::vector<Player*>& GetPlayers() const noexcept { return players_; }
-    Dog& AddDog(const std::string& name, bool randomize) { static Dog d; return d; }
-    Player& AddPlayer(Dog& dog) { static Player p; return p; }
-
-private:
-    std::vector<Player*> players_;
+    double dog_speed_ = 1.0;
 };
 
 class Game {
 public:
-    using Maps = std::vector<Map>;
-
-    void AddMap(Map map);
-
-    const Maps& GetMaps() const noexcept {
-        return maps_;
-    }
-
-    const Map* FindMap(const Map::Id& id) const noexcept {
-        if (auto it = map_id_to_index_.find(id); it != map_id_to_index_.end()) {
-            return &maps_[it->second];
+    GameSession& CreateSession(const Map* map) {
+        auto& ptr = sessions_[map];
+        if (!ptr) {
+            ptr = std::make_unique<GameSession>();
         }
-        return nullptr;
+        return *ptr;
     }
-
-    GameSession* FindSession(const Map* map) const noexcept {
-        auto it = sessions_.find(map);
-        if (it != sessions_.end()) {
-            return it->second.get();
-        }
-        return nullptr;
+	
+	const Map* FindMap(const Map::Id& id) const {
+    for (const auto& m : maps_) {
+        if (*m.GetId() == *id) return &m;
     }
-
-    GameSession* CreateSession(const Map* map);
-    void UpdateAllSessions(double time_delta_seconds);
-
-    // ИСПРАВЛЕНО: Добавлен метод настройки конфигурации генератора
-    void SetLootGeneratorConfig(std::chrono::milliseconds base_interval, double probability) {
-        loot_period_ = base_interval;
-        loot_probability_ = probability;
-    }
-
-    extra_data::ExtraDataManager& GetExtraDataManager() noexcept { return extra_data_manager_; }
-    const extra_data::ExtraDataManager& GetExtraDataManager() const noexcept { return extra_data_manager_; }
+    return nullptr;
+}
 
 private:
-    using MapIdHasher = util::TaggedHasher<Map::Id>;
-    using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
-
-    std::vector<Map> maps_;
-    MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-    
-    std::chrono::milliseconds loot_period_{0};
-    double loot_probability_{0.0};
-    extra_data::ExtraDataManager extra_data_manager_;
 };
 
 class PlayerTokens {
 public:
-    void AddPlayer(const std::string& token, Player* player) {
+    void Add(const std::string& token, Player* player) {
         tokens_[token] = player;
     }
 
-    Player* FindPlayerByToken(const std::string& token) const {
+    Player* Find(const std::string& token) const {
         auto it = tokens_.find(token);
         return it == tokens_.end() ? nullptr : it->second;
     }
@@ -307,6 +176,4 @@ private:
     std::unordered_map<std::string, Player*> tokens_;
 };
 
-PointDouble GetRandomPointOnRoad(const Road& road);
-
-}  // namespace model
+} // namespace model
