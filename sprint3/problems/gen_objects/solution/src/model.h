@@ -133,6 +133,8 @@ class Dog {
 public:
     explicit Dog(std::string name)
         : name_(std::move(name)), id_(++next_id_) {}
+	
+	const std::string& GetName() const { return name_; }
 
     void SetPos(double x, double y) { pos_ = {x, y}; }
     PointDouble GetPos() const { return pos_; }

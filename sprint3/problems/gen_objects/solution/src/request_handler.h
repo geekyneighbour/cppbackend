@@ -23,68 +23,53 @@
 namespace boost::json {
 
 // Сериализация Point
-template<>
-struct value_from<model::Point> {
-    static void value_from_impl(const model::Point& p, value& v) {
-        v = object{{"x", p.x}, {"y", p.y}};
-    }
-};
+inline void tag_invoke(const value_from_tag&, value& v, const model::Point& p) {
+    v = object{{"x", p.x}, {"y", p.y}};
+}
 
 // Сериализация PointDouble
-template<>
-struct value_from<model::PointDouble> {
-    static void value_from_impl(const model::PointDouble& p, value& v) {
-        v = object{{"x", p.x}, {"y", p.y}};
-    }
-};
+inline void tag_invoke(const value_from_tag&, value& v, const model::PointDouble& p) {
+    v = object{{"x", p.x}, {"y", p.y}};
+}
 
 // Сериализация Road
-template<>
-struct value_from<model::Road> {
-    static void value_from_impl(const model::Road& r, value& v) {
-        auto start = r.GetStart();
-        auto end = r.GetEnd();
-        object obj;
-        obj["x0"] = start.x;
-        obj["y0"] = start.y;
-        if (r.IsHorizontal()) {
-            obj["x1"] = end.x;
-        } else {
-            obj["y1"] = end.y;
-        }
-        v = obj;
+inline void tag_invoke(const value_from_tag&, value& v, const model::Road& r) {
+    auto start = r.GetStart();
+    auto end = r.GetEnd();
+    object obj;
+    obj["x0"] = start.x;
+    obj["y0"] = start.y;
+    if (r.IsHorizontal()) {
+        obj["x1"] = end.x;
+    } else {
+        obj["y1"] = end.y;
     }
-};
+    v = obj;
+}
 
 // Сериализация Building
-template<>
-struct value_from<model::Building> {
-    static void value_from_impl(const model::Building& b, value& v) {
-        auto rect = b.GetBounds();
-        v = object{
-            {"x", rect.position.x},
-            {"y", rect.position.y},
-            {"w", rect.size.width},
-            {"h", rect.size.height}
-        };
-    }
-};
+inline void tag_invoke(const value_from_tag&, value& v, const model::Building& b) {
+    auto rect = b.GetBounds();
+    v = object{
+        {"x", rect.position.x},
+        {"y", rect.position.y},
+        {"w", rect.size.width},
+        {"h", rect.size.height}
+    };
+}
 
 // Сериализация Office
-template<>
-struct value_from<model::Office> {
-    static void value_from_impl(const model::Office& o, value& v) {
-        auto pos = o.GetPosition();
-        auto off = o.GetOffset();
-        v = object{
-            {"id", *o.GetId()},
-            {"x", pos.x},
-            {"y", pos.y},
-            {"offsetX", off.dx},
-            {"offsetY", off.dy}
-        };
-    }
-};
+inline void tag_invoke(const value_from_tag&, value& v, const model::Office& o) {
+    auto pos = o.GetPosition();
+    auto off = o.GetOffset();
+    v = object{
+        {"id", *o.GetId()},
+        {"x", pos.x},
+        {"y", pos.y},
+        {"offsetX", off.dx},
+        {"offsetY", off.dy}
+    };
+}
 
 } // namespace boost::json
 
@@ -426,26 +411,26 @@ obj["offices"] = json::value_from(map->GetOffices());
 
         // ========== PLAYERS ==========
         if (path == PLAYERS) {
-            auto token = ParseToken(req);
-            if (!token) return Unauthorized(req, "invalidToken", "no token");
-            if (!IsValidToken(*token)) return Unauthorized(req, "invalidToken", "bad token");
+    auto token = ParseToken(req);
+    if (!token) return Unauthorized(req, "invalidToken", "no token");
+    if (!IsValidToken(*token)) return Unauthorized(req, "invalidToken", "bad token");
 
-            auto* player = tokens_.FindPlayerByToken(*token);
-            if (!player) return Unauthorized(req, "unknownToken", "not found");
+    auto* player = tokens_.FindPlayerByToken(*token);
+    if (!player) return Unauthorized(req, "unknownToken", "not found");
 
-            json::object out;
-            for (auto* p : player->GetSession()->GetPlayers()) {
-                out[std::to_string(p->GetId())] = json::object{
-                    {"name", p->GetDog()->GetName()}
-                };
-            }
+    json::object out;
+    for (auto* p : player->GetSession()->GetPlayers()) {
+        json::object player_obj;
+        player_obj["name"] = p->GetDog()->GetName();
+        out[std::to_string(p->GetId())] = player_obj;
+    }
 
-            http::response<http::string_body> res{http::status::ok, req.version()};
-            res.body() = json::serialize(out);
-            res.set(http::field::content_type, "application/json");
-            res.prepare_payload();
-            return res;
-        }
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.body() = json::serialize(out);
+    res.set(http::field::content_type, "application/json");
+    res.prepare_payload();
+    return res;
+}
 
         // ========== STATE ==========
         if (path == STATE) {

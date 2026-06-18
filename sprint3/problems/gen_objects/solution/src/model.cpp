@@ -2,6 +2,8 @@
 #include <random>
 #include <stdexcept>
 
+namespace json = boost::json;
+
 namespace model {
 
 // ================= RANDOM =================
@@ -105,6 +107,8 @@ void GameSession::UpdateLoot(double dt) {
     static std::mt19937 gen(rd());
 
     for (unsigned i = 0; i < add; ++i) {
+        if (map_->GetLootTypes().empty() || map_->GetRoads().empty()) break;
+        
         std::uniform_int_distribution<> type_dist(0, map_->GetLootTypes().size() - 1);
         std::uniform_int_distribution<> road_dist(0, map_->GetRoads().size() - 1);
         
