@@ -4,130 +4,77 @@
 #include <vector>
 #include <memory>
 #include <random>
-#include <optional>  
-#include <chrono>
+#include <optional>
+#include <boost/json.hpp>
 
 #include "tagged.h"
 #include "loot_generator.h"
 
 namespace model {
-	
+
 using namespace std::string_literals;
 
 using Dimension = int;
 using Coord = Dimension;
 
-struct Point {
-    Coord x, y;
-};
+struct Point { Coord x, y; };
+struct Size { Dimension width, height; };
+struct Rectangle { Point position; Size size; };
+struct Offset { Dimension dx, dy; };
 
-struct Size {
-    Dimension width, height;
-};
-
-struct Rectangle {
-    Point position;
-    Size size;
-};
-
-struct Offset {
-    Dimension dx, dy;
-};
-
-struct PointDouble {
-    double x, y;
-};
-
-struct Speed {
-    double vx, vy;
-};
+struct PointDouble { double x, y; };
+struct Speed { double vx, vy; };
 
 enum class Direction {
-    NORTH,
-    SOUTH,
-    WEST,
-    EAST
+    NORTH, SOUTH, WEST, EAST
 };
 
+// ================= ROAD =================
 class Road {
-    struct HorizontalTag {
-        explicit HorizontalTag() = default;
-    };
-
-    struct VerticalTag {
-        explicit VerticalTag() = default;
-    };
-
 public:
+    struct HorizontalTag {};
+    struct VerticalTag {};
+
     constexpr static HorizontalTag HORIZONTAL{};
     constexpr static VerticalTag VERTICAL{};
 
     Road(HorizontalTag, Point start, Coord end_x) noexcept
-        : start_{std::min(start.x, end_x), start.y}
-        , end_{std::max(start.x, end_x), start.y} {
-    }
+        : start_{start}, end_{end_x, start.y} {}
 
     Road(VerticalTag, Point start, Coord end_y) noexcept
-        : start_{start.x, std::min(start.y, end_y)}
-        , end_{start.x, std::max(start.y, end_y)} {
-    }
+        : start_{start}, end_{start.x, end_y} {}
 
-    bool IsHorizontal() const noexcept {
-        return start_.y == end_.y;
-    }
+    bool IsHorizontal() const noexcept { return start_.y == end_.y; }
+    bool IsVertical() const noexcept { return start_.x == end_.x; }
 
-    bool IsVertical() const noexcept {
-        return start_.x == end_.x;
-    }
-
-    Point GetStart() const noexcept {
-        return start_;
-    }
-
-    Point GetEnd() const noexcept {
-        return end_;
-    }
+    Point GetStart() const noexcept { return start_; }
+    Point GetEnd() const noexcept { return end_; }
 
 private:
-    Point start_;
-    Point end_;
+    Point start_, end_;
 };
 
+// ================= BUILDING =================
 class Building {
 public:
-    explicit Building(Rectangle bounds) noexcept
-        : bounds_{bounds} {
-    }
-
-    const Rectangle& GetBounds() const noexcept {
-        return bounds_;
-    }
+    explicit Building(Rectangle bounds) noexcept : bounds_{bounds} {}
+    const Rectangle& GetBounds() const noexcept { return bounds_; }
 
 private:
     Rectangle bounds_;
 };
 
+// ================= OFFICE =================
 class Office {
 public:
     using Id = util::Tagged<std::string, Office>;
 
     Office(Id id, Point position, Offset offset) noexcept
-        : id_{std::move(id)}
-        , position_{position}
-        , offset_{offset} {
-    }
+        : id_{std::move(id)}, position_{position}, offset_{offset} {}
 
-    const Id& GetId() const noexcept {
-        return id_;
-    }
-
-    Point GetPosition() const noexcept {
-        return position_;
-    }
-
-    Offset GetOffset() const noexcept {
-        return offset_;
-    }
+    const Id& GetId() const noexcept { return id_; }
+    Point GetPosition() const noexcept { return position_; }
+    Offset GetOffset() const noexcept { return offset_; }
 
 private:
     Id id_;
@@ -135,216 +82,152 @@ private:
     Offset offset_;
 };
 
+// ================= MAP =================
 class Map {
 public:
     using Id = util::Tagged<std::string, Map>;
     using Roads = std::vector<Road>;
     using Buildings = std::vector<Building>;
-    using Offices = std::vector<Office>;
+
+    using LootTypes = boost::json::array;
 
     Map(Id id, std::string name) noexcept
-        : id_{std::move(id)}
-        , name_{std::move(name)} {
-    }
+        : id_(std::move(id)), name_(std::move(name)) {}
 
-    const Id& GetId() const noexcept {
-        return id_;
-    }
+    const Id& GetId() const noexcept { return id_; }
+    const std::string& GetName() const noexcept { return name_; }
 
-    const std::string& GetName() const noexcept {
-        return name_;
-    }
+    const Roads& GetRoads() const noexcept { return roads_; }
+    const Buildings& GetBuildings() const noexcept { return buildings_; }
 
-    const Buildings& GetBuildings() const noexcept {
-        return buildings_;
-    }
+    void AddRoad(const Road& r) { roads_.push_back(r); }
+    void AddBuilding(const Building& b) { buildings_.push_back(b); }
 
-    const Roads& GetRoads() const noexcept {
-        return roads_;
-    }
+    const LootTypes& GetLootTypes() const noexcept { return loot_types_; }
+    void SetLootTypes(LootTypes lt) { loot_types_ = std::move(lt); }
 
-    const Offices& GetOffices() const noexcept {
-        return offices_;
-    }
-
-    void AddRoad(const Road& road) {
-        roads_.emplace_back(road);
-    }
-
-    void AddBuilding(const Building& building) {
-        buildings_.emplace_back(building);
-    }
-
-    void SetDogSpeed(double speed) {
-        dog_speed_ = speed;
-    }
-
-    double GetDogSpeed() const noexcept {
-        return dog_speed_.value_or(default_dog_speed_);
-    }
-
-    static void SetDefaultDogSpeed(double speed) {
-        default_dog_speed_ = speed;
-    }
-
-    static double GetDefaultDogSpeed() noexcept {
-        return default_dog_speed_;
-    }
-
-    void AddOffice(Office office);
-
-    void SetLootTypesCount(size_t count) noexcept {
-        loot_types_count_ = count;
-    }
-
-    size_t GetLootTypesCount() const noexcept {
-        return loot_types_count_;
-    }
+    size_t GetLootTypesCount() const noexcept { return loot_types_.size(); }
 
 private:
-    using OfficeIdHasher = util::TaggedHasher<Office::Id>;
-    using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, OfficeIdHasher>;
-
     Id id_;
     std::string name_;
     Roads roads_;
     Buildings buildings_;
-    size_t loot_types_count_ = 0;
 
-    OfficeIdToIndex warehouse_id_to_index_;
-    Offices offices_;
-    std::optional<double> dog_speed_;
-    inline static double default_dog_speed_ = 1.0;
+    LootTypes loot_types_;
 };
 
+// ================= DOG =================
 class Dog {
 public:
-    explicit Dog(std::string name, uint32_t id) 
-        : name_(std::move(name)), id_(id), pos_{0.0, 0.0}, speed_{0.0, 0.0}, dir_(Direction::NORTH) {}
+    explicit Dog(std::string name)
+        : name_(std::move(name)), id_(++next_id_) {}
 
-    uint32_t GetId() const noexcept { return id_; }
-    const std::string& GetName() const noexcept { return name_; }
-    
-    void SetPosition(PointDouble pos) { pos_ = pos; }
-    PointDouble GetPosition() const noexcept { return pos_; }
+    void SetPos(double x, double y) { pos_ = {x, y}; }
+    PointDouble GetPos() const { return pos_; }
 
-    void SetSpeed(Speed speed) { speed_ = speed; }
-    Speed GetSpeed() const noexcept { return speed_; }
+    void SetSpeed(Speed s) { speed_ = s; }
+    Speed GetSpeed() const { return speed_; }
 
-    void SetDirection(Direction dir) { dir_ = dir; }
-    Direction GetDirection() const noexcept { return dir_; }
+    void SetDirection(Direction d) { dir_ = d; }
+    Direction GetDirection() const { return dir_; }
 
-    void UpdatePosition(double time_delta);
+    void SetAction(const std::string& action, double speed);
+    void UpdatePosition(double dt, const std::vector<Road>& roads);
 
 private:
     std::string name_;
-    uint32_t id_;
-    PointDouble pos_;
-    Speed speed_;
-    Direction dir_;
+    uint64_t id_;
+    PointDouble pos_{};
+    Speed speed_{};
+    Direction dir_{Direction::NORTH};
+
+    inline static uint64_t next_id_ = 0;
 };
 
-struct LostObject {
-    uint32_t id;
-    int type;
-    PointDouble pos;
-};
-
-class GameSession {
-public:
-    explicit GameSession(const Map* map, loot_gen::LootGenerator loot_gen) 
-        : map_(map), loot_generator_(std::move(loot_gen)) {}
-
-    const Map* GetMap() const noexcept { return map_; }
-    
-    Dog* AddDog(const std::string& dog_name, bool randomize_spawn);
-    const std::vector<std::shared_ptr<Dog>>& GetDogs() const noexcept { return dogs_; }
-
-    const std::unordered_map<uint32_t, LostObject>& GetLostObjects() const noexcept {
-        return lost_objects_;
-    }
-
-    void Update(double time_delta);
-
-private:
-    const Map* map_;
-    std::vector<std::shared_ptr<Dog>> dogs_;
-    std::unordered_map<uint32_t, LostObject> lost_objects_;
-    loot_gen::LootGenerator loot_generator_;
-    uint32_t next_dog_id_ = 0;
-    uint32_t next_loot_id_ = 0;
-};
+// ================= PLAYER =================
+class GameSession;
 
 class Player {
 public:
-    Player(uint32_t id, std::shared_ptr<GameSession> session, std::shared_ptr<Dog> dog)
-        : id_(id), session_(std::move(session)), dog_(std::move(dog)) {}
+    Player(uint64_t id, Dog* dog, GameSession* session)
+        : id_(id), dog_(dog), session_(session) {}
 
-    uint32_t GetId() const noexcept { return id_; }
-    std::shared_ptr<GameSession> GetSession() const noexcept { return session_; }
-    std::shared_ptr<Dog> GetDog() const noexcept { return dog_; }
+    uint64_t GetId() const { return id_; }
+    Dog* GetDog() const { return dog_; }
+    GameSession* GetSession() const { return session_; }
 
 private:
-    uint32_t id_;
-    std::shared_ptr<GameSession> session_;
-    std::shared_ptr<Dog> dog_;
+    uint64_t id_;
+    Dog* dog_;
+    GameSession* session_;
 };
 
+// ================= GAME SESSION =================
+class GameSession {
+public:
+    explicit GameSession(const Map* map);
+
+    Dog& AddDog(std::string_view name, bool randomize);
+    Player& AddPlayer(Dog& dog);
+
+    std::vector<Player*> GetPlayers();
+
+    const Map* GetMap() const { return map_; }
+
+    void UpdateState(double dt);
+
+    const std::vector<std::unique_ptr<Dog>>& GetDogs() const { return dogs_; }
+
+    const boost::json::object& GetLostObjects() const noexcept;
+
+private:
+    void UpdateLoot(double dt);
+
+    const Map* map_{};
+
+    std::vector<std::unique_ptr<Dog>> dogs_;
+    std::unordered_map<uint64_t, Player> players_;
+
+    uint64_t next_player_id_ = 0;
+
+    boost::json::object lost_objects_;
+
+    std::unique_ptr<loot_gen::LootGenerator> loot_generator_;
+};
+
+// ================= GAME =================
 class Game {
 public:
-    using Maps = std::vector<std::unique_ptr<Map>>;
+    struct LootGeneratorConfig {
+        std::chrono::milliseconds period;
+        double probability;
+    };
 
-    void SetLootGeneratorConfig(double period, double probability) {
-        loot_period_ = period;
-        loot_probability_ = probability;
-    }
-
-    std::shared_ptr<GameSession> GetOrCreateSession(const Map* map);
-    const Map* FindMap(const Map::Id& id) const;
-    const Maps& GetMaps() const noexcept;
     void AddMap(Map map);
-    void UpdateAllSessions(double time_delta);
+
+    const Map* FindMap(const Map::Id& id) const;
+
+    std::vector<std::unique_ptr<Map>>& GetMaps() noexcept;
+
+    GameSession& FindOrCreateSession(const Map* map);
+
+    void UpdateAllSessions(double dt);
+
+    void SetLootGeneratorConfig(LootGeneratorConfig cfg);
+    const LootGeneratorConfig& GetLootGeneratorConfig() const noexcept;
 
 private:
-    using MapIdHasher = util::TaggedHasher<Map::Id>;
-    using MapIdToIndex = std::unordered_map<Map::Id, size_t, MapIdHasher>;
-
     std::vector<std::unique_ptr<Map>> maps_;
-    MapIdToIndex map_id_to_index_;
-    std::unordered_map<const Map*, std::shared_ptr<GameSession>> sessions_;
-    
-    double loot_period_ = 1.0;
-    double loot_probability_ = 0.0;
+
+    std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
+
+    std::unordered_map<std::string, size_t> map_index_;
+
+    LootGeneratorConfig loot_cfg_{std::chrono::milliseconds(5000), 0.5};
 };
 
-class PlayerTokens {
-public:
-    void AddPlayer(const std::string& token, Player* player) {
-        tokens_[token] = player;
-    }
-
-    Player* FindPlayerByToken(const std::string& token) const {
-        auto it = tokens_.find(token);
-        return it == tokens_.end() ? nullptr : it->second;
-    }
-
-private:
-    std::unordered_map<std::string, Player*> tokens_;
-};
-
+// ================= HELPERS =================
 PointDouble GetRandomPointOnRoad(const Road& road);
 
-}  // namespace model
-
-namespace boost {
-namespace json {
-    class value;
-    struct value_from_tag;
-} // namespace json
-} // namespace boost
-
-namespace model {
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road);
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Building& building);
-void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Office& office);
 } // namespace model

@@ -1,51 +1,22 @@
 #include "loot_generator.h"
+
+#include <algorithm>
 #include <cmath>
 
 namespace loot_gen {
 
-LootGenerator::LootGenerator(TimeInterval base_interval, double probability, RandomGenerator random_gen)
-    : base_interval_(base_interval)
-    , probability_(probability)
-    , random_gen_(std::move(random_gen)) {
-}
-
-unsigned LootGenerator::Generate(TimeInterval time_delta, unsigned loot_count, unsigned looter_count) {
+unsigned LootGenerator::Generate(TimeInterval time_delta, unsigned loot_count,
+                                 unsigned looter_count) {
     time_without_loot_ += time_delta;
-    if (loot_count >= looter_count) {
-        return 0;
+    const unsigned loot_shortage = loot_count > looter_count ? 0u : looter_count - loot_count;
+    const double ratio = std::chrono::duration<double>{time_without_loot_} / base_interval_;
+    const double probability
+        = std::clamp((1.0 - std::pow(1.0 - probability_, ratio)) * random_generator_(), 0.0, 1.0);
+    const unsigned generated_loot = static_cast<unsigned>(std::round(loot_shortage * probability));
+    if (generated_loot > 0) {
+        time_without_loot_ = {};
     }
-    
-    // Если прошло мало времени, но это первый вызов - генерируем лут
-    bool is_first_generation = (time_without_loot_ == time_delta && loot_count == 0);
-    
-    double base_interval_ms = static_cast<double>(base_interval_.count());
-    double time_delta_ms = static_cast<double>(time_without_loot_.count());
-    
-    // Вероятность сгенерировать хотя бы один предмет за прошедшее время
-    double p = 1.0 - std::pow(1.0 - probability_, time_delta_ms / base_interval_ms);
-    double random_value = random_gen_();
-    
-    // Для первого вызова или если вероятность высокая
-    if (is_first_generation || random_value <= p) {
-        unsigned generated_loot;
-        if (is_first_generation) {
-            // При первом вызове генерируем хотя бы 1 предмет
-            generated_loot = 1;
-        } else {
-            // Иначе вычисляем количество
-            generated_loot = static_cast<unsigned>(std::round(random_value / p));
-            generated_loot = std::max(1u, generated_loot);
-        }
-        
-        unsigned available_slots = looter_count - loot_count;
-        unsigned loot_to_add = std::min(generated_loot, available_slots);
-        if (loot_to_add > 0) {
-            time_without_loot_ = TimeInterval{0};
-        }
-        return loot_to_add;
-    }
-    
-    return 0;
+    return generated_loot;
 }
 
-}  // namespace loot_gen
+} // namespace loot_gen
