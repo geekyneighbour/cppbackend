@@ -12,14 +12,10 @@ conan_basic_setup(TARGETS)
 add_library(game_model STATIC
     src/model.cpp
     src/loot_generator.cpp
-    # src/boost_json.cpp не включаем - он только для boost::json
 )
-
 
 target_include_directories(game_model PUBLIC CONAN_PKG::boost)
 target_link_libraries(game_model PUBLIC CONAN_PKG::boost)
-
-
 target_compile_definitions(game_model PUBLIC BOOST_JSON_HEADER_ONLY)
 
 
@@ -30,7 +26,6 @@ add_executable(game_server
     src/json_loader.cpp
 )
 
-
 target_link_libraries(game_server
     PRIVATE
     game_model
@@ -40,23 +35,37 @@ target_link_libraries(game_server
 
 enable_testing()
 
-find_package(Catch2 REQUIRED)
 
 add_executable(game_server_tests
     tests/loot_generator_tests.cpp
-    # другие тесты можно добавить сюда
 )
 
 target_link_libraries(game_server_tests
     PRIVATE
     game_model
-    Catch2::Catch2WithMain
     CONAN_PKG::boost
+    ${CONAN_LIBS}  
+)
+
+
+target_include_directories(game_server_tests
+    PRIVATE
+    ${CONAN_INCLUDE_DIRS_CATCH2}
 )
 
 
 include(CTest)
-include(${CONAN_BUILD_DIRS_CATCH2_DEBUG}/Catch.cmake)
+
+if(EXISTS "${CONAN_BUILD_DIRS_CATCH2_DEBUG}/Catch.cmake")
+    include(${CONAN_BUILD_DIRS_CATCH2_DEBUG}/Catch.cmake)
+elseif(EXISTS "${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake")
+    include(${CONAN_BUILD_DIRS_CATCH2}/Catch.cmake)
+else()
+
+    add_test(NAME LootGeneratorTests COMMAND game_server_tests)
+endif()
 
 
-catch_discover_tests(game_server_tests)
+if(COMMAND catch_discover_tests)
+    catch_discover_tests(game_server_tests)
+endif()
