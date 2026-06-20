@@ -157,7 +157,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             if (auto loot_types = map_obj.if_contains("lootTypes")) {
                 AddLootTypes(loot_types->as_array(), map);
                 
-                MapLootTypes::Instance().SetLootTypes(*map.GetId(), *loot_types);
+                MapLootTypes::Instance().SetLootTypes(*map.GetId(), loot_types->as_array());
             }
 
             game.AddMap(std::move(map));
