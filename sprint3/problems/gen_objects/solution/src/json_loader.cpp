@@ -4,6 +4,8 @@
 #include <iostream>
 #include <boost/json.hpp>
 
+#include "map_loot_types.h"
+
 namespace json_loader {
 
 void LoadGlobalSettings(const boost::json::object& root_obj) {

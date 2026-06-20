@@ -20,5 +20,6 @@ public:
     }
     
 private:
+	MapLootTypes() = default;
     std::unordered_map<std::string, boost::json::array> loot_types_;
 };

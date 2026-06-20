@@ -3,6 +3,7 @@
 #include "http_server.h"
 #include "model.h"
 #include "logging.h"
+#include "map_loot_types.h"
 
 #include <boost/json.hpp>
 #include <boost/beast/http.hpp>

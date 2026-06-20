@@ -7,6 +7,7 @@
 #include <optional>  
 
 #include "tagged.h"
+#include "loot_generator.h"
 
 namespace model {
 	
@@ -217,6 +218,18 @@ private:
     Offset offset_;
 };
 
+struct LootGeneratorConfig {
+    double period = 1.0;
+    double probability = 0.5;
+};
+
+struct LostObject {
+    size_t type;
+    PointDouble pos;
+    
+    LostObject(size_t t, PointDouble p) : type(t), pos(p) {}
+};
+
 class Map {
 public:
     using Id = util::Tagged<std::string, Map>;
@@ -229,87 +242,26 @@ public:
         , name_(std::move(name)) {
     }
 
-    const Id& GetId() const noexcept {
-        return id_;
-    }
+    const Id& GetId() const noexcept { return id_; }
+    const std::string& GetName() const noexcept { return name_; }
+    const Buildings& GetBuildings() const noexcept { return buildings_; }
+    const Roads& GetRoads() const noexcept { return roads_; }
+    const Offices& GetOffices() const noexcept { return offices_; }
 
-    const std::string& GetName() const noexcept {
-        return name_;
-    }
-
-    const Buildings& GetBuildings() const noexcept {
-        return buildings_;
-    }
-
-    const Roads& GetRoads() const noexcept {
-        return roads_;
-    }
-
-    const Offices& GetOffices() const noexcept {
-        return offices_;
-    }
-
-    void AddRoad(const Road& road) {
-        roads_.emplace_back(road);
-    }
-
-    void AddBuilding(const Building& building) {
-        buildings_.emplace_back(building);
-    }
-
+    void AddRoad(const Road& road) { roads_.emplace_back(road); }
+    void AddBuilding(const Building& building) { buildings_.emplace_back(building); }
     void AddOffice(Office office);
     
     double GetDogSpeed() const noexcept {
         return dog_speed_.has_value() ? *dog_speed_ : default_dog_speed_;
     }
     
-    void SetDogSpeed(double speed) {
-        dog_speed_ = speed;
-    }
+    void SetDogSpeed(double speed) { dog_speed_ = speed; }
     
-    static void SetDefaultDogSpeed(double speed) {
-        default_dog_speed_ = speed;
-    }
-	
-	const Road* FindRoadAtPoint(double x, double y) const {
-        for (const auto& road : roads_) {
-            if (road.IsPointOnRoad(x, y)) {
-                return &road;
-            }
-        }
-        return nullptr;
-    }
+    static void SetDefaultDogSpeed(double speed) { default_dog_speed_ = speed; }
     
-    const Road* FindNearestRoad(const PointDouble& pos) const {
-        const Road* nearest = nullptr;
-        double min_dist = 1e9;
-        
-        for (const auto& road : roads_) {
-            double dx = 0, dy = 0;
-            if (road.IsHorizontal()) {
-                double road_y = road.GetStart().y;
-                dy = std::abs(pos.y - road_y);
-                if (pos.x >= road.GetMinX() - HALF_WIDTH_ && pos.x <= road.GetMaxX() + HALF_WIDTH_) {
-                    if (dy < min_dist) {
-                        min_dist = dy;
-                        nearest = &road;
-                    }
-                }
-            } else {
-                double road_x = road.GetStart().x;
-                dx = std::abs(pos.x - road_x);
-                if (pos.y >= road.GetMinY() - HALF_WIDTH_ && pos.y <= road.GetMaxY() + HALF_WIDTH_) {
-                    if (dx < min_dist) {
-                        min_dist = dx;
-                        nearest = &road;
-                    }
-                }
-            }
-        }
-        return nearest;
-    }
-	
-	  size_t GetLootTypesCount() const noexcept { return loot_types_count_; }
+    // Новые методы для трофеев
+    size_t GetLootTypesCount() const noexcept { return loot_types_count_; }
     void SetLootTypesCount(size_t count) { loot_types_count_ = count; }
     
     const LootGeneratorConfig& GetLootConfig() const { return loot_config_; }
@@ -317,6 +269,9 @@ public:
     
     PointDouble GetRandomPointOnRoad() const;
     size_t GetRandomLootType() const;
+    
+    const Road* FindRoadAtPoint(double x, double y) const;
+    const Road* FindNearestRoad(const PointDouble& pos) const;
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -325,24 +280,20 @@ private:
     std::string name_;
     Roads roads_;
     Buildings buildings_;
-
     OfficeIdToIndex warehouse_id_to_index_;
     Offices offices_;
     
     std::optional<double> dog_speed_;
     inline static double default_dog_speed_ = 1.0;
-	static constexpr double HALF_WIDTH_ = 0.4;
-	size_t loot_types_count_ = 0;
+    static constexpr double HALF_WIDTH_ = 0.4;
+    
+    // Новые поля для трофеев
+    size_t loot_types_count_ = 0;
     LootGeneratorConfig loot_config_;
     mutable std::mt19937 rng_{std::random_device{}()};
 };
 
-struct LostObject {
-    size_t type;
-    PointDouble pos;
-    
-    LostObject(size_t t, PointDouble p) : type(t), pos(p) {}
-};
+
 
 class Dog {
 public:
@@ -406,19 +357,21 @@ public:
     Player& AddPlayer(Dog& dog);
     std::vector<Player*> GetPlayers();
     const Map* GetMap() const { return map_; }
-	void UpdateState(double time_delta);
-	const std::vector<std::unique_ptr<Dog>>& GetDogs() const { return dogs_; }
-	const std::vector<LostObject>& GetLostObjects() const { return lost_objects_; }
-
+    void UpdateState(double time_delta);
+    const std::vector<std::unique_ptr<Dog>>& GetDogs() const { return dogs_; }
+    
+    const std::vector<LostObject>& GetLostObjects() const { return lost_objects_; }
 
 private:
     const Map* map_ = nullptr;
     std::vector<std::unique_ptr<Dog>> dogs_;
     std::unordered_map<uint64_t, Player> players_;
     uint64_t next_player_id_ = 0;
-	std::mt19937 random_gen_{std::random_device{}()};
-	std::vector<LostObject> lost_objects_;
-    loot_gen::LootGenerator loot_generator_;
+    std::mt19937 random_gen_{std::random_device{}()};
+    
+    std::vector<LostObject> lost_objects_;
+    std::optional<loot_gen::LootGenerator> loot_generator_;
+    bool loot_generator_initialized_ = false;
 };
 
 class Game {
