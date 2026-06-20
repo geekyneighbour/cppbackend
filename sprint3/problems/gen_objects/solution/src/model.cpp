@@ -119,7 +119,7 @@ void GameSession::UpdateState(double dt) {
         generator_initialized = true;
     }
     
-    unsigned new_loot_count = loot_generator_.Generate(
+    unsigned new_loot_count = loot_generator_->Generate(
         ms_dt,
         lost_objects_.size(),
         dogs_.size()

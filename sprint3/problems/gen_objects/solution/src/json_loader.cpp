@@ -7,6 +7,18 @@
 #include "map_loot_types.h"
 
 namespace json_loader {
+	
+	void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGeneratorConfig& config) {
+    if (auto cfg = root_obj.if_contains("lootGeneratorConfig")) {
+        const auto& cfg_obj = cfg->as_object();
+        if (auto period = cfg_obj.if_contains("period")) {
+            config.period = period->as_double();
+        }
+        if (auto probability = cfg_obj.if_contains("probability")) {
+            config.probability = probability->as_double();
+        }
+    }
+}
 
 void LoadGlobalSettings(const boost::json::object& root_obj) {
     if (auto speed = root_obj.if_contains("defaultDogSpeed")) {
@@ -107,10 +119,9 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         if (!obj.contains("maps")) return game;
 		
-		LoadGlobalSettings(obj);
-    
-    LootGeneratorConfig global_config;
-    LoadLootGeneratorConfig(obj, global_config);
+
+        model::LootGeneratorConfig global_config;
+        LoadLootGeneratorConfig(obj, global_config);
 
         for (const auto& map_val : obj.at("maps").as_array()) {
             if (!map_val.is_object()) continue;
@@ -121,7 +132,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
             model::Map map(model::Map::Id{id}, name);
 			
-            
             if (auto speed = map_obj.if_contains("dogSpeed")) {
                 if (speed->is_double()) {
                     map.SetDogSpeed(speed->as_double());
@@ -142,12 +152,13 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
                 AddOffices(offices->as_array(), map);
             }
 			
-			map.SetLootConfig(global_config);
+            map.SetLootConfig(global_config);
         
-        if (auto loot_types = map_obj.if_contains("lootTypes")) {
-            AddLootTypes(loot_types->as_array(), map);
-            MapLootTypes::Instance().SetLootTypes(map.GetId(), *loot_types);
-        }
+            if (auto loot_types = map_obj.if_contains("lootTypes")) {
+                AddLootTypes(loot_types->as_array(), map);
+                
+                MapLootTypes::Instance().SetLootTypes(*map.GetId(), *loot_types);
+            }
 
             game.AddMap(std::move(map));
         }
@@ -159,17 +170,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     return game;
 }
 
-void LoadLootGeneratorConfig(const boost::json::object& root_obj, LootGeneratorConfig& config) {
-    if (auto cfg = root_obj.if_contains("lootGeneratorConfig")) {
-        const auto& cfg_obj = cfg->as_object();
-        if (auto period = cfg_obj.if_contains("period")) {
-            config.period = period->as_double();
-        }
-        if (auto probability = cfg_obj.if_contains("probability")) {
-            config.probability = probability->as_double();
-        }
-    }
-}
+
 
 void AddLootTypes(const boost::json::array& loot_types_array, model::Map& map) {
     map.SetLootTypesCount(loot_types_array.size());
