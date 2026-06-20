@@ -257,7 +257,6 @@ private:
 		constexpr std::string_view STATE = "/api/v1/game/state";
 		constexpr std::string_view ACTION = "/api/v1/game/player/action";
 		constexpr std::string_view TICK = "/api/v1/game/tick";
-		constexpr std::string_view MAPS_ID = "/api/v1/maps/{id}";
 
         std::string path(req.target());
         
@@ -267,33 +266,6 @@ private:
         }
         
         auto method = req.method();
-		
-		if (path.starts_with(MAPS_ID)) {
-
-            std::string map_id = path.substr(MAPS_ID.size());
-            const auto* map = game_.FindMap(model::Map::Id{map_id});
-
-            if (!map)
-                return NotFound(req);
-
-            json::object result;
-
-            result["id"] = *map->GetId();
-            result["name"] = map->GetName();
-
-            result["roads"] = json::value_from(map->GetRoads());
-            result["buildings"] = json::value_from(map->GetBuildings());
-            result["offices"] = json::value_from(map->GetOffices());
-
-            
-            result["lootTypes"] = map->GetLootTypes();
-
-            http::response<http::string_body> res{http::status::ok, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.body() = json::serialize(result);
-            res.prepare_payload();
-            return res;
-        }
 
         if (path == MAPS) {
             if (method != http::verb::get && method != http::verb::head)
@@ -334,6 +306,13 @@ private:
 			result["buildings"] = boost::json::value_from(map->GetBuildings());
 			result["offices"] = boost::json::value_from(map->GetOffices());
 			
+			auto* loot_types = MapLootTypes::Instance().GetLootTypes(map_id);
+    if (loot_types) {
+        result["lootTypes"] = *loot_types;
+    } else {
+        result["lootTypes"] = boost::json::array();
+    }
+	
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, "application/json");
             res.set(http::field::cache_control, "no-cache");
@@ -467,26 +446,26 @@ private:
             }
 
             json::object response_obj{
-    {"players", players_obj}
-};
+                {"players", players_obj}
+            };
+			
+			json::object lost_objects_obj;
+    const auto& lost_objects = session->GetLostObjects();
+    for (size_t i = 0; i < lost_objects.size(); ++i) {
+        const auto& obj = lost_objects[i];
+        lost_objects_obj[std::to_string(i)] = json::object{
+            {"type", static_cast<int>(obj.type)},
+            {"pos", json::array{obj.pos.x, obj.pos.y}}
+        };
+    }
+    response_obj["lostObjects"] = lost_objects_obj;
 
-json::object loot_obj;
-
-for (const auto& [id, obj] : session->GetLoot()) {
-    loot_obj[std::to_string(id)] = json::object{
-        {"type", obj.type},
-        {"pos", json::array{obj.pos.x, obj.pos.y}}
-    };
-}
-
-response_obj["loot"] = loot_obj;   
-
-http::response<http::string_body> res{http::status::ok, req.version()};
-res.set(http::field::content_type, "application/json");
-res.set(http::field::cache_control, "no-cache");
-res.body() = json::serialize(response_obj);
-res.prepare_payload();
-return res;
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(response_obj);
+            res.prepare_payload();
+            return res;
         }
         
         if (path == ACTION) {
