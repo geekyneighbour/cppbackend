@@ -15,7 +15,6 @@ add_executable(game_server
 	src/boost_json.cpp
 	src/json_loader.cpp 
     	src/loot_generator.cpp
-	tests/loot_generator_tests.cpp
 )
 
 
