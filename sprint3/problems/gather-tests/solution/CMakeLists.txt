@@ -105,7 +105,7 @@ target_link_libraries(game_server_tests
     collision_detection_lib
 )
 
-catch_discover_tests(game_server_tests)
+catch_discover_tests(collision_detection_tests)
 
 
 set_target_properties(game_server PROPERTIES
