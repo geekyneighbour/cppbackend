@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.11)
 
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
+
+set(CONAN_DISABLE_CHECK_COMPILER TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(-Wno-enum-constexpr-conversion)
 
 project(game_server CXX)
 set(CMAKE_CXX_STANDARD 20)
@@ -8,6 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
+add_definitions(-DBOOST_TEST_DYN_LINK=0)
 
 include(CTest)
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -20,62 +26,64 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 
-add_library(game_model STATIC
+add_library(models STATIC
     src/model.cpp
     src/loot_generator.cpp
 )
 
-target_include_directories(game_model 
+target_include_directories(models 
     PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     CONAN_PKG::boost
 )
 
-target_link_libraries(game_model 
+target_link_libraries(models 
     PUBLIC 
     CONAN_PKG::boost
 )
 
-target_compile_definitions(game_model PUBLIC BOOST_JSON_HEADER_ONLY)
+target_compile_definitions(models PUBLIC BOOST_JSON_HEADER_ONLY)
 
 
 add_executable(game_server
     src/main.cpp
+    src/sdk.h
+    src/boost_headers/boost_json.cpp
     src/http_server.cpp
-    src/boost_json.cpp
     src/json_loader.cpp
 )
 
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
-target_link_libraries(game_server
-    PRIVATE
-    game_model
-    CONAN_PKG::boost
-)
+target_link_libraries(game_server PRIVATE CONAN_PKG::boost models)
 
-
-enable_testing()
 
 add_executable(game_server_tests
     tests/loot_generator_tests.cpp
 )
 
-target_include_directories(game_server_tests
-    PRIVATE
+target_include_directories(game_server_tests 
+    PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     CONAN_PKG::boost
 )
 
-target_link_libraries(game_server_tests
-    PRIVATE
-    game_model
-    CONAN_PKG::boost
-    CONAN_PKG::catch2
-    Threads::Threads
+target_link_libraries(game_server_tests 
+    PRIVATE 
+    CONAN_PKG::catch2 
+    CONAN_PKG::boost 
+    Threads::Threads 
+    models
 )
 
-
 catch_discover_tests(game_server_tests)
+
+
+add_subdirectory(src/request_handlers)
+add_subdirectory(src/boost_headers)
+add_subdirectory(src/utils)
+add_subdirectory(src/log_items)
+add_subdirectory(src/routes)
+add_subdirectory(src/services)
 
 
 set_target_properties(game_server PROPERTIES

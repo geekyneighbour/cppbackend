@@ -4,3 +4,6 @@ catch2/3.1.0
 
 [generators]
 cmake_multi
+
+[options]
+boost:without_test=True
