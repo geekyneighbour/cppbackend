@@ -1,15 +1,15 @@
-// tests/collision-detector-tests.cpp
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_vector.hpp>
 #include <catch2/catch_approx.hpp>
+#include <sstream>
 #include <cmath>
 #include <vector>
 #include <algorithm>
 #include "../src/collision_detector.h"
 
 using namespace collision_detector;
-using Catch::Matchers::Approx;
 
+// ============ StringMaker для вывода событий ============
 namespace Catch {
 template<>
 struct StringMaker<GatheringEvent> {
@@ -22,7 +22,7 @@ struct StringMaker<GatheringEvent> {
 };
 }
 
-
+// ============ Тестовый провайдер ============
 class TestProvider : public ItemGathererProvider {
 public:
     TestProvider() = default;
@@ -58,7 +58,7 @@ private:
     std::vector<Gatherer> gatherers_;
 };
 
-
+// ============ Вспомогательные функции ============
 bool CompareEvents(const GatheringEvent& a, const GatheringEvent& b) {
     if (a.time != b.time) return a.time < b.time;
     if (a.gatherer_id != b.gatherer_id) return a.gatherer_id < b.gatherer_id;
@@ -70,7 +70,7 @@ void SortAndCheckEvents(std::vector<GatheringEvent>& events) {
     std::sort(events.begin(), events.end(), CompareEvents);
 }
 
-
+// ============ ТЕСТЫ ============
 
 SCENARIO("FindGatherEvents with no items or gatherers") {
     GIVEN("an empty provider") {
@@ -118,8 +118,8 @@ SCENARIO("FindGatherEvents detects direct hits") {
                 REQUIRE(events.size() == 1);
                 REQUIRE(events[0].gatherer_id == 0);
                 REQUIRE(events[0].item_id == 0);
-                REQUIRE(events[0].time == Approx(0.5));
-                REQUIRE(events[0].sq_distance == Approx(0.0));
+                REQUIRE(events[0].time == Catch::Approx(0.5));
+                REQUIRE(events[0].sq_distance == Catch::Approx(0.0));
             }
         }
     }
@@ -135,8 +135,8 @@ SCENARIO("FindGatherEvents detects direct hits") {
             THEN("event is detected when distance <= sum of radii") {
                 REQUIRE(events.size() == 1);
                 double expected_distance = 0.8 - (0.3 + 0.3);
-                REQUIRE(events[0].sq_distance == Approx(expected_distance * expected_distance));
-                REQUIRE(events[0].time == Approx(0.5));
+                REQUIRE(events[0].sq_distance == Catch::Approx(expected_distance * expected_distance));
+                REQUIRE(events[0].time == Catch::Approx(0.5));
             }
         }
     }
@@ -155,8 +155,8 @@ SCENARIO("FindGatherEvents detects diagonal movement") {
                 REQUIRE(events.size() == 1);
                 REQUIRE(events[0].gatherer_id == 0);
                 REQUIRE(events[0].item_id == 0);
-                REQUIRE(events[0].time == Approx(0.5));
-                REQUIRE(events[0].sq_distance == Approx(0.0));
+                REQUIRE(events[0].time == Catch::Approx(0.5));
+                REQUIRE(events[0].sq_distance == Catch::Approx(0.0));
             }
         }
     }
@@ -176,9 +176,9 @@ SCENARIO("FindGatherEvents detects multiple events") {
             THEN("all items are collected in order") {
                 REQUIRE(events.size() == 3);
                 std::sort(events.begin(), events.end(), CompareEvents);
-                REQUIRE(events[0].time == Approx(0.2));
-                REQUIRE(events[1].time == Approx(0.5));
-                REQUIRE(events[2].time == Approx(0.8));
+                REQUIRE(events[0].time == Catch::Approx(0.2));
+                REQUIRE(events[1].time == Catch::Approx(0.5));
+                REQUIRE(events[2].time == Catch::Approx(0.8));
                 REQUIRE(events[0].item_id == 0);
                 REQUIRE(events[1].item_id == 1);
                 REQUIRE(events[2].item_id == 2);
@@ -266,8 +266,8 @@ SCENARIO("FindGatherEvents handles edge cases") {
             
             THEN("event is detected at time 0") {
                 REQUIRE(events.size() == 1);
-                REQUIRE(events[0].time == Approx(0.0));
-                REQUIRE(events[0].sq_distance == Approx(0.0));
+                REQUIRE(events[0].time == Catch::Approx(0.0));
+                REQUIRE(events[0].sq_distance == Catch::Approx(0.0));
             }
         }
     }
@@ -282,8 +282,8 @@ SCENARIO("FindGatherEvents handles edge cases") {
             
             THEN("event is detected at time 1") {
                 REQUIRE(events.size() == 1);
-                REQUIRE(events[0].time == Approx(1.0));
-                REQUIRE(events[0].sq_distance == Approx(0.0));
+                REQUIRE(events[0].time == Catch::Approx(1.0));
+                REQUIRE(events[0].sq_distance == Catch::Approx(0.0));
             }
         }
     }
@@ -300,8 +300,8 @@ SCENARIO("FindGatherEvents handles zero width items and gatherers") {
             
             THEN("event is detected when exactly on the line") {
                 REQUIRE(events.size() == 1);
-                REQUIRE(events[0].time == Approx(0.5));
-                REQUIRE(events[0].sq_distance == Approx(0.0));
+                REQUIRE(events[0].time == Catch::Approx(0.5));
+                REQUIRE(events[0].sq_distance == Catch::Approx(0.0));
             }
         }
     }
