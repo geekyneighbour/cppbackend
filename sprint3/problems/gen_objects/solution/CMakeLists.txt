@@ -37,7 +37,7 @@ enable_testing()
 
 
 add_executable(game_server_tests
-    tests/loot_generator_tests
+    tests/loot_generator_tests.cpp
 )
 
 target_link_libraries(game_server_tests
