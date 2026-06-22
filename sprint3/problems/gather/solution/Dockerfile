@@ -21,4 +21,5 @@ RUN cd /app/build && \
     cmake --build . -j 8 && \
     ls -la bin/
 
+
 ENTRYPOINT ["/app/build/bin/collision_detection_tests"]
