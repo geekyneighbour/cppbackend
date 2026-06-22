@@ -13,7 +13,7 @@ set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
-# Отключаем Boost.Test (конфликтует с Catch2)
+
 add_definitions(-DBOOST_TEST_DYN_LINK=0)
 
 include(CTest)
