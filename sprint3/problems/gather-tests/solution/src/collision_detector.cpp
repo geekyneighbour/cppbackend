@@ -26,6 +26,7 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
     for (size_t g = 0; g < provider.GatherersCount(); ++g) {
         Gatherer gatherer = provider.GetGatherer(g);
         
+
         if (gatherer.start_pos.x == gatherer.end_pos.x && 
             gatherer.start_pos.y == gatherer.end_pos.y) {
             continue;
@@ -40,12 +41,12 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
             );
 
 
-            double total_radius = (gatherer.width + item.width) / 2.0;
+            double total_radius = gatherer.width + item.width;
             
             if (collect_result.IsCollected(total_radius)) {
                 detected_events.push_back({
-                    i,  // item_id
-                    g,  // gatherer_id
+                    i,  
+                    g,  
                     collect_result.sq_distance,
                     collect_result.proj_ratio  // time
                 });
