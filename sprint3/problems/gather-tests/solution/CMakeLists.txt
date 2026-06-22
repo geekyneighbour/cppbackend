@@ -26,7 +26,7 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-
+# ==================== СТАТИЧЕСКАЯ БИБЛИОТЕКА МОДЕЛИ ====================
 add_library(models STATIC
     src/model.cpp
     src/loot_generator.cpp
@@ -45,7 +45,7 @@ target_link_libraries(models
 
 target_compile_definitions(models PUBLIC BOOST_JSON_HEADER_ONLY)
 
-
+# ==================== БИБЛИОТЕКА КОЛЛИЗИЙ ====================
 add_library(collision_detection_lib STATIC
     src/collision_detector.cpp
 )
@@ -62,7 +62,7 @@ target_link_libraries(collision_detection_lib
     Threads::Threads
 )
 
-
+# ==================== ОСНОВНАЯ ПРОГРАММА ====================
 add_executable(game_server
     src/main.cpp
     src/sdk.h
@@ -85,18 +85,20 @@ target_link_libraries(game_server
     collision_detection_lib
 )
 
-
+# ==================== ТЕСТЫ ====================
+# СОЗДАЁМ цель collision_detection_tests
 add_executable(collision_detection_tests
     tests/collision-detector-tests.cpp
 )
 
-target_include_directories(game_server_tests 
+# НАСТРАИВАЕМ collision_detection_tests (НЕ game_server_tests!)
+target_include_directories(collision_detection_tests 
     PRIVATE 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     CONAN_PKG::boost
 )
 
-target_link_libraries(game_server_tests 
+target_link_libraries(collision_detection_tests 
     PRIVATE 
     CONAN_PKG::catch2 
     CONAN_PKG::boost 
@@ -105,16 +107,17 @@ target_link_libraries(game_server_tests
     collision_detection_lib
 )
 
+# РЕГИСТРИРУЕМ тесты для collision_detection_tests
 catch_discover_tests(collision_detection_tests)
 
-
+# ==================== НАСТРОЙКА ВЫХОДНЫХ ДИРЕКТОРИЙ ====================
 set_target_properties(game_server PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
 )
 
-set_target_properties(game_server_tests PROPERTIES
+set_target_properties(collision_detection_tests PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
     RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
