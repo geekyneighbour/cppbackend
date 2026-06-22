@@ -86,7 +86,7 @@ target_link_libraries(game_server
 )
 
 
-add_executable(game_server_tests
+add_executable(collision_detection_tests
     tests/collision-detector-tests.cpp
 )
 
