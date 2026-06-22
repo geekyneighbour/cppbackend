@@ -22,4 +22,21 @@ RUN cd /app/build && \
     ls -la bin/
 
 
-ENTRYPOINT ["/app/build/bin/collision_detection_tests"]
+FROM ubuntu:22.04 as run
+
+
+RUN groupadd -r www && useradd -r -g www www
+USER www
+
+
+COPY --from=build /app/build/bin/game_server /app/
+COPY --from=build /app/build/bin/collision_detection_tests /app/
+
+
+COPY ./static /app/static
+COPY ./data /app/data
+
+
+ENTRYPOINT ["/app/collision_detection_tests"]
+
+EXPOSE 8080
