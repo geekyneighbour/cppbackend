@@ -15,7 +15,6 @@ struct CollectionResult {
     // квадрат расстояния до точки
     double sq_distance;
 
-
     // доля пройденного отрезка
     double proj_ratio;
 };
