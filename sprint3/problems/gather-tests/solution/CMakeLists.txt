@@ -27,7 +27,6 @@ target_link_libraries(collision_detection_lib
     Threads::Threads
 )
 
-
 add_executable(collision_detection_tests
     tests/collision-detector-tests.cpp
 )

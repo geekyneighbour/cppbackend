@@ -1,4 +1,3 @@
-# Не просто создаём образ, но даём ему имя build
 FROM gcc:11.3 as build
 
 RUN apt update && \
@@ -18,7 +17,6 @@ COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build . -j 8 && \
-    ls -la
+    cmake --build . -j 8
 
 ENTRYPOINT ["/app/build/collision_detection_tests"]

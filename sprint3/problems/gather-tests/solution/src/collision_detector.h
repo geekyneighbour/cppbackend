@@ -12,15 +12,13 @@ struct CollectionResult {
         return proj_ratio >= 0 && proj_ratio <= 1 && sq_distance <= collect_radius * collect_radius;
     }
 
-    // квадрат расстояния до точки
+    // Квадрат расстояния до точки
     double sq_distance;
-
-    // доля пройденного отрезка
+    // Доля пройденного отрезка
     double proj_ratio;
 };
 
-// Движемся из точки a в точку b и пытаемся подобрать точку c.
-// Эта функция реализована в уроке.
+// Движемся из точки a в точку b и пытаемся подобрать точку c
 CollectionResult TryCollectPoint(geom::Point2D a, geom::Point2D b, geom::Point2D c);
 
 struct Item {
@@ -52,8 +50,6 @@ struct GatheringEvent {
     double time;
 };
 
-// Эту функцию вам нужно будет реализовать в соответствующем задании.
-// При проверке ваших тестов она не нужна - функция будет линковаться снаружи.
 std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provider);
 
 }  // namespace collision_detector

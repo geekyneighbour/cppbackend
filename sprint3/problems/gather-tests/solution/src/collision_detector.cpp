@@ -6,6 +6,7 @@
 namespace collision_detector {
 
 CollectionResult TryCollectPoint(geom::Point2D a, geom::Point2D b, geom::Point2D c) {
+    // Проверим, что перемещение ненулевое.
     assert(b.x != a.x || b.y != a.y);
     const double u_x = c.x - a.x;
     const double u_y = c.y - a.y;
@@ -25,7 +26,8 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
 
     for (size_t g = 0; g < provider.GatherersCount(); ++g) {
         Gatherer gatherer = provider.GetGatherer(g);
-     
+        
+        // Если собиратель не двигался, пропускаем
         if (gatherer.start_pos.x == gatherer.end_pos.x && 
             gatherer.start_pos.y == gatherer.end_pos.y) {
             continue;
@@ -39,27 +41,29 @@ std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provide
                 item.position
             );
 
-          
+            // Проверяем, что проекция попадает на отрезок
             if (collect_result.proj_ratio < 0 || collect_result.proj_ratio > 1) {
                 continue;
             }
             
-           
+            // Расстояние от центра предмета до линии движения
             double dist_to_center = std::sqrt(collect_result.sq_distance);
-          
-            double total_radius = gatherer.width + item.width;
             
-      
-            if (dist_to_center <= total_radius) {
-               
-                double sq_distance_from_edge = (dist_to_center - total_radius) * 
-                                               (dist_to_center - total_radius);
+            // Сумма радиусов (половина от ширины)
+            double sum_radii = (gatherer.width + item.width) / 2.0;
+            
+            // Если расстояние от центра до линии <= суммы радиусов,
+            // то предмет пересекается с собирателем
+            if (dist_to_center <= sum_radii) {
+                // sq_distance должна хранить квадрат расстояния от КРАЯ предмета до КРАЯ собирателя
+                double sq_distance_from_edge = (dist_to_center - sum_radii) * 
+                                               (dist_to_center - sum_radii);
                 
                 detected_events.push_back({
-                    i,  /
-                    g,  
-                    sq_distance_from_edge,  
-                    collect_result.proj_ratio  
+                    i,           // item_id
+                    g,           // gatherer_id
+                    sq_distance_from_edge,  // расстояние от края до края в квадрате
+                    collect_result.proj_ratio  // time
                 });
             }
         }
