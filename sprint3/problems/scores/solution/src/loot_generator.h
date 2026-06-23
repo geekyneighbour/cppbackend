@@ -11,12 +11,6 @@ class LootGenerator {
 public:
     using RandomGenerator = std::function<double()>;
     using TimeInterval = std::chrono::milliseconds;
-
-    /*
-     * base_interval - базовый отрезок времени > 0
-     * probability - вероятность появления трофея в течение базового интервала времени
-     * random_generator - генератор псевдослучайных чисел в диапазоне от [0 до 1]
-     */
     LootGenerator(TimeInterval base_interval, double probability,
                   RandomGenerator random_gen = DefaultGenerator)
         : base_interval_{base_interval}

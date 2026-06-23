@@ -98,25 +98,20 @@ std::vector<Player*> GameSession::GetPlayers() {
 // ================= COLLISION HELPER =================
 bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
                                  double px, double py, double threshold) {
-    // Вектор от начала отрезка к концу
     double dx = x2 - x1;
     double dy = y2 - y1;
     double len2 = dx * dx + dy * dy;
     
     if (len2 < 1e-10) {
-        // Отрезок нулевой длины - проверяем точку
         return std::sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1)) <= threshold;
     }
     
-    // Параметр t для ближайшей точки на отрезке
     double t = ((px - x1) * dx + (py - y1) * dy) / len2;
     t = std::max(0.0, std::min(1.0, t));
     
-    // Ближайшая точка на отрезке
     double near_x = x1 + t * dx;
     double near_y = y1 + t * dy;
     
-    // Расстояние от точки до отрезка
     double dist = std::sqrt((px - near_x) * (px - near_x) + 
                             (py - near_y) * (py - near_y));
     
@@ -125,48 +120,42 @@ bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
 
 // ================= COLLISIONS =================
 void GameSession::ProcessCollisions(double dt) {
-    // Обрабатываем каждую собаку
     for (auto& dog_ptr : dogs_) {
         Dog& dog = *dog_ptr;
         
-        // Начальная и конечная позиции за тик
         double start_x = dog.GetPos().x - dog.GetSpeed().vx * dt;
         double start_y = dog.GetPos().y - dog.GetSpeed().vy * dt;
         double end_x = dog.GetPos().x;
         double end_y = dog.GetPos().y;
         
-        // Обработка сбора предметов
         CollectItems(dog, start_x, start_y, end_x, end_y);
         
-        // Обработка сдачи предметов на базу
         ReturnItemsToBase(dog, end_x, end_y);
     }
 }
 
 void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
                                 double end_x, double end_y) {
-    const double DOG_HALF = 0.3;  // 0.6 / 2
-    const double ITEM_HALF = 0.0; // предметы - точки
+    const double DOG_HALF = 0.3;  
+    const double ITEM_HALF = 0.0; 
     
-    // Собираем предметы, которые нужно удалить
     std::vector<size_t> items_to_remove;
     
     for (size_t i = 0; i < lost_objects_.size(); ++i) {
         const auto& item = lost_objects_[i];
         
-        // Проверяем коллизию между отрезком пути собаки и точкой предмета
+
         if (CheckSegmentPointCollision(start_x, start_y, end_x, end_y,
                                         item.pos.x, item.pos.y,
                                         DOG_HALF + ITEM_HALF)) {
             if (!dog.IsBagFull()) {
-                // Добавляем предмет в рюкзак
                 dog.AddToBag(next_loot_id_++, item.type);
                 items_to_remove.push_back(i);
             }
         }
     }
     
-    // Удаляем собранные предметы (в обратном порядке)
+
     for (auto it = items_to_remove.rbegin(); it != items_to_remove.rend(); ++it) {
         lost_objects_.erase(lost_objects_.begin() + *it);
     }
@@ -179,7 +168,6 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
     
     if (dog.GetBagSize() == 0) return;
     
-    // Проверяем все офисы на карте
     for (const auto& office : map_->GetOffices()) {
         double office_x = office.GetPosition().x + office.GetOffset().dx;
         double office_y = office.GetPosition().y + office.GetOffset().dy;
@@ -188,7 +176,6 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
                                (y - office_y) * (y - office_y));
         
         if (dist <= COLLISION_DIST) {
-            // Начисляем очки за каждый предмет в рюкзаке
             int total_score = 0;
             for (const auto& item : dog.GetBag()) {
                 total_score += map_->GetLootTypeValue(item.type);
@@ -203,15 +190,12 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
     
-    // Обновляем позиции собак
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
     }
     
-    // Обрабатываем коллизии
     ProcessCollisions(dt);
     
-    // Генерируем новые предметы
     auto ms_dt = std::chrono::milliseconds(static_cast<long long>(dt * 1000));
     auto& config = map_->GetLootConfig();
     
