@@ -2,6 +2,7 @@
 #include <random>
 #include <stdexcept>
 #include <boost/json.hpp>
+#include <cmath>
 
 namespace model {
 
@@ -21,7 +22,6 @@ PointDouble GetRandomPointOnRoad(const Road& road) {
     double min_y = std::min(start.y, end.y);
     double max_y = std::max(start.y, end.y);
     return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
-    
 }
 
 // ================= MAP =================
@@ -62,12 +62,10 @@ Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     PointDouble spawn_pos;
 
     if (randomize) {
-
         std::uniform_int_distribution<size_t> dist(0, roads.size() - 1);
         const auto& road = roads[dist(random_gen_)];
         spawn_pos = GetRandomPointOnRoad(road);
     } else {
-
         const auto& first_road = roads[0];
         spawn_pos = {
             static_cast<double>(first_road.GetStart().x),
@@ -75,9 +73,9 @@ Dog& GameSession::AddDog(std::string_view name, bool randomize) {
         };
     }
 
-
     auto new_dog = std::make_unique<Dog>(std::string(name));
     new_dog->SetPos(spawn_pos.x, spawn_pos.y);
+    new_dog->SetBagCapacity(map_->GetBagCapacity());
     
     dogs_.push_back(std::move(new_dog));
     return *dogs_.back();
@@ -97,6 +95,83 @@ std::vector<Player*> GameSession::GetPlayers() {
     return res;
 }
 
+// ================= COLLISION HELPER =================
+bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
+                                 double px, double py, double threshold) {
+    // Вектор от начала отрезка к концу
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double len2 = dx * dx + dy * dy;
+    
+    if (len2 < 1e-10) {
+        // Отрезок нулевой длины - проверяем точку
+        return std::sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1)) <= threshold;
+    }
+    
+    // Параметр t для ближайшей точки на отрезке
+    double t = ((px - x1) * dx + (py - y1) * dy) / len2;
+    t = std::max(0.0, std::min(1.0, t));
+    
+    // Ближайшая точка на отрезке
+    double near_x = x1 + t * dx;
+    double near_y = y1 + t * dy;
+    
+    // Расстояние от точки до отрезка
+    double dist = std::sqrt((px - near_x) * (px - near_x) + 
+                            (py - near_y) * (py - near_y));
+    
+    return dist <= threshold;
+}
+
+// ================= COLLISIONS =================
+void GameSession::ProcessCollisions(double dt) {
+    // Обрабатываем каждую собаку
+    for (auto& dog_ptr : dogs_) {
+        Dog& dog = *dog_ptr;
+        
+        // Начальная и конечная позиции за тик
+        double start_x = dog.GetPos().x - dog.GetSpeed().vx * dt;
+        double start_y = dog.GetPos().y - dog.GetSpeed().vy * dt;
+        double end_x = dog.GetPos().x;
+        double end_y = dog.GetPos().y;
+        
+        // Обработка сбора предметов
+        CollectItems(dog, start_x, start_y, end_x, end_y);
+        
+        // Обработка сдачи предметов на базу
+        ReturnItemsToBase(dog, end_x, end_y);
+    }
+}
+
+void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
+                                double end_x, double end_y) {
+    const double DOG_HALF = 0.3;  // 0.6 / 2
+    const double ITEM_HALF = 0.0; // предметы - точки
+    
+    // Собираем предметы, которые нужно удалить
+    std::vector<size_t> items_to_remove;
+    
+    for (size_t i = 0; i < lost_objects_.size(); ++i) {
+        const auto& item = lost_objects_[i];
+        
+        // Проверяем коллизию между отрезком пути собаки и точкой предмета
+        if (CheckSegmentPointCollision(start_x, start_y, end_x, end_y,
+                                        item.pos.x, item.pos.y,
+                                        DOG_HALF + ITEM_HALF)) {
+            if (!dog.IsBagFull()) {
+                // Добавляем предмет в рюкзак
+                dog.AddToBag(next_loot_id_++, item.type);
+                items_to_remove.push_back(i);
+            }
+        }
+    }
+    
+    // Удаляем собранные предметы (в обратном порядке)
+    for (auto it = items_to_remove.rbegin(); it != items_to_remove.rend(); ++it) {
+        lost_objects_.erase(lost_objects_.begin() + *it);
+    }
+}
+
 void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
     const double DOG_HALF = 0.3;   // 0.6 / 2
     const double BASE_HALF = 0.25; // 0.5 / 2
@@ -104,7 +179,7 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
     
     if (dog.GetBagSize() == 0) return;
     
-
+    // Проверяем все офисы на карте
     for (const auto& office : map_->GetOffices()) {
         double office_x = office.GetPosition().x + office.GetOffset().dx;
         double office_y = office.GetPosition().y + office.GetOffset().dy;
@@ -113,112 +188,39 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
                                (y - office_y) * (y - office_y));
         
         if (dist <= COLLISION_DIST) {
+            // Начисляем очки за каждый предмет в рюкзаке
+            int total_score = 0;
+            for (const auto& item : dog.GetBag()) {
+                total_score += map_->GetLootTypeValue(item.type);
+            }
+            dog.AddScore(total_score);
             dog.ClearBag();
             break;
         }
     }
 }
 
-void GameSession::ProcessCollisions(double dt) {
-
-    for (auto& dog_ptr : dogs_) {
-        Dog& dog = *dog_ptr;
-        
-        
-        double start_x = dog.GetPos().x - dog.GetSpeed().vx * dt;
-        double start_y = dog.GetPos().y - dog.GetSpeed().vy * dt;
-        double end_x = dog.GetPos().x;
-        double end_y = dog.GetPos().y;
-        
-        
-        CollectItems(dog, start_x, start_y, end_x, end_y);
-        
-        
-        ReturnItemsToBase(dog, end_x, end_y);
-    }
-	
-	void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
-                                double end_x, double end_y) {
-    const double DOG_HALF = 0.3;  
-    const double ITEM_HALF = 0.0; 
-    
-
-    std::vector<size_t> items_to_remove;
-    
-    for (size_t i = 0; i < lost_objects_.size(); ++i) {
-        const auto& item = lost_objects_[i];
-        
-
-        if (CheckSegmentPointCollision(start_x, start_y, end_x, end_y,
-                                        item.pos.x, item.pos.y,
-                                        DOG_HALF + ITEM_HALF)) {
-            if (!dog.IsBagFull()) {
-
-                dog.AddToBag(next_loot_id_++, item.type);
-                items_to_remove.push_back(i);
-            }
-        }
-    }
-    
-
-    for (auto it = items_to_remove.rbegin(); it != items_to_remove.rend(); ++it) {
-        lost_objects_.erase(lost_objects_.begin() + *it);
-    }
-}
-
-
-
-
-bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
-                                 double px, double py, double threshold) {
-
-    double dx = x2 - x1;
-    double dy = y2 - y1;
-    double len2 = dx * dx + dy * dy;
-    
-    if (len2 < 1e-10) {
-
-        return std::sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1)) <= threshold;
-    }
-    
-
-    double t = ((px - x1) * dx + (py - y1) * dy) / len2;
-    t = std::max(0.0, std::min(1.0, t));
-    
-
-    double near_x = x1 + t * dx;
-    double near_y = y1 + t * dy;
-    
-
-    double dist = std::sqrt((px - near_x) * (px - near_x) + 
-                            (py - near_y) * (py - near_y));
-    
-    return dist <= threshold;
-}
-
-
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
     
-
+    // Обновляем позиции собак
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
     }
-	
-	ProcessCollisions(dt);
     
-
+    // Обрабатываем коллизии
+    ProcessCollisions(dt);
+    
+    // Генерируем новые предметы
     auto ms_dt = std::chrono::milliseconds(static_cast<long long>(dt * 1000));
     auto& config = map_->GetLootConfig();
     
-
-    static bool generator_initialized = false;
-    if (!generator_initialized) {
+    if (!loot_generator_initialized_) {
         loot_generator_ = loot_gen::LootGenerator(
             std::chrono::milliseconds(static_cast<long long>(config.period * 1000)),
             config.probability
         );
-        generator_initialized = true;
+        loot_generator_initialized_ = true;
     }
     
     unsigned new_loot_count = loot_generator_->Generate(
@@ -230,11 +232,10 @@ void GameSession::UpdateState(double dt) {
     for (unsigned i = 0; i < new_loot_count; ++i) {
         PointDouble pos = map_->GetRandomPointOnRoad();
         size_t type = map_->GetRandomLootType();
-        lost_objects_.push_back(LostObject{type, pos});
+        int value = map_->GetLootTypeValue(type);
+        lost_objects_.push_back(LostObject{type, pos, value});
     }
 }
-
-
 
 // ================= GAME =================
 GameSession& Game::FindOrCreateSession(const Map* map) {
@@ -247,7 +248,7 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);
-	return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
+    return (it == map_id_to_index_.end() ? nullptr : maps_[it->second].get());
 }
 
 const Game::Maps& Game::GetMaps() const noexcept {
@@ -267,14 +268,12 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     double new_x = pos_.x + speed_.vx * dt;
     double new_y = pos_.y + speed_.vy * dt;
 
-
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
 
     bool found_road = false;
 
     for (const auto& road : roads) {
-
         double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
         double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
         double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
@@ -284,12 +283,10 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
             pos_.y >= road_min_y && pos_.y <= road_max_y) {
             
             if (!found_road) {
-
                 min_x = road_min_x; max_x = road_max_x;
                 min_y = road_min_y; max_y = road_max_y;
                 found_road = true;
             } else {
-
                 min_x = std::min(min_x, road_min_x);
                 max_x = std::max(max_x, road_max_x);
                 min_y = std::min(min_y, road_min_y);
@@ -298,9 +295,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
         }
     }
 
-
     if (!found_road) return;
-
 
     if (new_x < min_x) {
         new_x = min_x;
@@ -321,7 +316,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     pos_ = {new_x, new_y};
 }
 
-// ================= ACTION =================
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
         speed_ = {0, 0};
@@ -343,7 +337,7 @@ void Dog::SetAction(const std::string& action, double speed) {
     }
 }
 
-// Функции tag_invoke теперь корректно находятся внутри namespace model
+// ================= JSON SERIALIZATION =================
 void tag_invoke(boost::json::value_from_tag, boost::json::value& jv, const Road& road) {
     boost::json::object obj;
     obj["x0"] = road.GetStart().x;
@@ -412,6 +406,5 @@ size_t Map::GetRandomLootType() const {
     std::uniform_int_distribution<size_t> type_dist(0, loot_types_count_ - 1);
     return type_dist(rng_);
 }
-
 
 } // namespace model

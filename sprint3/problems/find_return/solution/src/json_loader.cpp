@@ -8,9 +8,9 @@
 
 namespace json_loader {
 	
-	static size_t global_bag_capacity = 3;
-	
-	void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGeneratorConfig& config) {
+static size_t global_bag_capacity = 3;
+
+void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGeneratorConfig& config) {
     if (auto cfg = root_obj.if_contains("lootGeneratorConfig")) {
         const auto& cfg_obj = cfg->as_object();
         if (auto period = cfg_obj.if_contains("period")) {
@@ -30,10 +30,10 @@ void LoadGlobalSettings(const boost::json::object& root_obj) {
             model::Map::SetDefaultDogSpeed(static_cast<double>(speed->as_int64()));
         }
     }
-	if (auto capacity = root_obj.if_contains("defaultBagCapacity")) {
+    
+    if (auto capacity = root_obj.if_contains("defaultBagCapacity")) {
         global_bag_capacity = static_cast<size_t>(capacity->as_int64());
     }
-}
 }
 
 void AddRoads(const boost::json::array& roads_array, model::Map& map) {
@@ -96,14 +96,17 @@ void AddOffices(const boost::json::array& offices_array, model::Map& map) {
     }
 }
 
-void AddMapSettings(const boost::json::object& map_obj, model::Map& map, 
-                    size_t default_capacity) {
-
-    size_t bag_capacity = default_capacity;
-    if (auto capacity = map_obj.if_contains("bagCapacity")) {
-        bag_capacity = static_cast<size_t>(capacity->as_int64());
+void AddLootTypes(const boost::json::array& loot_types_array, model::Map& map) {
+    map.SetLootTypesCount(loot_types_array.size());
+    
+    // Загружаем ценности предметов
+    for (size_t i = 0; i < loot_types_array.size(); ++i) {
+        const auto& type_obj = loot_types_array[i].as_object();
+        if (auto value = type_obj.if_contains("value")) {
+            int val = static_cast<int>(value->as_int64());
+            map.AddLootTypeValue(i, val);
+        }
     }
-    map.SetBagCapacity(bag_capacity);
 }
 
 model::Game LoadGame(const std::filesystem::path& json_path) {
@@ -134,7 +137,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         LoadGlobalSettings(obj);
 
         if (!obj.contains("maps")) return game;
-		
 
         model::LootGeneratorConfig global_config;
         LoadLootGeneratorConfig(obj, global_config);
@@ -147,7 +149,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             std::string name = boost::json::value_to<std::string>(map_obj.at("name"));
 
             model::Map map(model::Map::Id{id}, name);
-			
+            
             if (auto speed = map_obj.if_contains("dogSpeed")) {
                 if (speed->is_double()) {
                     map.SetDogSpeed(speed->as_double());
@@ -167,16 +169,21 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
             if (auto offices = map_obj.if_contains("offices")) {
                 AddOffices(offices->as_array(), map);
             }
-			
+            
             map.SetLootConfig(global_config);
+            
+            // Устанавливаем вместимость рюкзака для карты
+            size_t bag_capacity = global_bag_capacity;
+            if (auto capacity = map_obj.if_contains("bagCapacity")) {
+                bag_capacity = static_cast<size_t>(capacity->as_int64());
+            }
+            map.SetBagCapacity(bag_capacity);
         
             if (auto loot_types = map_obj.if_contains("lootTypes")) {
                 AddLootTypes(loot_types->as_array(), map);
                 
                 MapLootTypes::Instance().SetLootTypes(*map.GetId(), loot_types->as_array());
             }
-			
-			AddMapSettings(map_obj, map, global_bag_capacity);
 
             game.AddMap(std::move(map));
         }
@@ -186,12 +193,6 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
     }
 
     return game;
-}
-
-
-
-void AddLootTypes(const boost::json::array& loot_types_array, model::Map& map) {
-    map.SetLootTypesCount(loot_types_array.size());
 }
 
 } // namespace json_loader

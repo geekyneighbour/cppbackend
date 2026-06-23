@@ -451,7 +451,8 @@ private:
                     {"pos", json::array{pos.x, pos.y}},
                     {"speed", json::array{speed.vx, speed.vy}},
                     {"dir", dir_str},
-					 {"bag", bag_array}
+					 {"bag", bag_array},
+        {"score", dog->GetScore()}
                 };
             }
 
