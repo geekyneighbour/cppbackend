@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.11)
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project(game_server CXX)
@@ -12,39 +11,17 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 add_library(collision_detection_lib STATIC
-    src/collision_detector.cpp
+	src/collision_detector.h
+	src/collision_detector.cpp
 )
 
-target_include_directories(collision_detection_lib
-    PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    CONAN_PKG::boost
-)
-
-target_link_libraries(collision_detection_lib 
-    PUBLIC 
-    CONAN_PKG::boost 
-    Threads::Threads
-)
-
+target_link_libraries(collision_detection_lib PUBLIC CONAN_PKG::boost Threads::Threads)
 
 add_executable(collision_detection_tests
-    tests/collision-detector-tests.cpp
+	tests/collision-detector-tests.cpp
 )
 
-target_include_directories(collision_detection_tests
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-    CONAN_PKG::boost
-)
-
-target_link_libraries(collision_detection_tests
-    PRIVATE
-    CONAN_PKG::catch2
-    CONAN_PKG::boost
-    Threads::Threads
-    collision_detection_lib
-)
+target_link_libraries(collision_detection_tests CONAN_PKG::catch2 collision_detection_lib)
 
 include(CTest)
 include(Catch)

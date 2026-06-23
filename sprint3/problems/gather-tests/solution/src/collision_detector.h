@@ -51,5 +51,10 @@ struct GatheringEvent {
 };
 
 std::vector<GatheringEvent> FindGatherEvents(const ItemGathererProvider& provider);
+std::vector<GatheringEvent> FindGatherEvents_Wrong1(const ItemGathererProvider& provider);
+std::vector<GatheringEvent> FindGatherEvents_Wrong2(const ItemGathererProvider& provider);
+std::vector<GatheringEvent> FindGatherEvents_Wrong3(const ItemGathererProvider& provider);
+std::vector<GatheringEvent> FindGatherEvents_Wrong4(const ItemGathererProvider& provider);
+std::vector<GatheringEvent> FindGatherEvents_Wrong5(const ItemGathererProvider& provider);
 
 }  // namespace collision_detector

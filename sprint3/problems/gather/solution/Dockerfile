@@ -6,7 +6,7 @@ RUN apt update && \
     python3-pip \
     cmake \
     && \
-    pip3 install conan==1.60.0
+    pip3 install conan==1.54.0
 
 COPY conanfile.txt /app/
 RUN mkdir /app/build && cd /app/build && \
@@ -18,7 +18,6 @@ COPY CMakeLists.txt /app/
 
 RUN cd /app/build && \
     cmake -DCMAKE_BUILD_TYPE=Release .. && \
-    cmake --build . -j 8 && \
-    ls -la
+    cmake --build . && ls
 
 ENTRYPOINT ["/app/build/collision_detection_tests"]

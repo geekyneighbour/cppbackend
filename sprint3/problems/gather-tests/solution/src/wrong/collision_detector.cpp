@@ -1,3 +1,5 @@
+#undef FindGatherEvents
+
 #include "collision_detector.h"
 #include <cassert>
 
