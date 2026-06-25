@@ -172,7 +172,7 @@ private:
     static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
     static constexpr double TOLERANCE_ = 1e-9;
 	static constexpr double DOG_HALF_WIDTH_ = 0.4;
-}
+};
 
 class Building {
 public:
