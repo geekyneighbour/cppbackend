@@ -263,6 +263,8 @@ void Game::UpdateAllSessions(double dt) {
 
 // ================= DOG =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
+	static constexpr double DOG_HALF_WIDTH = 0.4;
+	
     if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
 
     double new_x = pos_.x + speed_.vx * dt;
@@ -274,10 +276,10 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     bool found_road = false;
 
     for (const auto& road : roads) {
-        double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - 0.4;
-        double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + 0.4;
-        double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - 0.4;
-        double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + 0.4;
+        double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - DOG_HALF_WIDTH;
+        double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + DOG_HALF_WIDTH;
+        double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - DOG_HALF_WIDTH;
+        double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + DOG_HALF_WIDTH;
 
         if (pos_.x >= road_min_x && pos_.x <= road_max_x &&
             pos_.y >= road_min_y && pos_.y <= road_max_y) {
@@ -395,10 +397,9 @@ PointDouble Map::GetRandomPointOnRoad() const {
     if (road.IsHorizontal()) {
         double x = start.x + t * (end.x - start.x);
         return {x, static_cast<double>(start.y)};
-    } else {
-        double y = start.y + t * (end.y - start.y);
-        return {static_cast<double>(start.x), y};
-    }
+    } 
+    double y = start.y + t * (end.y - start.y);
+    return {static_cast<double>(start.x), y};
 }
 
 size_t Map::GetRandomLootType() const {

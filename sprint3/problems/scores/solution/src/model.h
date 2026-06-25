@@ -135,44 +135,43 @@ public:
     }
     
     void ConstrainMovement(double& x, double& y, const PointDouble& old_pos) const {
-        double dog_half = 0.4;
+    if (IsHorizontal()) {
         
-        if (IsHorizontal()) {
-            double min_x = GetMinX() - dog_half;
-            double max_x = GetMaxX() + dog_half;
-            
-            if (x < min_x) x = min_x;
-            if (x > max_x) x = max_x;
-            
-            double road_y = start_.y;
-            double min_y = road_y - dog_half;
-            double max_y = road_y + dog_half;
-            
-            if (y < min_y) y = min_y;
-            if (y > max_y) y = max_y;
-            
-        } else {
-            double min_y = GetMinY() - dog_half;
-            double max_y = GetMaxY() + dog_half;
-            
-            if (y < min_y) y = min_y;
-            if (y > max_y) y = max_y;
-            
-            double road_x = start_.x;
-            double min_x = road_x - dog_half;
-            double max_x = road_x + dog_half;
-            
-            if (x < min_x) x = min_x;
-            if (x > max_x) x = max_x;
-        }
+        double min_x = GetMinX();
+        double max_x = GetMaxX();
+        double road_y = start_.y;
+        
+        ConstrainAxis(x, y, min_x, max_x, road_y);
+    } else {
+        
+        double min_y = GetMinY();
+        double max_y = GetMaxY();
+        double road_x = start_.x;
+        
+        ConstrainAxis(y, x, min_y, max_y, road_x);
     }
+}
 
 private:
+	void ConstrainAxis(double& along, double& across,
+                         double min_along, double max_along,
+                         double across_value) const {
+    
+    if (along < min_along) along = min_along;
+    if (along > max_along) along = max_along;
+    
+    
+    double min_across = across_value - DOG_HALF_WIDTH_;
+    double max_across = across_value + DOG_HALF_WIDTH_;
+    
+    if (across < min_across) across = min_across;
+    if (across > max_across) across = max_across;
+}
     Point start_;
     Point end_;
     static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
     static constexpr double TOLERANCE_ = 1e-9;
-};
+	static constexpr double DOG_HALF_WIDTH_ = 0.4;
 
 class Building {
 public:
