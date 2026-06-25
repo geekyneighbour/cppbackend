@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <boost/json.hpp>
 #include <cmath>
+#include <algorithm>
 
 namespace model {
 
