@@ -155,13 +155,11 @@ void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
     for (size_t i = 0; i < lost_objects_.size(); ++i) {
         const auto& item = lost_objects_[i];
         
-        // Проверяем коллизию между отрезком пути собаки и точкой предмета
         if (CheckSegmentPointCollision(start_x, start_y, end_x, end_y,
                                         item.pos.x, item.pos.y,
                                         DOG_HALF + ITEM_HALF)) {
             if (!dog.IsBagFull()) {
-                // Добавляем предмет в рюкзак
-                dog.AddToBag(next_loot_id_++, item.type);
+                dog.AddToBag(item.id, item.type);
                 items_to_remove.push_back(i);
             }
         }
@@ -234,7 +232,7 @@ void GameSession::UpdateState(double dt) {
         PointDouble pos = map_->GetRandomPointOnRoad();
         size_t type = map_->GetRandomLootType();
         int value = map_->GetLootTypeValue(type);
-        lost_objects_.push_back(LostObject{type, pos, value});
+        lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
 }
 

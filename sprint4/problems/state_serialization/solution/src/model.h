@@ -62,6 +62,7 @@ struct BagItem {
     
     BagItem() : id(0), type(0) {}
     BagItem(size_t i, size_t t) : id(i), type(t) {}
+	BagItem(FoundObject::Id id, size_t type) : id(*id), type(type) {}
 };
 
 class Road {
@@ -225,11 +226,13 @@ struct LootGeneratorConfig {
 };
 
 struct LostObject {
+	size_t id;
     size_t type;
     PointDouble pos;
     int value;
     
-    LostObject(size_t t, PointDouble p, int v = 0) : type(t), pos(p), value(v) {}
+    LostObject(size_t t, PointDouble p, int v = 0, size_t i = 0) 
+        : id(i), type(t), pos(p), value(v) {}
 };
 
 class Map {
@@ -374,6 +377,8 @@ public:
     int GetScore() const { return score_; }
     void AddScore(int points) { score_ += points; }
     void SetScore(int score) { score_ = score; }
+	geom::Point2D GetPosition() const { return pos_; }
+    const BagContent& GetBagContent() const { return bag_; }
 
 private:
     Id id_;

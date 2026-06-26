@@ -28,14 +28,12 @@ void serialize(Archive& ar, Vec2D& vec, [[maybe_unused]] const unsigned version)
 
 namespace model {
 
-// Сериализация FoundObject
 template <typename Archive>
 void serialize(Archive& ar, FoundObject& obj, [[maybe_unused]] const unsigned version) {
     ar& *obj.id;
     ar& obj.type;
 }
 
-// Сериализация LostObject
 template <typename Archive>
 void serialize(Archive& ar, LostObject& obj, [[maybe_unused]] const unsigned version) {
     ar& obj.id;
@@ -44,7 +42,6 @@ void serialize(Archive& ar, LostObject& obj, [[maybe_unused]] const unsigned ver
     ar& obj.value;
 }
 
-// Сериализация Direction
 template <typename Archive>
 void serialize(Archive& ar, Direction& dir, [[maybe_unused]] const unsigned version) {
     int d = static_cast<int>(dir);
@@ -52,7 +49,6 @@ void serialize(Archive& ar, Direction& dir, [[maybe_unused]] const unsigned vers
     dir = static_cast<Direction>(d);
 }
 
-// Сериализация BagItem
 template <typename Archive>
 void serialize(Archive& ar, BagItem& item, [[maybe_unused]] const unsigned version) {
     ar& item.id;
@@ -63,7 +59,6 @@ void serialize(Archive& ar, BagItem& item, [[maybe_unused]] const unsigned versi
 
 namespace serialization {
 
-// DogRepr - сериализованное представление класса Dog
 class DogRepr {
 public:
     DogRepr() = default;
@@ -73,12 +68,12 @@ public:
         , name_(dog.GetName())
         , pos_(dog.GetPos().x, dog.GetPos().y)
         , bag_capacity_(dog.GetBagCapacity())
-        , speed_{dog.GetSpeed().vx, dog.GetSpeed().vy}
+        , speed_{dog.GetSpeed().x, dog.GetSpeed().y}  
         , direction_(dog.GetDirection())
         , score_(dog.GetScore()) {
-        for (const auto& item : dog.GetBag()) {
-            bag_content_.push_back({item.id, item.type});
-        }
+        for (const auto& item : dog.GetBagContent()) {
+    bag_content_.push_back(item);
+}
     }
 
     [[nodiscard]] model::Dog Restore() const {
@@ -119,7 +114,6 @@ private:
     std::vector<model::BagItem> bag_content_;
 };
 
-// LostObjectRepr - для сериализации потерянных предметов
 class LostObjectRepr {
 public:
     LostObjectRepr() = default;
@@ -144,7 +138,7 @@ public:
     }
     
 private:
-    uint32_t id_ = 0;
+    size_t id_ = 0;
     size_t type_ = 0;
     geom::Point2D pos_;
     int value_ = 0;

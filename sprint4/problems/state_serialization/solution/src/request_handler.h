@@ -460,7 +460,7 @@ private:
                 } 
                 players_obj[std::to_string(p->GetId())] = json::object{
                     {"pos", json::array{pos.x, pos.y}},
-                    {"speed", json::array{speed.vx, speed.vy}},
+                    {"speed", json::array{speed.x, speed.y}},
                     {"dir", dir_str},
 					 {"bag", bag_array},
         {"score", dog->GetScore()}
