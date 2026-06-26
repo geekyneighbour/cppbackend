@@ -63,6 +63,13 @@ struct BagItem {
     BagItem() : id(0), type(0) {}
     BagItem(size_t i, size_t t) : id(i), type(t) {}
 	BagItem(FoundObject::Id id, size_t type) : id(*id), type(type) {}
+	bool operator==(const BagItem& other) const {
+        return id == other.id && type == other.type;
+    }
+    
+    bool operator!=(const BagItem& other) const {
+        return !(*this == other);
+    }
 };
 
 class Road {

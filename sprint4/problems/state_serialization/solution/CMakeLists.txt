@@ -66,7 +66,6 @@ add_executable(game_server
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
 target_link_libraries(game_server PRIVATE CONAN_PKG::boost game_model)
 
-# Тесты (объединяем существующие тесты с тестами из прекода)
 add_executable(game_server_tests
     tests/loot_generator_tests.cpp
     tests/state-serialization-tests.cpp
