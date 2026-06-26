@@ -35,5 +35,6 @@ COPY ./data /app/data
 
 # Запускаем игровой сервер
 ENTRYPOINT ["/app/game_server"]
+CMD ["-c", "/app/data/config.json", "-w", "/app/static"]
 
 EXPOSE 8080
