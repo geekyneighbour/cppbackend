@@ -315,7 +315,6 @@ public:
     using Id = util::Tagged<uint64_t, Dog>;
     using BagContent = std::vector<BagItem>;
 
-    // Конструктор для сериализации
     Dog(Id id, std::string name, PointDouble pos, size_t bag_cap)
         : id_(std::move(id))
         , name_(std::move(name))
@@ -324,7 +323,6 @@ public:
         bag_.reserve(bag_cap);
     }
 
-    // Существующий конструктор
     explicit Dog(std::string name)
         : name_(std::move(name))
         , id_(++next_id_)
@@ -349,7 +347,6 @@ public:
     void SetAction(const std::string& action, double speed);
     void UpdatePosition(double time_delta, const std::vector<model::Road>& roads);
     
-    // Методы для работы с рюкзаком
     const BagContent& GetBag() const { return bag_; }
     bool PutToBag(const BagItem& item) {
         if (bag_.size() < bag_capacity_) {
@@ -434,7 +431,6 @@ public:
     void SetNextLootId(size_t id) { next_loot_id_ = id; }
     void RestoreDog(Dog&& dog);
     void AddLostObject(const LostObject& obj);
-	std::vector<model::Player*> GetPlayers();
 
 private:
     const Map* map_ = nullptr;

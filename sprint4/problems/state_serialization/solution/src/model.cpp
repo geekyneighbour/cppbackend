@@ -131,8 +131,8 @@ void GameSession::ProcessCollisions(double dt) {
         Dog& dog = *dog_ptr;
         
         // Начальная и конечная позиции за тик
-        double start_x = dog.GetPos().x - dog.GetSpeed().vx * dt;
-        double start_y = dog.GetPos().y - dog.GetSpeed().vy * dt;
+        double start_x = dog.GetPos().x - dog.GetSpeed().x * dt;
+        double start_y = dog.GetPos().y - dog.GetSpeed().y * dt;
         double end_x = dog.GetPos().x;
         double end_y = dog.GetPos().y;
         
@@ -266,10 +266,10 @@ void Game::UpdateAllSessions(double dt) {
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 	static constexpr double DOG_HALF_WIDTH = 0.4;
 	
-    if (speed_.vx == 0.0 && speed_.vy == 0.0) return;
+    if (speed_.x == 0.0 && speed_.y == 0.0) return;
 
-    double new_x = pos_.x + speed_.vx * dt;
-    double new_y = pos_.y + speed_.vy * dt;
+    double new_x = pos_.x + speed_.x * dt;
+    double new_y = pos_.y + speed_.y * dt;
 
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
@@ -302,18 +302,18 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
     if (new_x < min_x) {
         new_x = min_x;
-        speed_.vx = 0.0;
+        speed_.x = 0.0;
     } else if (new_x > max_x) {
         new_x = max_x;
-        speed_.vx = 0.0;
+        speed_.x = 0.0;
     }
 
     if (new_y < min_y) {
         new_y = min_y;
-        speed_.vy = 0.0;
+        speed_.y = 0.0;
     } else if (new_y > max_y) {
         new_y = max_y;
-        speed_.vy = 0.0;
+        speed_.y = 0.0;
     }
 
     pos_ = {new_x, new_y};
@@ -321,21 +321,21 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
-        speed_ = {0, 0};
+        speed_ = {0.0, 0.0};
         return;
     }
 
     if (action == "L") {
-        speed_ = {-speed, 0};
+        speed_ = {-speed, 0.0};
         dir_ = Direction::WEST;
     } else if (action == "R") {
-        speed_ = {speed, 0};
+        speed_ = {speed, 0.0};
         dir_ = Direction::EAST;
     } else if (action == "U") {
-        speed_ = {0, -speed};
+        speed_ = {0.0, -speed};
         dir_ = Direction::NORTH;
     } else if (action == "D") {
-        speed_ = {0, speed};
+        speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }
 }
