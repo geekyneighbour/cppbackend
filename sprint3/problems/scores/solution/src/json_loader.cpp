@@ -99,7 +99,6 @@ void AddOffices(const boost::json::array& offices_array, model::Map& map) {
 void AddLootTypes(const boost::json::array& loot_types_array, model::Map& map) {
     map.SetLootTypesCount(loot_types_array.size());
     
-    // Загружаем ценности предметов
     for (size_t i = 0; i < loot_types_array.size(); ++i) {
         const auto& type_obj = loot_types_array[i].as_object();
         if (auto value = type_obj.if_contains("value")) {
