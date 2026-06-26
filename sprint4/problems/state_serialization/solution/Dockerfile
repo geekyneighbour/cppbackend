@@ -33,8 +33,7 @@ COPY --from=build /app/build/bin/game_server /app/
 COPY ./static /app/static
 COPY ./data /app/data
 
-# Запускаем игровой сервер с поддержкой параметров командной строки
+# Запускаем игровой сервер
 ENTRYPOINT ["/app/game_server"]
-CMD ["-c", "/app/data/config.json", "-w", "/app/static"]
 
 EXPOSE 8080
