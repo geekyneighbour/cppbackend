@@ -305,6 +305,7 @@ public:
 	
 	const std::vector<GameSessionRepr>& GetSessions() const { return sessions_; }
     const std::vector<PlayerTokenRepr>& GetTokens() const { return tokens_; }
+	uint64_t GetNextPlayerId() const { return next_player_id_; }
 	
     
 private:
