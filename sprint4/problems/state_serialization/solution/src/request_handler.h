@@ -154,12 +154,16 @@ public:
 	
 	void RestoreToken(const std::string& token, model::Player* player) {
 		tokens_.AddPlayer(token, player);
-}
-
+    }
 
 	const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
 		return tokens_.GetAllTokens();
 	}
+	
+	// Добавлен метод для установки callback сохранения
+	void SetSaveCallback(std::function<void()> callback) {
+        save_callback_ = std::move(callback);
+    }
 
 private:
     model::Game& game_;
@@ -167,10 +171,7 @@ private:
     Strand api_strand_;
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
-	
-
-
-
+	std::function<void()> save_callback_;  // Добавлен callback
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -373,6 +374,11 @@ private:
 
                 std::string token = GenerateToken();
                 tokens_.AddPlayer(token, &player);
+				
+				// Сохраняем состояние после JOIN
+				if (save_callback_) {
+					save_callback_();
+				}
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -538,6 +544,11 @@ private:
                 double dog_speed = map->GetDogSpeed();
                 
                 player->GetDog()->SetAction(move, dog_speed);
+				
+				// Сохраняем состояние после ACTION
+				if (save_callback_) {
+					save_callback_();
+				}
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -610,6 +621,11 @@ private:
         double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
         
         game_.UpdateAllSessions(time_delta_sec);
+		
+		// Сохраняем состояние после TICK
+		if (save_callback_) {
+			save_callback_();
+		}
         
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "application/json");
@@ -675,7 +691,7 @@ http::response<http::string_body> HandleFileRequest(const Req& req, const std::s
     
     if (!fs::exists(full_path) || fs::is_directory(full_path)) {
         http::response<http::string_body> res{http::status::not_found, req.version()};
-        res.set(http::field::content_type, "text/plain");  // <-- ДОБАВИТЬ
+        res.set(http::field::content_type, "text/plain");
         res.set(http::field::cache_control, "no-cache");
         res.body() = "File not found";
         res.prepare_payload();

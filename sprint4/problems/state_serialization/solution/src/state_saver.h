@@ -104,7 +104,6 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
             }
         }
         
-
         uint64_t next_player_id = state.GetNextPlayerId();
         for (auto& [map, session] : game.GetSessions()) {
             session->SetNextPlayerId(next_player_id);

@@ -154,7 +154,7 @@ int main(int argc, char* argv[]) {
         model::Game game;
         http_handler::RequestHandler::TokensMap tokens;
         
-        // Загружаем состояние из файла если есть
+
         if (args->state_file && fs::exists(fs::path(*args->state_file))) {
             BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
             if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
@@ -163,7 +163,7 @@ int main(int argc, char* argv[]) {
             }
             BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
         } else {
-            // Загружаем из конфига
+
             game = json_loader::LoadGame(args->config_file);
             if (args->state_file) {
                 BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
@@ -187,12 +187,20 @@ int main(int argc, char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(
             args->www_root, strand, game);
         
-        // Восстанавливаем токены
+
         for (const auto& [token, player] : tokens) {
             handler->AddToken(token, player);
         }
+		
 
-        // Сохраняем глобальное состояние
+		handler->SetSaveCallback([&game, &handler, &args]() {
+            if (args->state_file) {
+                state_saver::SaveState(game, handler->GetTokens(), 
+                                      fs::path(*args->state_file));
+            }
+        });
+
+
         g_state.game = &game;
         g_state.handler = handler.get();
         g_state.state_file = args->state_file;
@@ -202,28 +210,34 @@ int main(int argc, char* argv[]) {
         }
 
         if (args->tick_period) {
-    auto ticker = std::make_shared<Ticker>(
-        strand, 
-        std::chrono::milliseconds(*args->tick_period),
-        [&game](std::chrono::milliseconds delta) {  // убрали g_state
-            game.UpdateAllSessions(delta.count() / 1000.0);
+            auto ticker = std::make_shared<Ticker>(
+                strand, 
+                std::chrono::milliseconds(*args->tick_period),
+                [&game, &handler, &args](std::chrono::milliseconds delta) {
+                    game.UpdateAllSessions(delta.count() / 1000.0);
+                    
+                    // Сохраняем состояние после каждого тика
+                    if (args->state_file) {
+                        state_saver::SaveState(game, handler->GetTokens(), 
+                                              fs::path(*args->state_file));
+                    }
+                }
+            );
             
+            if (args->save_state_period) {
+                auto save_ticker = std::make_shared<Ticker>(
+                    strand,
+                    std::chrono::milliseconds(*args->save_state_period),
+                    [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
+                        state_saver::SaveState(game, handler->GetTokens(), 
+                                              fs::path(*args->state_file));
+                    }
+                );
+                save_ticker->Start();
+            }
+            ticker->Start();
+            handler->SetTickMode(true);
         }
-    );
-	if (args->save_state_period) {
-    auto save_ticker = std::make_shared<Ticker>(
-        strand,
-        std::chrono::milliseconds(*args->save_state_period),
-        [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
-            state_saver::SaveState(game, handler->GetTokens(), 
-                                  fs::path(*args->state_file));
-        }
-    );
-    save_ticker->Start();
-}
-    ticker->Start();
-    handler->SetTickMode(true);
-}
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
@@ -262,7 +276,7 @@ int main(int argc, char* argv[]) {
             t.join();
         }
 
-        // Финальное сохранение
+
         if (args->state_file) {
             SaveState();
         }
