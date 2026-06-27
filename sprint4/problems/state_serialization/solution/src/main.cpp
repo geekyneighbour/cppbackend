@@ -123,6 +123,13 @@ void SaveState() {
     }
     
     try {
+        if (g_state.game->GetSessions().empty() && g_state.handler->GetTokens().empty()) {
+            if (fs::exists(fs::path(*g_state.state_file))) {
+                fs::remove(fs::path(*g_state.state_file));
+            }
+            return;
+        }
+        
         if (state_saver::SaveState(*g_state.game, g_state.handler->GetTokens(), 
                                    fs::path(*g_state.state_file))) {
             g_state.last_save_time = std::chrono::steady_clock::now();
@@ -195,24 +202,28 @@ int main(int argc, char* argv[]) {
         }
 
         if (args->tick_period) {
-            auto ticker = std::make_shared<Ticker>(
-                strand, 
-                std::chrono::milliseconds(*args->tick_period),
-                [&game, &g_state](std::chrono::milliseconds delta) {
-                    game.UpdateAllSessions(delta.count() / 1000.0);
-                    
-                    // Автоматическое сохранение
-                    if (g_state.state_file && g_state.save_state_period.count() > 0) {
-                        auto now = std::chrono::steady_clock::now();
-                        if (now - g_state.last_save_time >= g_state.save_state_period) {
-                            SaveState();
-                        }
-                    }
-                }
-            );
-            ticker->Start();
-            handler->SetTickMode(true);
+    auto ticker = std::make_shared<Ticker>(
+        strand, 
+        std::chrono::milliseconds(*args->tick_period),
+        [&game](std::chrono::milliseconds delta) {  // убрали g_state
+            game.UpdateAllSessions(delta.count() / 1000.0);
+            
         }
+    );
+	if (args->save_state_period) {
+    auto save_ticker = std::make_shared<Ticker>(
+        strand,
+        std::chrono::milliseconds(*args->save_state_period),
+        [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
+            state_saver::SaveState(game, handler->GetTokens(), 
+                                  fs::path(*args->state_file));
+        }
+    );
+    save_ticker->Start();
+}
+    ticker->Start();
+    handler->SetTickMode(true);
+}
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;

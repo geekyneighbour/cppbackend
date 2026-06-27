@@ -443,6 +443,8 @@ public:
     void SetNextLootId(size_t id) { next_loot_id_ = id; }
     void RestoreDog(Dog&& dog);
     void AddLostObject(const LostObject& obj);
+	void SetNextPlayerId(uint64_t id) { next_player_id_ = id; }
+    uint64_t GetNextPlayerId() const { return next_player_id_; }
 
 private:
     const Map* map_ = nullptr;
