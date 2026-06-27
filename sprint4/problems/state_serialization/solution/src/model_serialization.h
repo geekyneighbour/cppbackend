@@ -250,20 +250,17 @@ public:
     
     void Restore(model::Game& game, 
                  std::unordered_map<std::string, model::Player*>& tokens) const {
-        // Сначала восстанавливаем сессии и собак
         std::unordered_map<uint64_t, model::Dog*> dog_id_map;
         for (const auto& session_repr : sessions_) {
             session_repr.Restore(game, dog_id_map);
         }
         
-        // Устанавливаем next_player_id в сессиях
+
         for (auto& [map, session] : game.GetSessions()) {
-            // Это хак - нужно добавить метод SetNextPlayerId в GameSession
-            // Или использовать приватное поле через дружественный класс
-            // Пока просто игнорируем - тесты не проверяют ID игроков
+            session->SetNextPlayerId(next_player_id_);
         }
         
-        // Теперь восстанавливаем токены
+
         for (const auto& token_repr : tokens_) {
             const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
             if (!map) {
@@ -272,7 +269,6 @@ public:
             
             auto& session = game.FindOrCreateSession(map);
             
-            // Ищем игрока в сессии по ID собаки
             model::Player* found_player = nullptr;
             for (auto* player : session.GetPlayers()) {
                 if (*player->GetDog()->GetId() == token_repr.dog_id) {
@@ -282,7 +278,6 @@ public:
             }
             
             if (!found_player) {
-                // Если игрок не найден, создаем нового
                 const auto& dogs = session.GetDogs();
                 for (const auto& dog_ptr : dogs) {
                     if (*dog_ptr->GetId() == token_repr.dog_id) {
@@ -307,6 +302,10 @@ public:
         ar& tokens_;
         ar& next_player_id_;
     }
+	
+	const std::vector<GameSessionRepr>& GetSessions() const { return sessions_; }
+    const std::vector<PlayerTokenRepr>& GetTokens() const { return tokens_; }
+	
     
 private:
     std::vector<GameSessionRepr> sessions_;

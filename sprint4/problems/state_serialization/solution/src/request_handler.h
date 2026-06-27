@@ -149,8 +149,17 @@ public:
     }
     
     void AddToken(const std::string& token, model::Player* player) {
-        tokens_.AddPlayer(token, player);
-    }
+		tokens_.AddPlayer(token, player);
+	}
+	
+	void RestoreToken(const std::string& token, model::Player* player) {
+		tokens_.AddPlayer(token, player);
+}
+
+
+	const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
+		return tokens_.GetAllTokens();
+	}
 
 private:
     model::Game& game_;
