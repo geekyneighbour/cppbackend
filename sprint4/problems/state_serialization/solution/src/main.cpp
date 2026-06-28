@@ -199,13 +199,6 @@ int main(int argc, char* argv[]) {
             handler->AddToken(token, player);
         }
         
-
-        handler->SetSaveCallback([&game, &handler, &args]() {
-            if (args->state_file) {
-                state_saver::SaveState(game, handler->GetTokens(), 
-                                      fs::path(*args->state_file));
-            }
-        });
 		
 		handler->SetSaveCallback([&game, &handler, &args]() {
     if (args->state_file) {
