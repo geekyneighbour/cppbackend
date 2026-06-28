@@ -191,9 +191,9 @@ int main(int argc, char* argv[]) {
         for (const auto& [token, player] : tokens) {
             handler->AddToken(token, player);
         }
-		
+        
 
-		handler->SetSaveCallback([&game, &handler, &args]() {
+        handler->SetSaveCallback([&game, &handler, &args]() {
             if (args->state_file) {
                 state_saver::SaveState(game, handler->GetTokens(), 
                                       fs::path(*args->state_file));
@@ -207,6 +207,19 @@ int main(int argc, char* argv[]) {
         if (args->save_state_period) {
             g_state.save_state_period = std::chrono::milliseconds(*args->save_state_period);
             g_state.last_save_time = std::chrono::steady_clock::now();
+        }
+
+        // save_ticker должен работать независимо от tick_period
+        if (args->save_state_period) {
+            auto save_ticker = std::make_shared<Ticker>(
+                strand,
+                std::chrono::milliseconds(*args->save_state_period),
+                [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
+                    state_saver::SaveState(game, handler->GetTokens(), 
+                                          fs::path(*args->state_file));
+                }
+            );
+            save_ticker->Start();
         }
 
         if (args->tick_period) {
@@ -226,18 +239,6 @@ int main(int argc, char* argv[]) {
             ticker->Start();
             handler->SetTickMode(true);
         }
-		
-		if (args->save_state_period) {
-                auto save_ticker = std::make_shared<Ticker>(
-                    strand,
-                    std::chrono::milliseconds(*args->save_state_period),
-                    [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
-                        state_saver::SaveState(game, handler->GetTokens(), 
-                                              fs::path(*args->state_file));
-                    }
-                );
-                save_ticker->Start();
-            }
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
