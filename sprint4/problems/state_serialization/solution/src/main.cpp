@@ -220,7 +220,7 @@ int main(int argc, char* argv[]) {
         };
 
         // Настраиваем колбэк для ручного тика (через /api/v1/game/tick)
-        handler->SetOnTickCallback([update_game_state](std::chrono::milliseconds delta) {
+        handler->SetSaveCallback([update_game_state](std::chrono::milliseconds delta) {
             update_game_state(delta);
         });
 
