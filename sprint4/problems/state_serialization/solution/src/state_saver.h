@@ -63,17 +63,18 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         serialization::GameStateRepr state;
         ia >> state;
         
-
+        // Восстанавливаем сессии
         std::unordered_map<uint64_t, model::Dog*> dog_id_map;
         for (const auto& session_repr : state.GetSessions()) {
             session_repr.Restore(game, dog_id_map);
         }
         
-
+        // Восстанавливаем токены
         for (const auto& token_repr : state.GetTokens()) {
             const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
             if (!map) {
-                throw std::runtime_error("Map not found for token: " + token_repr.map_id);
+                std::cerr << "Map not found for token: " << token_repr.map_id << std::endl;
+                continue;
             }
             
             auto& session = game.FindOrCreateSession(map);
@@ -99,11 +100,10 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
             
             if (found_player) {
                 tokens[token_repr.token] = found_player;
-            } else {
-                throw std::runtime_error("Failed to restore player for token: " + token_repr.token);
             }
         }
         
+        // Восстанавливаем next_player_id
         uint64_t next_player_id = state.GetNextPlayerId();
         for (auto& [map, session] : game.GetSessions()) {
             session->SetNextPlayerId(next_player_id);
