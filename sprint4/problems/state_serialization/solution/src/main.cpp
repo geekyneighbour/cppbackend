@@ -206,6 +206,15 @@ int main(int argc, char* argv[]) {
                                       fs::path(*args->state_file));
             }
         });
+		
+		handler->SetSaveCallback([&game, &handler, &args]() {
+    if (args->state_file) {
+        // Синхронное сохранение
+        state_saver::SaveState(game, handler->GetTokens(), 
+                              fs::path(*args->state_file));
+        BOOST_LOG_TRIVIAL(debug) << "State saved on change";
+    }
+});
 
 
         g_state.game = &game;

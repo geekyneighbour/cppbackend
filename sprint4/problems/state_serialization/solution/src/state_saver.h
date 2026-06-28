@@ -15,6 +15,9 @@ namespace fs = std::filesystem;
 template <typename Game, typename Tokens>
 bool SaveState(const Game& game, const Tokens& tokens, const fs::path& filepath) {
     try {
+        // Всегда создаем директорию если её нет
+        fs::create_directories(filepath.parent_path());
+        
         if (game.GetSessions().empty() && tokens.empty()) {
             if (fs::exists(filepath)) {
                 fs::remove(filepath);
@@ -28,7 +31,7 @@ bool SaveState(const Game& game, const Tokens& tokens, const fs::path& filepath)
         serialization::GameStateRepr state(game, tokens);
         std::ofstream ofs(temp_path);
         if (!ofs.is_open()) {
-            throw std::runtime_error("Cannot open file for writing");
+            throw std::runtime_error("Cannot open file for writing: " + temp_path.string());
         }
         boost::archive::text_oarchive oa(ofs);
         oa << state;
@@ -49,16 +52,13 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
             return true;
         }
         
-        // Проверяем размер файла
-        auto size = fs::file_size(filepath);
-        if (size == 0) {
+        if (fs::file_size(filepath) == 0) {
             fs::remove(filepath);
             return true;
         }
         
         std::ifstream ifs(filepath);
         if (!ifs.is_open()) {
-            std::cerr << "Cannot open state file: " << filepath << std::endl;
             return false;
         }
         
@@ -69,68 +69,56 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         // Восстанавливаем сессии
         std::unordered_map<uint64_t, model::Dog*> dog_id_map;
         for (const auto& session_repr : state.GetSessions()) {
-            try {
-                session_repr.Restore(game, dog_id_map);
-            } catch (const std::exception& e) {
-                std::cerr << "Failed to restore session: " << e.what() << std::endl;
-                // Продолжаем с другими сессиями
-            }
+            session_repr.Restore(game, dog_id_map);
         }
         
         // Восстанавливаем токены
         for (const auto& token_repr : state.GetTokens()) {
-            try {
-                const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
-                if (!map) {
-                    std::cerr << "Map not found for token: " << token_repr.map_id << std::endl;
-                    continue;
+            const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
+            if (!map) {
+                std::cerr << "Map not found for token: " << token_repr.map_id << std::endl;
+                continue;
+            }
+            
+            auto& session = game.FindOrCreateSession(map);
+            
+            model::Player* found_player = nullptr;
+            // Сначала ищем среди существующих игроков
+            for (auto* player : session.GetPlayers()) {
+                if (*player->GetDog()->GetId() == token_repr.dog_id) {
+                    found_player = player;
+                    break;
                 }
-                
-                auto& session = game.FindOrCreateSession(map);
-                
-                model::Player* found_player = nullptr;
-                for (auto* player : session.GetPlayers()) {
-                    if (*player->GetDog()->GetId() == token_repr.dog_id) {
-                        found_player = player;
+            }
+            
+            // Если не нашли, создаем нового игрока для существующей собаки
+            if (!found_player) {
+                const auto& dogs = session.GetDogs();
+                for (const auto& dog_ptr : dogs) {
+                    if (*dog_ptr->GetId() == token_repr.dog_id) {
+                        auto& player = session.AddPlayer(*dog_ptr);
+                        found_player = &player;
                         break;
                     }
                 }
-                
-                if (!found_player) {
-                    const auto& dogs = session.GetDogs();
-                    for (const auto& dog_ptr : dogs) {
-                        if (*dog_ptr->GetId() == token_repr.dog_id) {
-                            auto& player = session.AddPlayer(*dog_ptr);
-                            found_player = &player;
-                            break;
-                        }
-                    }
-                }
-                
-                if (found_player) {
-                    tokens[token_repr.token] = found_player;
-                } else {
-                    std::cerr << "Failed to restore player for token: " << token_repr.token << std::endl;
-                }
-            } catch (const std::exception& e) {
-                std::cerr << "Failed to restore token: " << e.what() << std::endl;
+            }
+            
+            if (found_player) {
+                tokens[token_repr.token] = found_player;
+            } else {
+                std::cerr << "Failed to restore player for token: " << token_repr.token << std::endl;
             }
         }
         
         // Восстанавливаем next_player_id
-        try {
-            uint64_t next_player_id = state.GetNextPlayerId();
-            for (auto& [map, session] : game.GetSessions()) {
-                session->SetNextPlayerId(next_player_id);
-            }
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to restore next_player_id: " << e.what() << std::endl;
+        uint64_t next_player_id = state.GetNextPlayerId();
+        for (auto& [map, session] : game.GetSessions()) {
+            session->SetNextPlayerId(next_player_id);
         }
         
         return true;
     } catch (const std::exception& e) {
         std::cerr << "Failed to load state: " << e.what() << std::endl;
-        // Удаляем поврежденный файл
         if (fs::exists(filepath)) {
             fs::remove(filepath);
         }
