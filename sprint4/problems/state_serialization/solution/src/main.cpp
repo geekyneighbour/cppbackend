@@ -154,28 +154,24 @@ int main(int argc, char* argv[]) {
         model::Game game;
         http_handler::RequestHandler::TokensMap tokens;
         
+        // Сначала ВСЕГДА загружаем базовый конфиг карт, чтобы сервер знал структуру игры
+        game = json_loader::LoadGame(args->config_file);
 
         if (args->state_file && fs::exists(fs::path(*args->state_file))) {
-    BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
-    try {
-        if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
-            BOOST_LOG_TRIVIAL(fatal) << "Failed to load state from " << *args->state_file;
-            // Не выходим, а продолжаем с пустым состоянием
-            BOOST_LOG_TRIVIAL(warning) << "Starting with fresh state";
-        } else {
-            BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
+            BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
+            try {
+                if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
+                    BOOST_LOG_TRIVIAL(fatal) << "Failed to load state from " << *args->state_file;
+                    return EXIT_FAILURE; // СТРОГО ПО ТЗ
+                }
+                BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
+            } catch (const std::exception& e) {
+                BOOST_LOG_TRIVIAL(fatal) << "Exception while loading state: " << e.what();
+                return EXIT_FAILURE; // СТРОГО ПО ТЗ
+            }
+        } else if (args->state_file) {
+            BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
         }
-    } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << "Exception while loading state: " << e.what();
-        BOOST_LOG_TRIVIAL(warning) << "Starting with fresh state";
-        game = json_loader::LoadGame(args->config_file);
-    }
-} else {
-    game = json_loader::LoadGame(args->config_file);
-    if (args->state_file) {
-        BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
-    }
-}
         
         const unsigned num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(num_threads);
@@ -194,55 +190,47 @@ int main(int argc, char* argv[]) {
         auto handler = std::make_shared<http_handler::RequestHandler>(
             args->www_root, strand, game);
         
-
+        // Восстанавливаем токены в обработчик
         for (const auto& [token, player] : tokens) {
             handler->AddToken(token, player);
         }
         
-		
-		handler->SetSaveCallback([&game, &handler, &args]() {
-    if (args->state_file) {
-        // Синхронное сохранение
-        state_saver::SaveState(game, handler->GetTokens(), 
-                              fs::path(*args->state_file));
-        BOOST_LOG_TRIVIAL(debug) << "State saved on change";
-    }
-});
-
-
         g_state.game = &game;
         g_state.handler = handler.get();
         g_state.state_file = args->state_file;
+        
+        // Храним накопленное время для автосохранения
+        auto accumulated_time = std::make_shared<std::chrono::milliseconds>(0);
+        std::optional<std::chrono::milliseconds> save_period;
         if (args->save_state_period) {
-            g_state.save_state_period = std::chrono::milliseconds(*args->save_state_period);
-            g_state.last_save_time = std::chrono::steady_clock::now();
+            save_period = std::chrono::milliseconds(*args->save_state_period);
         }
 
-        // save_ticker должен работать независимо от tick_period
-        if (args->save_state_period) {
-            auto save_ticker = std::make_shared<Ticker>(
-                strand,
-                std::chrono::milliseconds(*args->save_state_period),
-                [&game, &handler, &args](std::chrono::milliseconds /*delta*/) {
-                    state_saver::SaveState(game, handler->GetTokens(), 
-                                          fs::path(*args->state_file));
+        // Общая лямбда для обновления времени игры и проверки автосохранения
+        auto update_game_state = [&game, &handler, &args, accumulated_time, save_period](std::chrono::milliseconds delta) {
+            game.UpdateAllSessions(delta.count() / 1000.0);
+            
+            if (args->state_file && save_period) {
+                *accumulated_time += delta;
+                if (*accumulated_time >= *save_period) {
+                    state_saver::SaveState(game, handler->GetTokens(), fs::path(*args->state_file));
+                    *accumulated_time = std::chrono::milliseconds(0); // сбрасываем счетчик
                 }
-            );
-            save_ticker->Start();
-        }
+            }
+        };
 
+        // Настраиваем колбэк для ручного тика (через /api/v1/game/tick)
+        handler->SetOnTickCallback([update_game_state](std::chrono::milliseconds delta) {
+            update_game_state(delta);
+        });
+
+        // Если задан автоматический tick_period
         if (args->tick_period) {
             auto ticker = std::make_shared<Ticker>(
                 strand, 
                 std::chrono::milliseconds(*args->tick_period),
-                [&game, &handler, &args](std::chrono::milliseconds delta) {
-                    game.UpdateAllSessions(delta.count() / 1000.0);
-                    
-                    // Сохраняем состояние после каждого тика
-                    if (args->state_file) {
-                        state_saver::SaveState(game, handler->GetTokens(), 
-                                              fs::path(*args->state_file));
-                    }
+                [update_game_state](std::chrono::milliseconds delta) {
+                    update_game_state(delta);
                 }
             );
             ticker->Start();

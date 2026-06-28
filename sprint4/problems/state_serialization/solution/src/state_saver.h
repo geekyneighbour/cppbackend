@@ -15,15 +15,7 @@ namespace fs = std::filesystem;
 template <typename Game, typename Tokens>
 bool SaveState(const Game& game, const Tokens& tokens, const fs::path& filepath) {
     try {
-        // Всегда создаем директорию если её нет
         fs::create_directories(filepath.parent_path());
-        
-        if (game.GetSessions().empty() && tokens.empty()) {
-            if (fs::exists(filepath)) {
-                fs::remove(filepath);
-            }
-            return true;
-        }
         
         fs::path temp_path = filepath;
         temp_path += ".tmp";
