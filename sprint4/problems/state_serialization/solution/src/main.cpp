@@ -156,19 +156,26 @@ int main(int argc, char* argv[]) {
         
 
         if (args->state_file && fs::exists(fs::path(*args->state_file))) {
-            BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
-            if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
-                BOOST_LOG_TRIVIAL(fatal) << "Failed to load state from " << *args->state_file;
-                return EXIT_FAILURE;
-            }
-            BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
+    BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
+    try {
+        if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
+            BOOST_LOG_TRIVIAL(fatal) << "Failed to load state from " << *args->state_file;
+            // Не выходим, а продолжаем с пустым состоянием
+            BOOST_LOG_TRIVIAL(warning) << "Starting with fresh state";
         } else {
-
-            game = json_loader::LoadGame(args->config_file);
-            if (args->state_file) {
-                BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
-            }
+            BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
         }
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(error) << "Exception while loading state: " << e.what();
+        BOOST_LOG_TRIVIAL(warning) << "Starting with fresh state";
+        game = json_loader::LoadGame(args->config_file);
+    }
+} else {
+    game = json_loader::LoadGame(args->config_file);
+    if (args->state_file) {
+        BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
+    }
+}
         
         const unsigned num_threads = std::thread::hardware_concurrency();
         net::io_context ioc(num_threads);
