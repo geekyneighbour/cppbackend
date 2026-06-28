@@ -223,8 +223,11 @@ int main(int argc, char* argv[]) {
                     }
                 }
             );
-            
-            if (args->save_state_period) {
+            ticker->Start();
+            handler->SetTickMode(true);
+        }
+		
+		if (args->save_state_period) {
                 auto save_ticker = std::make_shared<Ticker>(
                     strand,
                     std::chrono::milliseconds(*args->save_state_period),
@@ -235,9 +238,6 @@ int main(int argc, char* argv[]) {
                 );
                 save_ticker->Start();
             }
-            ticker->Start();
-            handler->SetTickMode(true);
-        }
 
         const auto address = net::ip::make_address("0.0.0.0");
         constexpr net::ip::port_type port = 8080;
