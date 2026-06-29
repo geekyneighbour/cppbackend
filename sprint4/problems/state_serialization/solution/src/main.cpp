@@ -47,187 +47,116 @@ struct Args {
 
 std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
     po::options_description desc{"Allowed options"s};
-
     Args args;
+
     desc.add_options()
         ("help,h", "produce help message")
         ("tick-period,t", po::value<uint64_t>(), "set tick period in milliseconds")
         ("config-file,c", po::value<std::string>(&args.config_file), "set config file path")
         ("www-root,w", po::value<std::string>(&args.www_root), "set static files root")
         ("randomize-spawn-points", po::bool_switch(&args.randomize_spawn_points), "spawn dogs at random positions")
-        ("state-file", po::value<std::string>(), "path to state file for save/load")
-        ("save-state-period", po::value<uint64_t>(), "period for automatic state saving in milliseconds");
+        ("state-file", po::value<std::string>(), "set state file path")
+        ("save-state-period", po::value<uint64_t>(), "set save state period in milliseconds");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
 
-    if (vm.count("help"s)) {
+    if (vm.count("help")) {
         std::cout << desc << std::endl;
         return std::nullopt;
     }
 
-    if (!vm.count("config-file"s)) {
-        throw std::runtime_error("Config file path is not specified"s);
+    if (!vm.count("config-file")) {
+        throw std::runtime_error("Config file path is required"s);
     }
-    if (!vm.count("www-root"s)) {
-        throw std::runtime_error("Static files root is not specified"s);
+
+    if (!vm.count("www-root")) {
+        throw std::runtime_error("Static files root path is required"s);
     }
-    
-    if (vm.count("tick-period"s)) {
-        args.tick_period = vm["tick-period"s].as<uint64_t>();
+
+    if (vm.count("tick-period")) {
+        args.tick_period = vm["tick-period"].as<uint64_t>();
     }
-    
-    if (vm.count("state-file"s)) {
-        args.state_file = vm["state-file"s].as<std::string>();
+
+    if (vm.count("state-file")) {
+        args.state_file = vm["state-file"].as<std::string>();
     }
-    
-    if (vm.count("save-state-period"s)) {
-        args.save_state_period = vm["save-state-period"s].as<uint64_t>();
-        if (!args.state_file) {
-            throw std::runtime_error("--save-state-period requires --state-file"s);
-        }
+
+    if (vm.count("save-state-period")) {
+        args.save_state_period = vm["save-state-period"].as<uint64_t>();
     }
 
     return args;
 }
 
-static void InitLogging() {
-    logging::add_common_attributes();
-    logging::add_console_log(
-        std::cout,
-        logging::keywords::auto_flush = true,
-        logging::keywords::format = (
-            expr::stream
-                << "{\"timestamp\":\"" << expr::format_date_time(timestamp, "%Y-%m-%d %H:%M:%S.%f")
-                << "\",\"message\":\"" << expr::smessage
-                << "\",\"additional_data\":" << additional_data << "}"
-        )
-    );
-}
-
-// Глобальное состояние для сохранения при завершении
-struct GlobalState {
-    model::Game* game = nullptr;
-    http_handler::RequestHandler* handler = nullptr;
-    std::optional<std::string> state_file;
-    std::chrono::milliseconds save_state_period{0};
-    std::chrono::steady_clock::time_point last_save_time;
-};
-
-GlobalState g_state;
-
-void SaveState() {
-    if (!g_state.state_file || !g_state.game || !g_state.handler) {
-        return;
-    }
-    
-    try {
-        if (g_state.game->GetSessions().empty() && g_state.handler->GetTokens().empty()) {
-            if (fs::exists(fs::path(*g_state.state_file))) {
-                fs::remove(fs::path(*g_state.state_file));
-            }
-            return;
-        }
-        
-        if (state_saver::SaveState(*g_state.game, g_state.handler->GetTokens(), 
-                                   fs::path(*g_state.state_file))) {
-            g_state.last_save_time = std::chrono::steady_clock::now();
-            BOOST_LOG_TRIVIAL(info) << "State saved to " << *g_state.state_file;
-        } else {
-            BOOST_LOG_TRIVIAL(error) << "Failed to save state to " << *g_state.state_file;
-        }
-    } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(error) << "Error saving state: " << e.what();
-    }
-}
-
 int main(int argc, char* argv[]) {
-    InitLogging();
-
     try {
         auto args = ParseCommandLine(argc, argv);
         if (!args) {
             return EXIT_SUCCESS;
         }
 
-        model::Game game;
-        http_handler::RequestHandler::TokensMap tokens;
-        
-        // Сначала ВСЕГДА загружаем базовый конфиг карт, чтобы сервер знал структуру игры
-        game = json_loader::LoadGame(args->config_file);
+        logging::add_common_attributes();
+        logging::add_console_log(
+            std::clog,
+            logging::keywords::format = (
+                expr::stream
+                    << "{\"timestamp\":\"" << expr::format_date_time<boost::posix_time::ptime>("timestamp", "%Y-%m-%d %H:%M:%S.%f")
+                    << "\",\"data\":" << additional_data
+                    << ",\"message\":\"" << expr::smessage << "\"}"
+            )
+        );
 
-        if (args->state_file && fs::exists(fs::path(*args->state_file))) {
-            BOOST_LOG_TRIVIAL(info) << "Loading state from " << *args->state_file;
-            try {
-                if (!state_saver::LoadState(game, tokens, fs::path(*args->state_file))) {
-                    BOOST_LOG_TRIVIAL(fatal) << "Failed to load state from " << *args->state_file;
-                    return EXIT_FAILURE; // СТРОГО ПО ТЗ
-                }
-                BOOST_LOG_TRIVIAL(info) << "State loaded successfully";
-            } catch (const std::exception& e) {
-                BOOST_LOG_TRIVIAL(fatal) << "Exception while loading state: " << e.what();
-                return EXIT_FAILURE; // СТРОГО ПО ТЗ
-            }
-        } else if (args->state_file) {
-            BOOST_LOG_TRIVIAL(info) << "Starting with fresh state, will save to " << *args->state_file;
-        }
-        
-        const unsigned num_threads = std::thread::hardware_concurrency();
+        model::Game game = json_loader::LoadGame(args->config_file);
+        game.SetRandomizeSpawnPoints(args->randomize_spawn_points);
+
+        const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
-
-        net::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait([&ioc](const sys::error_code& ec, int) {
-            if (!ec) {
-                BOOST_LOG_TRIVIAL(info) << "Shutdown signal received, saving state...";
-                SaveState();
-                ioc.stop();
-            }
-        });
 
         auto strand = net::make_strand(ioc);
 
-        auto handler = std::make_shared<http_handler::RequestHandler>(
-            args->www_root, strand, game);
-        
-        // Восстанавливаем токены в обработчик
-        for (const auto& [token, player] : tokens) {
-            handler->AddToken(token, player);
+        auto handler = std::make_shared<http_handler::RequestHandler>(args->www_root, strand, game);
+
+        if (args->state_file) {
+            state_saver::LoadState(game, *handler, fs::path(*args->state_file));
         }
-        
-        g_state.game = &game;
-        g_state.handler = handler.get();
-        g_state.state_file = args->state_file;
-        
-        // Храним накопленное время для автосохранения
+
+        auto SaveState = [&game, &handler, &args]() {
+            if (args->state_file) {
+                state_saver::SaveState(game, handler->GetTokens(), fs::path(*args->state_file));
+            }
+        };
+
+        net::signal_set signals(ioc, SIGINT, SIGTERM);
+        signals.async_wait([&ioc, SaveState](const boost::system::error_code& ec, int signal_number) {
+            if (!ec) {
+                ioc.stop();
+                SaveState();
+            }
+        });
+
         auto accumulated_time = std::make_shared<std::chrono::milliseconds>(0);
         std::optional<std::chrono::milliseconds> save_period;
         if (args->save_state_period) {
             save_period = std::chrono::milliseconds(*args->save_state_period);
         }
 
-        // Общая лямбда для обновления времени игры и проверки автосохранения
-        auto update_game_state = [&game, &handler, &args, accumulated_time, save_period](std::chrono::milliseconds delta) {
+        auto update_game_state = [&game, SaveState, accumulated_time, save_period](std::chrono::milliseconds delta) {
             game.UpdateAllSessions(delta.count() / 1000.0);
-            
-            if (args->state_file && save_period) {
+
+            if (save_period) {
                 *accumulated_time += delta;
                 if (*accumulated_time >= *save_period) {
-                    state_saver::SaveState(game, handler->GetTokens(), fs::path(*args->state_file));
-                    *accumulated_time = std::chrono::milliseconds(0); // сбрасываем счетчик
+                    SaveState();
+                    *accumulated_time = std::chrono::milliseconds(0);
                 }
             }
         };
 
-        // Настраиваем колбэк для ручного тика (через /api/v1/game/tick)
-        handler->SetSaveCallback([update_game_state](std::chrono::milliseconds delta) {
-            update_game_state(delta);
-        });
-
-        // Если задан автоматический tick_period
         if (args->tick_period) {
             auto ticker = std::make_shared<Ticker>(
-                strand, 
+                strand,
                 std::chrono::milliseconds(*args->tick_period),
                 [update_game_state](std::chrono::milliseconds delta) {
                     update_game_state(delta);
@@ -237,8 +166,13 @@ int main(int argc, char* argv[]) {
             handler->SetTickMode(true);
         }
 
+        // Исправленный вызов: передаем лямбду без аргументов согласно сигнатуре в request_handler.h
+        handler->SetSaveCallback([SaveState]() {
+            SaveState();
+        });
+
         const auto address = net::ip::make_address("0.0.0.0");
-        constexpr net::ip::port_type port = 8080;
+        const unsigned short port = 8080;
         net::ip::tcp::endpoint endpoint{address, port};
 
         {
@@ -274,13 +208,11 @@ int main(int argc, char* argv[]) {
             t.join();
         }
 
-
-        if (args->state_file) {
-            SaveState();
-        }
+        SaveState();
 
     } catch (const std::exception& e) {
         json::object error_data;
+        error_data["code"] = EXIT_FAILURE;
         error_data["exception"] = e.what();
 
         BOOST_LOG_TRIVIAL(fatal)
