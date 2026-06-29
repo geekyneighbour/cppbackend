@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
         );
 
         model::Game game = json_loader::LoadGame(args->config_file);
-        game.SetRandomizeSpawnPoints(args->randomize_spawn_points);
+
 
         const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
@@ -118,8 +118,9 @@ int main(int argc, char* argv[]) {
 
         auto handler = std::make_shared<http_handler::RequestHandler>(args->www_root, strand, game);
 
+        
         if (args->state_file) {
-            state_saver::LoadState(game, *handler, fs::path(*args->state_file));
+            state_saver::LoadState(game, handler->GetTokens(), fs::path(*args->state_file));
         }
 
         auto SaveState = [&game, &handler, &args]() {
@@ -166,7 +167,6 @@ int main(int argc, char* argv[]) {
             handler->SetTickMode(true);
         }
 
-        // Исправленный вызов: передаем лямбду без аргументов согласно сигнатуре в request_handler.h
         handler->SetSaveCallback([SaveState]() {
             SaveState();
         });
