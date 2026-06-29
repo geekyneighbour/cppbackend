@@ -2,6 +2,7 @@
 
 #include "model.h"
 #include "model_serialization.h"
+
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <filesystem>
@@ -16,23 +17,27 @@ template <typename Game, typename Tokens>
 bool SaveState(const Game& game, const Tokens& tokens, const fs::path& filepath) {
     try {
         fs::create_directories(filepath.parent_path());
-        
+
         fs::path temp_path = filepath;
         temp_path += ".tmp";
-        
+
         serialization::GameStateRepr state(game, tokens);
-        std::ofstream ofs(temp_path);
+
+        std::ofstream ofs(temp_path, std::ios::binary);
         if (!ofs.is_open()) {
-            throw std::runtime_error("Cannot open file for writing: " + temp_path.string());
+            throw std::runtime_error("Cannot open file: " + temp_path.string());
         }
+
         boost::archive::text_oarchive oa(ofs);
         oa << state;
+
         ofs.close();
-        
+
         fs::rename(temp_path, filepath);
         return true;
+
     } catch (const std::exception& e) {
-        std::cerr << "Failed to save state: " << e.what() << std::endl;
+        std::cerr << "SaveState failed: " << e.what() << std::endl;
         return false;
     }
 }
@@ -43,77 +48,33 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         if (!fs::exists(filepath)) {
             return true;
         }
-        
+
         if (fs::file_size(filepath) == 0) {
             fs::remove(filepath);
             return true;
         }
-        
-        std::ifstream ifs(filepath);
+
+        std::ifstream ifs(filepath, std::ios::binary);
         if (!ifs.is_open()) {
             return false;
         }
-        
+
         boost::archive::text_iarchive ia(ifs);
+
         serialization::GameStateRepr state;
         ia >> state;
-        
-        // Восстанавливаем сессии
-        std::unordered_map<uint64_t, model::Dog*> dog_id_map;
-        for (const auto& session_repr : state.GetSessions()) {
-            session_repr.Restore(game, dog_id_map);
-        }
-        
-        // Восстанавливаем токены
-        for (const auto& token_repr : state.GetTokens()) {
-            const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
-            if (!map) {
-                std::cerr << "Map not found for token: " << token_repr.map_id << std::endl;
-                continue;
-            }
-            
-            auto& session = game.FindOrCreateSession(map);
-            
-            model::Player* found_player = nullptr;
-            // Сначала ищем среди существующих игроков
-            for (auto* player : session.GetPlayers()) {
-                if (*player->GetDog()->GetId() == token_repr.dog_id) {
-                    found_player = player;
-                    break;
-                }
-            }
-            
-            // Если не нашли, создаем нового игрока для существующей собаки
-            if (!found_player) {
-                const auto& dogs = session.GetDogs();
-                for (const auto& dog_ptr : dogs) {
-                    if (*dog_ptr->GetId() == token_repr.dog_id) {
-                        auto& player = session.AddPlayer(*dog_ptr);
-                        found_player = &player;
-                        break;
-                    }
-                }
-            }
-            
-            if (found_player) {
-                tokens[token_repr.token] = found_player;
-            } else {
-                std::cerr << "Failed to restore player for token: " << token_repr.token << std::endl;
-            }
-        }
-        
-        // Восстанавливаем next_player_id
-        uint64_t next_player_id = state.GetNextPlayerId();
-        for (auto& [map, session] : game.GetSessions()) {
-            session->SetNextPlayerId(next_player_id);
-        }
-        
+
+        state.Restore(game, tokens);
+
         return true;
+
     } catch (const std::exception& e) {
-        std::cerr << "Failed to load state: " << e.what() << std::endl;
+        std::cerr << "LoadState failed: " << e.what() << std::endl;
+
         if (fs::exists(filepath)) {
             fs::remove(filepath);
         }
+
         return false;
     }
 }
