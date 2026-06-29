@@ -64,7 +64,12 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         serialization::GameStateRepr state;
         ia >> state;
 
-        state.Restore(game, tokens);
+        Tokens tmp_tokens = tokens;
+
+        state.Restore(game, tmp_tokens);
+
+
+        tokens = std::move(tmp_tokens);
 
         return true;
 
