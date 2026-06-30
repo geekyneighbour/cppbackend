@@ -236,6 +236,17 @@ void GameSession::UpdateState(double dt) {
     }
 }
 
+Player& GameSession::AddPlayerWithId(Dog& dog, uint64_t id) {
+    auto [it, ok] = players_.emplace(id, Player{id, &dog, this});
+    if (!ok) {
+        throw std::runtime_error("Player with this ID already exists");
+    }
+    if (id >= next_player_id_) {
+        next_player_id_ = id + 1;
+    }
+    return it->second;
+}
+
 // ================= GAME =================
 GameSession& Game::FindOrCreateSession(const Map* map) {
     auto& ptr = sessions_[map];

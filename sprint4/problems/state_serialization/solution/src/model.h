@@ -445,7 +445,7 @@ public:
     void AddLostObject(const LostObject& obj);
 	void SetNextPlayerId(uint64_t id) { next_player_id_ = id; }
     uint64_t GetNextPlayerId() const { return next_player_id_; }
-
+	Player& AddPlayerWithId(Dog& dog, uint64_t id); 
 private:
     const Map* map_ = nullptr;
     std::vector<std::unique_ptr<Dog>> dogs_;

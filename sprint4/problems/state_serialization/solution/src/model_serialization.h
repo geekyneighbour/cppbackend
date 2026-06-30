@@ -49,7 +49,7 @@ void serialize(Archive& ar, Direction& dir, [[maybe_unused]] const unsigned vers
     dir = static_cast<Direction>(d);
 }
 
-    template <typename Archive>
+template <typename Archive>
 void serialize(Archive& ar, BagItem& item, [[maybe_unused]] const unsigned version) {
     ar& item.id;
     ar& item.type;
@@ -72,8 +72,8 @@ public:
         , direction_(dog.GetDirection())
         , score_(dog.GetScore()) {
         for (const auto& item : dog.GetBagContent()) {
-    bag_content_.push_back(item);
-}
+            bag_content_.push_back(item);
+        }
     }
 
     [[nodiscard]] model::Dog Restore() const {
@@ -144,14 +144,15 @@ private:
     int value_ = 0;
 };
 
-// GameSessionRepr - для сериализации игровой сессии
+
 class GameSessionRepr {
 public:
     GameSessionRepr() = default;
     
     explicit GameSessionRepr(const model::GameSession& session)
         : map_id_(*session.GetMap()->GetId())
-        , next_loot_id_(session.GetNextLootId()) {
+        , next_loot_id_(session.GetNextLootId())
+        , next_player_id_(session.GetNextPlayerId()) {  
         for (const auto& dog : session.GetDogs()) {
             dogs_.push_back(DogRepr(*dog));
         }
@@ -166,6 +167,7 @@ public:
         ar& dogs_;
         ar& lost_objects_;
         ar& next_loot_id_;
+        ar& next_player_id_;  
     }
     
     void Restore(model::Game& game, 
@@ -177,13 +179,12 @@ public:
         
         auto& session = game.FindOrCreateSession(map);
         session.SetNextLootId(next_loot_id_);
+        session.SetNextPlayerId(next_player_id_);  
         
         for (const auto& dog_repr : dogs_) {
             auto dog = dog_repr.Restore();
             uint64_t dog_id = dog_repr.GetDogId();
             session.RestoreDog(std::move(dog));
-            // Сохраняем соответствие ID -> указатель на собаку
-            // Нужно получить указатель на последнюю добавленную собаку
             const auto& dogs = session.GetDogs();
             if (!dogs.empty()) {
                 dog_id_map[dog_id] = dogs.back().get();
@@ -200,9 +201,10 @@ private:
     std::vector<DogRepr> dogs_;
     std::vector<LostObjectRepr> lost_objects_;
     size_t next_loot_id_ = 0;
+    uint64_t next_player_id_ = 0;  
 };
 
-// PlayerTokenRepr - для сериализации токенов
+
 struct PlayerTokenRepr {
     std::string token;
     uint64_t player_id;
@@ -218,23 +220,15 @@ struct PlayerTokenRepr {
     }
 };
 
-// GameStateRepr - полное состояние игры
+
 class GameStateRepr {
 public:
     GameStateRepr() = default;
     
     explicit GameStateRepr(const model::Game& game, 
-                          const std::unordered_map<std::string, model::Player*>& tokens)
-        : next_player_id_(0) {
-        // Нужно получить next_player_id из сессий
+                          const std::unordered_map<std::string, model::Player*>& tokens) {
         for (const auto& [map, session] : game.GetSessions()) {
             sessions_.push_back(GameSessionRepr(*session));
-            // Сохраняем максимальный ID игрока
-            for (auto* player : session->GetPlayers()) {
-                if (player->GetId() > next_player_id_) {
-                    next_player_id_ = player->GetId();
-                }
-            }
         }
         
         for (const auto& [token, player] : tokens) {
@@ -247,19 +241,12 @@ public:
         }
     }
    
-    
     void Restore(model::Game& game, 
                  std::unordered_map<std::string, model::Player*>& tokens) const {
         std::unordered_map<uint64_t, model::Dog*> dog_id_map;
         for (const auto& session_repr : sessions_) {
             session_repr.Restore(game, dog_id_map);
         }
-        
-
-        for (auto& [map, session] : game.GetSessions()) {
-            session->SetNextPlayerId(next_player_id_);
-        }
-        
 
         for (const auto& token_repr : tokens_) {
             const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
@@ -270,18 +257,21 @@ public:
             auto& session = game.FindOrCreateSession(map);
             
             model::Player* found_player = nullptr;
+
             for (auto* player : session.GetPlayers()) {
-                if (*player->GetDog()->GetId() == token_repr.dog_id) {
+                if (player->GetId() == token_repr.player_id) {
                     found_player = player;
                     break;
                 }
             }
             
+
             if (!found_player) {
                 const auto& dogs = session.GetDogs();
                 for (const auto& dog_ptr : dogs) {
                     if (*dog_ptr->GetId() == token_repr.dog_id) {
-                        auto& player = session.AddPlayer(*dog_ptr);
+
+                        auto& player = session.AddPlayerWithId(*dog_ptr, token_repr.player_id);
                         found_player = &player;
                         break;
                     }
@@ -295,23 +285,19 @@ public:
             }
         }
     }
-	
-	template <typename Archive>
+    
+    template <typename Archive>
     void serialize(Archive& ar, [[maybe_unused]] const unsigned version) {
         ar& sessions_;
         ar& tokens_;
-        ar& next_player_id_;
     }
-	
-	const std::vector<GameSessionRepr>& GetSessions() const { return sessions_; }
+    
+    const std::vector<GameSessionRepr>& GetSessions() const { return sessions_; }
     const std::vector<PlayerTokenRepr>& GetTokens() const { return tokens_; }
-	uint64_t GetNextPlayerId() const { return next_player_id_; }
-	
     
 private:
     std::vector<GameSessionRepr> sessions_;
     std::vector<PlayerTokenRepr> tokens_;
-    uint64_t next_player_id_ = 0;
 };
 
 }  // namespace serialization
