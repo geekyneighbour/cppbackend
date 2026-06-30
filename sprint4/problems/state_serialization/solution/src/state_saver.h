@@ -50,8 +50,7 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         }
 
         if (fs::file_size(filepath) == 0) {
-            // УДАЛЕНО: fs::remove(filepath); 
-            return false; // Если файл пустой, то состояние не загружено
+            return false; 
         }
 
         std::ifstream ifs(filepath, std::ios::binary);
