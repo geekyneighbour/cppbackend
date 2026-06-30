@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
 
         
         if (args->state_file) {
-            state_saver::LoadState(game, handler->GetTokens(), fs::path(*args->state_file));
+            state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
         }
 
         auto SaveState = [&game, &handler, &args]() {

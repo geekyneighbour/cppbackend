@@ -64,12 +64,18 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         serialization::GameStateRepr state;
         ia >> state;
 
-        Tokens tmp_tokens = tokens;
+        std::unordered_map<std::string, model::Player*> tmp_tokens;
+        
+        for (const auto& [token, player] : tokens) {
+            tmp_tokens[token] = player;
+        }
 
         state.Restore(game, tmp_tokens);
 
-
-        tokens = std::move(tmp_tokens);
+        tokens.clear();
+        for (const auto& [token, player] : tmp_tokens) {
+            tokens[token] = player;
+        }
 
         return true;
 

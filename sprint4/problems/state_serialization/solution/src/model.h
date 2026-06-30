@@ -498,6 +498,10 @@ public:
 	const std::unordered_map<std::string, model::Player*>& GetAllTokens() const {
         return tokens_;
     }
+	
+	std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
+        return tokens_;
+    }
 
 private:
     std::unordered_map<std::string, Player*> tokens_;

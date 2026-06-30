@@ -148,6 +148,10 @@ public:
         return tokens_.GetAllTokens();
     }
     
+	TokensMap& GetTokensMutable() {
+        return tokens_.GetAllTokensMutable();
+    }
+	
     void AddToken(const std::string& token, model::Player* player) {
 		tokens_.AddPlayer(token, player);
 	}
