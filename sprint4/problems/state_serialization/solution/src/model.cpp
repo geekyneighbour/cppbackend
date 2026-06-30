@@ -90,6 +90,7 @@ Player& GameSession::AddPlayer(Dog& dog) {
 
 std::vector<Player*> GameSession::GetPlayers() {
     std::vector<Player*> res;
+    res.reserve(players_.size());
     for (auto& [_, p] : players_) {
         res.push_back(&p);
     }
@@ -237,6 +238,10 @@ void GameSession::UpdateState(double dt) {
 }
 
 Player& GameSession::AddPlayerWithId(Dog& dog, uint64_t id) {
+    if (players_.find(id) != players_.end()) {
+        return players_.at(id);
+    }
+    
     auto [it, ok] = players_.emplace(id, Player{id, &dog, this});
     if (!ok) {
         throw std::runtime_error("Player with this ID already exists");

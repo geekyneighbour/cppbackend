@@ -171,30 +171,32 @@ public:
     }
     
     void Restore(model::Game& game, 
-                 std::unordered_map<uint64_t, model::Dog*>& dog_id_map) const {
-        auto* map = game.FindMap(model::Map::Id{map_id_});
-        if (!map) {
-            throw std::runtime_error("Map not found: " + map_id_);
-        }
-        
-        auto& session = game.FindOrCreateSession(map);
-        session.SetNextLootId(next_loot_id_);
-        session.SetNextPlayerId(next_player_id_);  
-        
-        for (const auto& dog_repr : dogs_) {
-            auto dog = dog_repr.Restore();
-            uint64_t dog_id = dog_repr.GetDogId();
-            session.RestoreDog(std::move(dog));
-            const auto& dogs = session.GetDogs();
-            if (!dogs.empty()) {
-                dog_id_map[dog_id] = dogs.back().get();
-            }
-        }
-        
-        for (const auto& obj_repr : lost_objects_) {
-            session.AddLostObject(obj_repr.Restore());
+             std::unordered_map<uint64_t, model::Dog*>& dog_id_map) const {
+    auto* map = game.FindMap(model::Map::Id{map_id_});
+    if (!map) {
+        throw std::runtime_error("Map not found: " + map_id_);
+    }
+    
+    auto& session = game.FindOrCreateSession(map);
+    session.SetNextLootId(next_loot_id_);
+    session.SetNextPlayerId(next_player_id_);
+    
+
+    for (const auto& dog_repr : dogs_) {
+        auto dog = dog_repr.Restore();
+        uint64_t dog_id = dog_repr.GetDogId();
+        session.RestoreDog(std::move(dog));
+        const auto& dogs = session.GetDogs();
+        if (!dogs.empty()) {
+            dog_id_map[dog_id] = dogs.back().get();
         }
     }
+    
+
+    for (const auto& obj_repr : lost_objects_) {
+        session.AddLostObject(obj_repr.Restore());
+    }
+}
     
 private:
     std::string map_id_;

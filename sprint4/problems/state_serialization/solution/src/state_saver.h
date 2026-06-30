@@ -50,7 +50,7 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         }
 
         if (fs::file_size(filepath) == 0) {
-            return false; 
+            return false;
         }
 
         std::ifstream ifs(filepath, std::ios::binary);
@@ -63,25 +63,12 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         serialization::GameStateRepr state;
         ia >> state;
 
-        std::unordered_map<std::string, model::Player*> tmp_tokens;
-        
-        for (const auto& [token, player] : tokens) {
-            tmp_tokens[token] = player;
-        }
-
-        state.Restore(game, tmp_tokens);
-
-        tokens.clear();
-        for (const auto& [token, player] : tmp_tokens) {
-            tokens[token] = player;
-        }
+        state.Restore(game, tokens);
 
         return true;
 
     } catch (const std::exception& e) {
         std::cerr << "LoadState failed: " << e.what() << std::endl;
-        
-        
         return false;
     }
 }

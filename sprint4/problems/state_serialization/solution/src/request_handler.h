@@ -380,9 +380,9 @@ private:
                 tokens_.AddPlayer(token, &player);
 				
 				// Сохраняем состояние после JOIN
-				//if (save_callback_) {
-					//save_callback_();
-				//}
+				if (save_callback_) {
+					save_callback_();
+				}
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -550,9 +550,9 @@ private:
                 player->GetDog()->SetAction(move, dog_speed);
 				
 				// Сохраняем состояние после ACTION
-				//if (save_callback_) {
-					//save_callback_();
-				//}
+				if (save_callback_) {
+					save_callback_();
+				}
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -627,9 +627,9 @@ private:
         game_.UpdateAllSessions(time_delta_sec);
 		
 		// Сохраняем состояние после TICK
-		//if (save_callback_) {
-			//save_callback_();
-		//}
+		if (save_callback_) {
+			save_callback_();
+		}
         
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "application/json");
