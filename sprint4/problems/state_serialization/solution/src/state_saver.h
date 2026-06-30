@@ -50,8 +50,8 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         }
 
         if (fs::file_size(filepath) == 0) {
-            fs::remove(filepath);
-            return true;
+            // УДАЛЕНО: fs::remove(filepath); 
+            return false; // Если файл пустой, то состояние не загружено
         }
 
         std::ifstream ifs(filepath, std::ios::binary);
@@ -81,11 +81,8 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
 
     } catch (const std::exception& e) {
         std::cerr << "LoadState failed: " << e.what() << std::endl;
-
-        if (fs::exists(filepath)) {
-            fs::remove(filepath);
-        }
-
+        
+        
         return false;
     }
 }
