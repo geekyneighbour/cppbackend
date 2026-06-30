@@ -35,7 +35,7 @@ namespace fs = std::filesystem;
 
 using namespace std::literals;
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)ы
+BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
 
 struct Args {
     std::optional<uint64_t> tick_period;
