@@ -1,3 +1,4 @@
+[file name]: main.cpp
 #include "sdk.h"
 
 #include <boost/asio.hpp>
@@ -16,6 +17,7 @@
 #include <optional>
 #include <vector>
 #include <filesystem>
+#include <atomic>
 
 #include "json_loader.h"
 #include "request_handler.h"
@@ -110,7 +112,6 @@ int main(int argc, char* argv[]) {
 
         model::Game game = json_loader::LoadGame(args->config_file);
 
-
         const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
 
@@ -118,22 +119,25 @@ int main(int argc, char* argv[]) {
 
         auto handler = std::make_shared<http_handler::RequestHandler>(args->www_root, strand, game);
 
-        
         if (args->state_file) {
             state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
         }
 
         auto SaveState = [&game, &handler, &args]() {
             if (args->state_file) {
-                state_saver::SaveState(game, handler->GetTokens(), fs::path(*args->state_file));
+                state_saver::SaveState(game, handler->GetTokensMap(), fs::path(*args->state_file));
             }
         };
 
+
+        std::atomic<bool> normal_shutdown{false};
+
         net::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait([&ioc, SaveState](const boost::system::error_code& ec, int signal_number) {
+        signals.async_wait([&ioc, &normal_shutdown, SaveState](const boost::system::error_code& ec, int signal_number) {
             if (!ec) {
+                normal_shutdown = true;
+                SaveState();  
                 ioc.stop();
-                SaveState();
             }
         });
 
@@ -208,7 +212,10 @@ int main(int argc, char* argv[]) {
             t.join();
         }
 
-        SaveState();
+
+        if (normal_shutdown) {
+            SaveState();
+        }
 
     } catch (const std::exception& e) {
         json::object error_data;
