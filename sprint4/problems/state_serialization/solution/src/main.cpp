@@ -1,4 +1,3 @@
-[file name]: main.cpp
 #include "sdk.h"
 
 #include <boost/asio.hpp>
@@ -36,7 +35,7 @@ namespace fs = std::filesystem;
 
 using namespace std::literals;
 
-BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)
+BOOST_LOG_ATTRIBUTE_KEYWORD(timestamp, "TimeStamp", boost::posix_time::ptime)ы
 
 struct Args {
     std::optional<uint64_t> tick_period;
