@@ -16,7 +16,6 @@
 #include <optional>
 #include <vector>
 #include <filesystem>
-#include <atomic>
 
 #include "json_loader.h"
 #include "request_handler.h"
@@ -128,13 +127,9 @@ int main(int argc, char* argv[]) {
             }
         };
 
-
-        std::atomic<bool> normal_shutdown{false};
-
         net::signal_set signals(ioc, SIGINT, SIGTERM);
-        signals.async_wait([&ioc, &normal_shutdown, SaveState](const boost::system::error_code& ec, int signal_number) {
+        signals.async_wait([&ioc, SaveState](const boost::system::error_code& ec, int signal_number) {
             if (!ec) {
-                normal_shutdown = true;
                 SaveState();  
                 ioc.stop();
             }
@@ -211,10 +206,6 @@ int main(int argc, char* argv[]) {
             t.join();
         }
 
-
-        if (normal_shutdown) {
-            SaveState();
-        }
 
     } catch (const std::exception& e) {
         json::object error_data;
