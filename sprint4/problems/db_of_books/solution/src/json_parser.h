@@ -2,7 +2,7 @@
 
 #include <string>
 #include <nlohmann/json.hpp>
-#include "database.hpp"
+#include "database.h"
 
 using json = nlohmann::json;
 

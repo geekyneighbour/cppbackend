@@ -1,4 +1,4 @@
-#include "json_parser.hpp"
+#include "json_parser.h"
 #include <iostream>
 
 json JsonParser::parse_action(const std::string& line) {

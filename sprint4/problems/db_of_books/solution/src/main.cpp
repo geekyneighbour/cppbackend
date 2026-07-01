@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
 #include <nlohmann/json.hpp>
-#include "database.hpp"
-#include "json_parser.hpp"
+#include "database.h"
+#include "json_parser.h"
 
 using json = nlohmann::json;
 
