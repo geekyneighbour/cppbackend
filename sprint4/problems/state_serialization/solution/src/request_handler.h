@@ -548,7 +548,7 @@ private:
                 
                 player->GetDog()->SetAction(move, dog_speed);
 				
-				// Сохраняем состояние после ACTION
+				
 				if (save_callback_) {
     save_callback_(std::chrono::milliseconds(100000000));
 }
@@ -627,7 +627,7 @@ private:
 		
 		// Сохраняем состояние после TICK
 		if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(tick_delta)); 
+    save_callback_(std::chrono::milliseconds(time_delta_ms));
 }
         
         http::response<http::string_body> res{http::status::ok, req.version()};
