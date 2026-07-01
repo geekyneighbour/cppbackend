@@ -380,7 +380,7 @@ private:
 				
 				// Сохраняем состояние после JOIN
 				if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(100000000));
+    save_callback_(std::chrono::milliseconds(0));
 }
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
@@ -550,7 +550,7 @@ private:
 				
 				
 				if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(100000000));
+    save_callback_(std::chrono::milliseconds(0));
 }
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
