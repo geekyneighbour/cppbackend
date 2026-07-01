@@ -1,7 +1,10 @@
 #include <iostream>
 #include <string>
+#include <nlohmann/json.hpp>
 #include "database.hpp"
 #include "json_parser.hpp"
+
+using json = nlohmann::json;
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {

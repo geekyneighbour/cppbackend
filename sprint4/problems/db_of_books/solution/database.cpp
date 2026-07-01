@@ -24,43 +24,28 @@ void Database::create_table_if_not_exists() {
     txn.commit();
 }
 
-void Database::bind_parameters(pqxx::work& txn, pqxx::prepare::invocation& inv,
-                               const std::string& title, const std::string& author,
-                               int year, const std::string& isbn) {
-    inv(title)(author)(year);
-    if (isbn.empty()) {
-        inv();  // NULL for ISBN
-    } else {
-        inv(isbn);
-    }
-}
-
 bool Database::add_book(const std::string& title, const std::string& author, 
                         int year, const std::string& isbn) {
     try {
         pqxx::work txn(*conn_);
         
-        // Prepare statement with parameterized query to prevent SQL injection
+        // Используем параметризованный запрос
         std::string query = 
             "INSERT INTO books (title, author, year, ISBN) "
             "VALUES ($1, $2, $3, $4)";
         
-        auto prepared = txn.prepared(query);
-        
-        // Bind parameters
-        prepared(title)(author)(year);
         if (isbn.empty()) {
-            prepared();  // NULL for ISBN
+            // Для NULL ISBN
+            txn.exec_params(query, title, author, year, nullptr);
         } else {
-            prepared(isbn);
+            txn.exec_params(query, title, author, year, isbn);
         }
         
-        prepared.exec();
         txn.commit();
         return true;
         
     } catch (const pqxx::sql_error& e) {
-        // Duplicate ISBN or other SQL error
+        // Дублирующийся ISBN или другая SQL ошибка
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Error adding book: " << e.what() << std::endl;
@@ -94,6 +79,5 @@ std::vector<Book> Database::get_all_books() {
         books.push_back(book);
     }
     
-    txn.commit();
     return books;
 }

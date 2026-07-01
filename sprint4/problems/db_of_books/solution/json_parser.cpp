@@ -53,6 +53,7 @@ void JsonParser::execute_action(const json& command, Database& db, std::ostream&
         out << response.dump() << std::endl;
         
     } else if (action == "exit") {
+
         exit(0);
         
     } else {
