@@ -164,10 +164,9 @@ public:
 		return tokens_.GetAllTokens();
 	}
 	
-	// Добавлен метод для установки callback сохранения
-	void SetSaveCallback(std::function<void()> callback) {
-        save_callback_ = std::move(callback);
-    }
+	void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
+		save_callback_ = std::move(callback);
+}
 
 private:
     model::Game& game_;
@@ -175,7 +174,7 @@ private:
     Strand api_strand_;
     model::PlayerTokens tokens_;
 	bool auto_tick_mode_ = false;
-	std::function<void()> save_callback_;  // Добавлен callback
+	std::function<void(std::chrono::milliseconds)> save_callback_;
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -381,8 +380,8 @@ private:
 				
 				// Сохраняем состояние после JOIN
 				if (save_callback_) {
-					save_callback_();
-				}
+    save_callback_(std::chrono::milliseconds(100000000));
+}
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -551,8 +550,8 @@ private:
 				
 				// Сохраняем состояние после ACTION
 				if (save_callback_) {
-					save_callback_();
-				}
+    save_callback_(std::chrono::milliseconds(100000000));
+}
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -628,8 +627,8 @@ private:
 		
 		// Сохраняем состояние после TICK
 		if (save_callback_) {
-			save_callback_();
-		}
+    save_callback_(std::chrono::milliseconds(tick_delta)); 
+}
         
         http::response<http::string_body> res{http::status::ok, req.version()};
         res.set(http::field::content_type, "application/json");
