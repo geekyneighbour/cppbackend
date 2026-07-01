@@ -1,16 +1,18 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.11)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
 
+set(CONAN_DISABLE_CHECK_COMPILER TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(-Wno-enum-constexpr-conversion)
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_MODULE_PATH})
+project(book_manager CXX)
+set(CMAKE_CXX_STANDARD 20)
 
+include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
+conan_basic_setup(TARGETS)
 
-include(${CMAKE_CURRENT_SOURCE_DIR}/conanbuildinfo.cmake)
-conan_basic_setup()
-
-project(BookManager)
 
 add_executable(book_manager
     main.cpp
@@ -19,10 +21,7 @@ add_executable(book_manager
 )
 
 
-target_link_libraries(book_manager
-    ${CONAN_LIBS}
-)
-
-target_include_directories(book_manager PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
+target_include_directories(game_server_tests 
+    PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
