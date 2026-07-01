@@ -22,11 +22,12 @@ add_executable(book_manager
     ${SRC_DIR}/json_parser.cpp
 )
 
+
 target_include_directories(book_manager 
     PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src  # для заголовочных файлов проекта
-    ${CONAN_INCLUDE_DIRS}            # для зависимостей из Conan
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
 
 target_link_libraries(book_manager 
     ${CONAN_LIBS}
