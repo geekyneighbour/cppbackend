@@ -13,15 +13,13 @@ set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
-
 add_executable(book_manager
     main.cpp
     database.cpp
     json_parser.cpp
 )
 
-
-target_include_directories(game_server_tests 
+target_include_directories(book_manager 
     PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
