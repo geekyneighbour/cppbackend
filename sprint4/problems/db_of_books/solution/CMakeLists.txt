@@ -14,9 +14,9 @@ include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
 add_executable(book_manager
-    main.cpp
-    database.cpp
-    json_parser.cpp
+    src/main.cpp
+    src/database.cpp
+    src/json_parser.cpp
 )
 
 target_include_directories(book_manager 
