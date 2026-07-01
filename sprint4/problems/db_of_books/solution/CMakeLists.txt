@@ -13,13 +13,21 @@ set(CMAKE_CXX_STANDARD 20)
 include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
+
+set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 add_executable(book_manager
-    src/main.cpp
-    src/database.cpp
-    src/json_parser.cpp
+    ${SRC_DIR}/main.cpp
+    ${SRC_DIR}/database.cpp
+    ${SRC_DIR}/json_parser.cpp
 )
 
 target_include_directories(book_manager 
     PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/src  # для заголовочных файлов проекта
+    ${CONAN_INCLUDE_DIRS}            # для зависимостей из Conan
+)
+
+target_link_libraries(book_manager 
+    ${CONAN_LIBS}
 )
