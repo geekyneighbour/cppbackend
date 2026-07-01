@@ -3,8 +3,12 @@ cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(libpqxx REQUIRED)
-find_package(nlohmann_json REQUIRED)
+
+set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_MODULE_PATH})
+
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/conanbuildinfo.cmake)
+conan_basic_setup()
 
 project(BookManager)
 
@@ -16,10 +20,8 @@ add_executable(book_manager
 
 
 target_link_libraries(book_manager
-    libpqxx::libpqxx
-    nlohmann_json::nlohmann_json
+    ${CONAN_LIBS}
 )
-
 
 target_include_directories(book_manager PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
