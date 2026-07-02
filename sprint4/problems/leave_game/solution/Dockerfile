@@ -5,6 +5,8 @@ RUN apt update && \
     apt install -y \
       python3-pip \
       cmake \
+      libpqxx-dev \
+      libpq-dev \
     && \
     pip3 install conan==1.*
 
