@@ -45,8 +45,6 @@ private:
 
     std::optional<detail::AddBookParams> GetBookParams(std::istream& cmd_input) const;
     std::optional<std::string> SelectAuthorFromList() const;
-    std::optional<std::string> SelectBookFromList(const std::vector<ui::detail::BookInfo>& books) const;
-    std::optional<std::string> SelectAuthorFromListOrInput(const std::string& input_name) const;
     std::vector<std::string> ParseTags(const std::string& tags_input) const;
     std::vector<ui::detail::AuthorInfo> GetAuthors() const;
     std::vector<ui::detail::BookInfo> GetBooks() const;
