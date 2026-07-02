@@ -3,53 +3,80 @@
 #include <string>
 #include <vector>
 #include <optional>
+#include <set>
 
 namespace ui {
 namespace detail {
+
+struct AddBookParams {
+  std::string title;
+  std::string author_id;
+  int publication_year = 0;
+  std::set<std::string> tags;
+};
+
+struct EditBookParams {
+  std::string id;
+  std::string title;
+  int publication_year = 0;
+  std::set<std::string> tags;
+};
+
 struct AuthorInfo {
-    std::string id;
-    std::string name;
+  std::string id;
+  std::string name;
 };
 
 struct BookInfo {
-    std::string id;
-    std::string title;
-    int publication_year;
-    std::string author_name;
+  std::string title;
+  int publication_year;
+  std::string author_name;
 };
 
-struct BookDetailInfo {
-    std::string id;
-    std::string title;
-    int publication_year;
-    std::string author_name;
-    std::vector<std::string> tags;
+struct BookInfoEx : public BookInfo {
+  std::string tags;
+  std::string id;
 };
-}  // namespace detail
-}  // namespace ui
+
+} // namespace detail
+} // namespace ui
 
 namespace app {
 
 class UseCases {
 public:
-    virtual ~UseCases() = default;
-    
-    // Authors
-    virtual void AddAuthor(const std::string& name) = 0;
-    virtual std::vector<ui::detail::AuthorInfo> GetAllAuthors() = 0;
-    virtual bool DeleteAuthor(const std::string& author_name) = 0;
-    virtual bool EditAuthor(const std::string& current_name, const std::string& new_name) = 0;
-    
-    // Books
-    virtual void AddBook(const std::string& title, int publication_year, 
-                         const std::string& author_id, const std::vector<std::string>& tags) = 0;
-    virtual std::vector<ui::detail::BookInfo> GetAllBooks() = 0;
-    virtual std::vector<ui::detail::BookInfo> GetBooksByAuthor(const std::string& author_id) = 0;
-    virtual std::vector<ui::detail::BookInfo> GetBooksByTitle(const std::string& title) = 0;
-    virtual ui::detail::BookDetailInfo GetBookDetail(const std::string& book_id) = 0;
-    virtual bool DeleteBook(const std::string& title) = 0;
-    virtual bool EditBook(const std::string& current_title, const std::string& new_title,
-                         int new_year, const std::vector<std::string>& new_tags) = 0;
+  virtual std::string AddAuthor(const std::string &name) = 0;
+  virtual std::vector<ui::detail::AuthorInfo> ShowAuthors() const = 0;
+
+  virtual std::string AddBook(ui::detail::AddBookParams params) = 0;
+  virtual std::vector<ui::detail::BookInfo>
+  ShowAuthorBooks(const std::string &author_id) const = 0;
+  virtual std::vector<ui::detail::BookInfo> ShowBooks() const = 0;
+  virtual std::vector<ui::detail::BookInfoEx> ShowBooksEx() const = 0;
+  virtual std::optional<ui::detail::AuthorInfo>
+  FindAuthorByName(const std::string &author_name) const = 0;
+
+  virtual std::string
+  DeleteAuthorByName(const std::string &author_name) const = 0;
+  virtual std::string DeleteAuthorById(const std::string &author_id) const = 0;
+
+  virtual std::string
+  EditAuthorByName(const std::string &author_name,
+                   const std::string &new_author_name) const = 0;
+  virtual std::string
+  EditAuthorById(const std::string &author_id,
+                 const std::string &new_author_name) const = 0;
+
+  virtual std::vector<ui::detail::BookInfoEx>
+  GetBookByTitle(const std::string &book_title) const = 0;
+
+  virtual std::string DeleteBookById(const std::string &id) const = 0;
+
+  virtual std::string
+  EditBookById(const ui::detail::EditBookParams &edit_book) const = 0;
+
+protected:
+  ~UseCases() = default;
 };
 
-}  // namespace app
+} // namespace app
