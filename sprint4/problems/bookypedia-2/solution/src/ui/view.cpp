@@ -16,30 +16,6 @@ using namespace std::literals;
 namespace ph = std::placeholders;
 
 namespace ui {
-namespace detail {
-
-std::ostream &operator<<(std::ostream &out, const AuthorInfo &author) {
-  out << author.name;
-  return out;
-}
-
-std::ostream &operator<<(std::ostream &out, const BookInfo &book) {
-  out << book.title << " by " << book.author_name << ", "
-      << book.publication_year;
-  return out;
-}
-
-std::ostream &operator<<(std::ostream &out, const BookInfoEx &book) {
-  out << "Title: " << book.title << std::endl;
-  out << "Author: " << book.author_name << std::endl;
-  out << "Publication year: " << book.publication_year << std::endl;
-  if (!book.tags.empty()) {
-    out << "Tags: " << book.tags << std::endl;
-  }
-  return out;
-}
-
-} // namespace detail
 
 template <typename T>
 void PrintVector(std::ostream &out, const std::vector<T> &vector) {
@@ -55,8 +31,6 @@ View::View(menu::Menu &menu, app::UseCases &use_cases, std::istream &input,
   menu_.AddAction( //
       "AddAuthor"s, "name"s, "Adds author"s,
       std::bind(&View::AddAuthor, this, ph::_1)
-      // либо
-      // [this](auto& cmd_input) { return AddAuthor(cmd_input); }
   );
   menu_.AddAction("AddBook"s, "<pub year> <title>"s, "Adds book"s,
                   std::bind(&View::AddBook, this, ph::_1));
@@ -110,12 +84,10 @@ bool View::DeleteAuthor(std::istream &cmd_input) const {
     if (std::getline(cmd_input, author_name) && !author_name.empty()) {
       boost::algorithm::trim(author_name);
       use_cases_.DeleteAuthorByName(author_name);
-
       return true;
     }
     if (auto author_id = SelectAuthor()) {
       use_cases_.DeleteAuthorById(*author_id);
-
       return true;
     }
   } catch (const std::exception &) {
@@ -219,12 +191,10 @@ bool View::ShowBook(std::istream &cmd_input) const {
         if (book_info) {
           output_ << *book_info;
         }
-
         return true;
       }
 
       output_ << books_info_ex[0];
-
       return true;
     }
 
@@ -262,7 +232,6 @@ bool View::DeleteBook(std::istream &cmd_input) const {
       }
 
       use_cases_.DeleteBookById(books_info[0].id);
-
       return true;
     }
 

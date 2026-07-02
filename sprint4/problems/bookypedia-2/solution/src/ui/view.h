@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "../app/use_cases.h"
+
 namespace menu {
 class Menu;
 }
@@ -14,39 +16,6 @@ class UseCases;
 }
 
 namespace ui {
-namespace detail {
-
-struct AddBookParams {
-  std::string title;
-  std::string author_id;
-  int publication_year = 0;
-  std::set<std::string> tags;
-};
-
-struct EditBookParams {
-  std::string id;
-  std::string title;
-  int publication_year = 0;
-  std::set<std::string> tags;
-};
-
-struct AuthorInfo {
-  std::string id;
-  std::string name;
-};
-
-struct BookInfo {
-  std::string title;
-  int publication_year;
-  std::string author_name;
-};
-
-struct BookInfoEx : public BookInfo {
-  std::string tags;
-  std::string id;
-};
-
-} // namespace detail
 
 class View {
 public:

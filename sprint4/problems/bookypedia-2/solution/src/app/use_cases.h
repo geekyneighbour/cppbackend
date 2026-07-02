@@ -4,6 +4,7 @@
 #include <vector>
 #include <optional>
 #include <set>
+#include <ostream>
 
 namespace ui {
 namespace detail {
@@ -37,6 +38,10 @@ struct BookInfoEx : public BookInfo {
   std::string tags;
   std::string id;
 };
+
+std::ostream &operator<<(std::ostream &out, const AuthorInfo &author);
+std::ostream &operator<<(std::ostream &out, const BookInfo &book);
+std::ostream &operator<<(std::ostream &out, const BookInfoEx &book);
 
 } // namespace detail
 } // namespace ui
