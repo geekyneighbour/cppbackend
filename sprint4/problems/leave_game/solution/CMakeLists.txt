@@ -1,0 +1,102 @@
+cmake_minimum_required(VERSION 3.11)
+
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
+set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
+
+set(CONAN_DISABLE_CHECK_COMPILER TRUE)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+add_compile_options(-Wno-enum-constexpr-conversion)
+
+project(game_server CXX)
+set(CMAKE_CXX_STANDARD 20)
+
+include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
+conan_basic_setup(TARGETS)
+
+include(CTest)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    include(${CONAN_BUILD_DIRS_CATCH2_DEBUG}/Catch.cmake)
+else()
+    include(${CONAN_BUILD_DIRS_CATCH2_RELEASE}/Catch.cmake)
+endif()
+
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+# Основная библиотека модели (объединяем существующую с прекодом)
+add_library(game_model STATIC
+    src/model.cpp
+    src/loot_generator.cpp
+    src/database_manager.cpp
+    src/geom.h
+    src/model_serialization.h
+    src/model.h
+    src/tagged.h
+    src/state_saver.h
+)
+
+target_include_directories(game_model 
+    PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    CONAN_PKG::boost
+)
+
+target_link_libraries(game_model 
+    PUBLIC 
+    CONAN_PKG::boost
+    CONAN_PKG::libpqxx
+    Threads::Threads
+)
+
+target_compile_definitions(game_model PUBLIC BOOST_JSON_HEADER_ONLY)
+
+# Игровой сервер
+add_executable(game_server
+    src/main.cpp
+    src/sdk.h
+    src/boost_json.cpp
+    src/http_server.cpp
+    src/http_server.h
+    src/json_loader.cpp
+    src/json_loader.h
+    src/request_handler.h
+    src/ticker.h
+    src/logging.h
+    src/map_loot_types.h
+)
+
+target_include_directories(game_server PRIVATE CONAN_PKG::boost)
+target_link_libraries(game_server PRIVATE CONAN_PKG::boost game_model)
+
+add_executable(game_server_tests
+    tests/loot_generator_tests.cpp
+    tests/state-serialization-tests.cpp
+)
+
+target_include_directories(game_server_tests 
+    PRIVATE 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+    CONAN_PKG::boost
+)
+
+target_link_libraries(game_server_tests 
+    PRIVATE 
+    CONAN_PKG::catch2 
+    CONAN_PKG::boost 
+    Threads::Threads 
+    game_model
+)
+
+catch_discover_tests(game_server_tests)
+
+set_target_properties(game_server PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
+)
+
+set_target_properties(game_server_tests PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG "${CMAKE_BINARY_DIR}/bin"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_BINARY_DIR}/bin"
+)
