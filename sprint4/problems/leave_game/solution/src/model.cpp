@@ -1,4 +1,5 @@
 #include "model.h"
+#include "database_manager.h"
 #include <random>
 #include <stdexcept>
 #include <boost/json.hpp>

@@ -37,6 +37,7 @@ add_library(game_model STATIC
     src/model.h
     src/tagged.h
     src/state_saver.h
+    src/database_manager.h  # Добавить эту строку
 )
 
 target_include_directories(game_model 
