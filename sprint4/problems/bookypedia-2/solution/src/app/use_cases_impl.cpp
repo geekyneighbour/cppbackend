@@ -107,6 +107,7 @@ bool UseCasesImpl::EditBook(const std::string& current_title, const std::string&
     }
     
     try {
+        // Используем ID первой книги (если их несколько, пользователь выбирает в UI)
         books_.EditBook(books[0].id, new_title, new_year, new_tags);
         return true;
     } catch (const std::exception&) {

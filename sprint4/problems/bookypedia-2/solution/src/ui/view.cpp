@@ -321,6 +321,10 @@ bool View::EditAuthor(std::istream& cmd_input) const {
         if (author_name.empty()) {
             // Выбор из списка
             auto authors = GetAuthors();
+            if (authors.empty()) {
+                output_ << "Failed to edit author"sv << std::endl;
+                return true;
+            }
             PrintVector(output_, authors);
             output_ << "Enter author # or empty line to cancel" << std::endl;
             
@@ -513,7 +517,8 @@ bool View::DeleteBook(std::istream& cmd_input) const {
         } else {
             books = use_cases_.GetBooksByTitle(title);
             if (books.empty()) {
-                output_ << "Failed to delete book"sv << std::endl;
+                // Для несуществующей книги выводим "Book not found"
+                output_ << "Book not found"sv << std::endl;
                 return true;
             }
             
@@ -663,7 +668,7 @@ bool View::EditBook(std::istream& cmd_input) const {
             }
         }
         
-        // Новые теги
+        // Новые теги - показываем текущие теги
         std::string tags_str;
         if (!detail.tags.empty()) {
             output_ << "Enter tags (current tags: ";
@@ -678,6 +683,7 @@ bool View::EditBook(std::istream& cmd_input) const {
         std::getline(input_, tags_str);
         
         std::vector<std::string> new_tags;
+        // Если пользователь ввел теги, парсим их, иначе оставляем старые
         if (!tags_str.empty()) {
             new_tags = ParseTags(tags_str);
         } else {

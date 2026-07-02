@@ -63,10 +63,23 @@ void AuthorRepositoryImpl::Delete(const std::string& author_id) {
 
 void AuthorRepositoryImpl::Edit(const std::string& author_id, const std::string& new_name) {
     pqxx::work work{connection_};
+    
+    // Проверяем, существует ли автор
+    auto check = work.exec_params(
+        "SELECT id FROM authors WHERE id = $1"_zv,
+        author_id
+    );
+    
+    if (check.empty()) {
+        throw std::runtime_error("Author not found");
+    }
+    
+    // Обновляем имя автора
     work.exec_params(
         "UPDATE authors SET name = $1 WHERE id = $2"_zv,
         new_name, author_id
     );
+    
     work.commit();
 }
 
