@@ -24,8 +24,8 @@ std::vector<ui::detail::AuthorInfo> AuthorRepositoryImpl::GetAllAuthors() {
     std::vector<ui::detail::AuthorInfo> authors;
     
     auto result = work.exec("SELECT id, name FROM authors ORDER BY name"_zv);
-    for (const auto& row : result) {
-        authors.push_back({
+    for (auto row : result) {
+        authors.push_back(ui::detail::AuthorInfo{
             row[0].as<std::string>(),
             row[1].as<std::string>()
         });
@@ -62,8 +62,8 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetAllBooks() {
         "SELECT title, publication_year FROM books ORDER BY title"_zv
     );
     
-    for (const auto& row : result) {
-        books.push_back({
+    for (auto row : result) {
+        books.push_back(ui::detail::BookInfo{
             row[0].as<std::string>(),
             row[1].as<int>()
         });
@@ -81,8 +81,8 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetBooksByAuthor(const std
         author_id
     );
     
-    for (const auto& row : result) {
-        books.push_back({
+    for (auto row : result) {
+        books.push_back(ui::detail::BookInfo{
             row[0].as<std::string>(),
             row[1].as<int>()
         });
