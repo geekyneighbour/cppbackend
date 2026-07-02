@@ -9,20 +9,33 @@ namespace {
 struct MockAuthorRepository : domain::AuthorRepository {
     std::vector<domain::Author> saved_authors;
 
-    void Save(const domain::Author& author) override {
+    std::string Save(const domain::Author& author) override {
         saved_authors.emplace_back(author);
+        return "";
     }
     
-    std::vector<ui::detail::AuthorInfo> GetAllAuthors() override {
+    std::vector<ui::detail::AuthorInfo> ShowAuthors() const override {
         return {};
     }
     
-    void Delete(const std::string& author_id) override {
-        // Mock implementation
+    std::optional<ui::detail::AuthorInfo> ShowAuthorByName(const std::string&) const override {
+        return std::nullopt;
     }
     
-    void Edit(const std::string& author_id, const std::string& new_name) override {
-        // Mock implementation
+    std::string DeleteAuthorByName(const std::string&) const override {
+        return "";
+    }
+    
+    std::string DeleteAuthorById(const std::string&) const override {
+        return "";
+    }
+    
+    std::string EditAuthorByName(const std::string&, const std::string&) const override {
+        return "";
+    }
+    
+    std::string EditAuthorById(const std::string&, const std::string&) const override {
+        return "";
     }
 };
 
@@ -30,38 +43,34 @@ struct MockBookRepository : domain::BookRepository {
     std::vector<domain::Book> saved_books;
     std::vector<std::string> saved_author_ids;
 
-    void Save(const domain::Book& book, const std::string& author_id) override {
+    std::string Save(domain::Book book, std::string author_id, std::set<std::string> tags) override {
         saved_books.emplace_back(book);
         saved_author_ids.push_back(author_id);
+        return "";
     }
     
-    void SaveTags(const std::string& book_id, const std::vector<std::string>& tags) override {
-        // Mock implementation
-    }
-    
-    std::vector<ui::detail::BookInfo> GetAllBooks() override {
+    std::vector<ui::detail::BookInfo> ShowBooks() const override {
         return {};
     }
     
-    std::vector<ui::detail::BookInfo> GetBooksByAuthor(const std::string& author_id) override {
+    std::vector<ui::detail::BookInfoEx> ShowBooksEx() const override {
         return {};
     }
     
-    std::vector<ui::detail::BookInfo> GetBooksByTitle(const std::string& title) override {
+    std::vector<ui::detail::BookInfo> ShowAuthorBooks(const std::string&) const override {
         return {};
     }
     
-    ui::detail::BookDetailInfo GetBookDetail(const std::string& book_id) override {
+    std::vector<ui::detail::BookInfoEx> GetBookByTitle(const std::string&) const override {
         return {};
     }
     
-    void DeleteBook(const std::string& book_id) override {
-        // Mock implementation
+    std::string DeleteBookById(const std::string&) const override {
+        return "";
     }
     
-    void EditBook(const std::string& book_id, const std::string& title, 
-                  int publication_year, const std::vector<std::string>& tags) override {
-        // Mock implementation
+    std::string EditBookById(const ui::detail::EditBookParams&) const override {
+        return "";
     }
 };
 

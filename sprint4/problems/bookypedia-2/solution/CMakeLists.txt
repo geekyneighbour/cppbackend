@@ -18,6 +18,7 @@ add_library(libbookypedia STATIC
 	src/ui/view.cpp
 	src/ui/view.h
 	src/app/use_cases.h
+	src/app/use_cases.cpp
 	src/app/use_cases_impl.cpp
 	src/app/use_cases_impl.h
 	src/domain/author.h
