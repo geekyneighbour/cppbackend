@@ -20,7 +20,6 @@ add_library(libbookypedia STATIC
     src/domain/author.cpp
     src/domain/author.h
     src/domain/author_fwd.h
-    src/domain/book.cpp
     src/domain/book.h
     src/domain/book_fwd.h
     src/util/tagged.h
