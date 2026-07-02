@@ -178,17 +178,35 @@ std::vector<std::string> View::ParseTags(const std::string& tags_input) const {
     std::vector<std::string> tags;
     std::vector<std::string> raw_tags;
     
+    // Разбиваем по запятым
     boost::split(raw_tags, tags_input, boost::is_any_of(","));
     
     std::set<std::string> unique_tags;
     for (auto& tag : raw_tags) {
+        // Удаляем пробелы в начале и конце
         boost::algorithm::trim(tag);
-        // Удаляем лишние пробелы
-        tag = boost::algorithm::join(
-            boost::algorithm::split(tag, tag, boost::is_any_of(" "), 
-                                   boost::token_compress_on), " ");
-        if (!tag.empty() && tag.length() <= 30) {
-            unique_tags.insert(tag);
+        
+        // Удаляем лишние пробелы между словами
+        std::string normalized_tag;
+        bool in_space = false;
+        for (char c : tag) {
+            if (c == ' ') {
+                if (!in_space) {
+                    normalized_tag += ' ';
+                    in_space = true;
+                }
+            } else {
+                normalized_tag += c;
+                in_space = false;
+            }
+        }
+        // Удаляем пробел в конце
+        if (!normalized_tag.empty() && normalized_tag.back() == ' ') {
+            normalized_tag.pop_back();
+        }
+        
+        if (!normalized_tag.empty() && normalized_tag.length() <= 30) {
+            unique_tags.insert(normalized_tag);
         }
     }
     
