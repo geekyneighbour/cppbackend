@@ -24,12 +24,13 @@ std::vector<ui::detail::AuthorInfo> AuthorRepositoryImpl::GetAllAuthors() {
     std::vector<ui::detail::AuthorInfo> authors;
     
     auto result = work.exec("SELECT id, name FROM authors ORDER BY name"_zv);
-    for (auto it = result.begin(); it != result.end(); ++it) {
-        const auto& row = *it;
-        authors.push_back(ui::detail::AuthorInfo{
-            row[0].as<std::string>(),
-            row[1].as<std::string>()
-        });
+    
+    for (pqxx::row_size_type i = 0; i < result.size(); ++i) {
+        const auto row = result[i];
+        ui::detail::AuthorInfo info;
+        info.id = row[0].as<std::string>();
+        info.name = row[1].as<std::string>();
+        authors.push_back(info);
     }
     
     return authors;
@@ -63,12 +64,12 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetAllBooks() {
         "SELECT title, publication_year FROM books ORDER BY title"_zv
     );
     
-    for (auto it = result.begin(); it != result.end(); ++it) {
-        const auto& row = *it;
-        books.push_back(ui::detail::BookInfo{
-            row[0].as<std::string>(),
-            row[1].as<int>()
-        });
+    for (pqxx::row_size_type i = 0; i < result.size(); ++i) {
+        const auto row = result[i];
+        ui::detail::BookInfo info;
+        info.title = row[0].as<std::string>();
+        info.publication_year = row[1].as<int>();
+        books.push_back(info);
     }
     
     return books;
@@ -83,12 +84,12 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetBooksByAuthor(const std
         author_id
     );
     
-    for (auto it = result.begin(); it != result.end(); ++it) {
-        const auto& row = *it;
-        books.push_back(ui::detail::BookInfo{
-            row[0].as<std::string>(),
-            row[1].as<int>()
-        });
+    for (pqxx::row_size_type i = 0; i < result.size(); ++i) {
+        const auto row = result[i];
+        ui::detail::BookInfo info;
+        info.title = row[0].as<std::string>();
+        info.publication_year = row[1].as<int>();
+        books.push_back(info);
     }
     
     return books;
