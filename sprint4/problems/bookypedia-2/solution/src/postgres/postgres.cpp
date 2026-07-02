@@ -39,10 +39,25 @@ std::vector<ui::detail::AuthorInfo> AuthorRepositoryImpl::GetAllAuthors() {
 
 void AuthorRepositoryImpl::Delete(const std::string& author_id) {
     pqxx::work work{connection_};
+    
+    // Сначала удаляем теги книг автора
+    work.exec_params(
+        "DELETE FROM book_tags WHERE book_id IN (SELECT id FROM books WHERE author_id = $1)"_zv,
+        author_id
+    );
+    
+    // Затем удаляем книги автора
+    work.exec_params(
+        "DELETE FROM books WHERE author_id = $1"_zv,
+        author_id
+    );
+    
+    // И наконец удаляем самого автора
     work.exec_params(
         "DELETE FROM authors WHERE id = $1"_zv,
         author_id
     );
+    
     work.commit();
 }
 
@@ -86,10 +101,12 @@ void BookRepositoryImpl::SaveTags(const std::string& book_id, const std::vector<
     
     // Добавляем новые теги
     for (const auto& tag : tags) {
-        work.exec_params(
-            "INSERT INTO book_tags (book_id, tag) VALUES ($1, $2)"_zv,
-            book_id, tag
-        );
+        if (!tag.empty()) {
+            work.exec_params(
+                "INSERT INTO book_tags (book_id, tag) VALUES ($1, $2) ON CONFLICT DO NOTHING"_zv,
+                book_id, tag
+            );
+        }
     }
     
     work.commit();
@@ -101,7 +118,7 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetAllBooks() {
     
     auto result = work.exec(
         R"(
-SELECT b.title, b.publication_year, a.name 
+SELECT b.id, b.title, b.publication_year, a.name 
 FROM books b
 JOIN authors a ON b.author_id = a.id
 ORDER BY b.title, a.name, b.publication_year
@@ -111,9 +128,10 @@ ORDER BY b.title, a.name, b.publication_year
     for (pqxx::row_size_type i = 0; i < result.size(); ++i) {
         const auto row = result[i];
         ui::detail::BookInfo info;
-        info.title = row[0].as<std::string>();
-        info.publication_year = row[1].as<int>();
-        info.author_name = row[2].as<std::string>();
+        info.id = row[0].as<std::string>();
+        info.title = row[1].as<std::string>();
+        info.publication_year = row[2].as<int>();
+        info.author_name = row[3].as<std::string>();
         books.push_back(info);
     }
     
@@ -126,7 +144,7 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetBooksByAuthor(const std
     
     auto result = work.exec_params(
         R"(
-SELECT b.title, b.publication_year, a.name 
+SELECT b.id, b.title, b.publication_year, a.name 
 FROM books b
 JOIN authors a ON b.author_id = a.id
 WHERE b.author_id = $1
@@ -138,9 +156,10 @@ ORDER BY b.title, b.publication_year
     for (pqxx::row_size_type i = 0; i < result.size(); ++i) {
         const auto row = result[i];
         ui::detail::BookInfo info;
-        info.title = row[0].as<std::string>();
-        info.publication_year = row[1].as<int>();
-        info.author_name = row[2].as<std::string>();
+        info.id = row[0].as<std::string>();
+        info.title = row[1].as<std::string>();
+        info.publication_year = row[2].as<int>();
+        info.author_name = row[3].as<std::string>();
         books.push_back(info);
     }
     
@@ -214,10 +233,19 @@ WHERE b.id = $1
 
 void BookRepositoryImpl::DeleteBook(const std::string& book_id) {
     pqxx::work work{connection_};
+    
+    // Сначала удаляем теги книги
+    work.exec_params(
+        "DELETE FROM book_tags WHERE book_id = $1"_zv,
+        book_id
+    );
+    
+    // Затем удаляем саму книгу
     work.exec_params(
         "DELETE FROM books WHERE id = $1"_zv,
         book_id
     );
+    
     work.commit();
 }
 
@@ -231,7 +259,21 @@ void BookRepositoryImpl::EditBook(const std::string& book_id, const std::string&
     );
     
     // Обновляем теги
-    SaveTags(book_id, tags);
+    // Сначала удаляем старые
+    work.exec_params(
+        "DELETE FROM book_tags WHERE book_id = $1"_zv,
+        book_id
+    );
+    
+    // Добавляем новые
+    for (const auto& tag : tags) {
+        if (!tag.empty()) {
+            work.exec_params(
+                "INSERT INTO book_tags (book_id, tag) VALUES ($1, $2) ON CONFLICT DO NOTHING"_zv,
+                book_id, tag
+            );
+        }
+    }
     
     work.commit();
 }
