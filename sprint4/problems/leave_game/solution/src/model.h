@@ -7,13 +7,19 @@
 #include <optional>  
 #include <cmath>
 #include <chrono>
+#include <functional>
 
 #include "tagged.h"
 #include "loot_generator.h"
 #include "geom.h"
 
+// Forward declarations
+namespace db {
+    class DatabaseManager;
+}
+
 namespace model {
-	
+
 using namespace std::string_literals;
 
 using Dimension = int;
@@ -40,18 +46,6 @@ struct Offset {
     Dimension dx, dy;
 };
 
-struct RetiredPlayer {
-    std::string name;
-    int score = 0;
-    double play_time = 0.0;  // в секундах
-    
-    bool operator<(const RetiredPlayer& other) const {
-        if (score != other.score) return score > other.score;
-        if (play_time != other.play_time) return play_time < other.play_time;
-        return name < other.name;
-    }
-};
-
 enum class Direction {
     NORTH,
     SOUTH,
@@ -75,13 +69,26 @@ struct BagItem {
     
     BagItem() : id(0), type(0) {}
     BagItem(size_t i, size_t t) : id(i), type(t) {}
-	BagItem(FoundObject::Id id, size_t type) : id(*id), type(type) {}
-	bool operator==(const BagItem& other) const {
+    BagItem(FoundObject::Id id, size_t type) : id(*id), type(type) {}
+    bool operator==(const BagItem& other) const {
         return id == other.id && type == other.type;
     }
     
     bool operator!=(const BagItem& other) const {
         return !(*this == other);
+    }
+};
+
+// Структура для рекордов
+struct RetiredPlayer {
+    std::string name;
+    int score = 0;
+    double play_time = 0.0;
+    
+    bool operator<(const RetiredPlayer& other) const {
+        if (score != other.score) return score > other.score;
+        if (play_time != other.play_time) return play_time < other.play_time;
+        return name < other.name;
     }
 };
 
@@ -123,7 +130,7 @@ public:
     Point GetEnd() const noexcept {
         return end_;
     }
-	
+    
     double GetMinX() const noexcept {
         return std::min(static_cast<double>(start_.x), static_cast<double>(end_.x));
     }
@@ -246,7 +253,7 @@ struct LootGeneratorConfig {
 };
 
 struct LostObject {
-	size_t id;
+    size_t id;
     size_t type;
     PointDouble pos;
     int value;
@@ -333,6 +340,9 @@ private:
     std::vector<int> loot_type_values_;
 };
 
+// Forward declaration
+class GameSession;
+
 class Dog {
 public:
     using Id = util::Tagged<uint64_t, Dog>;
@@ -397,9 +407,11 @@ public:
     int GetScore() const { return score_; }
     void AddScore(int points) { score_ += points; }
     void SetScore(int score) { score_ = score; }
-	geom::Point2D GetPosition() const { return pos_; }
+    geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
-	void UpdateIdleTime(double dt) {
+    
+    // Новые методы для отслеживания бездействия
+    void UpdateIdleTime(double dt) {
         if (speed_.x == 0.0 && speed_.y == 0.0) {
             idle_time_ += dt;
         } else {
@@ -410,11 +422,9 @@ public:
     double GetIdleTime() const { return idle_time_; }
     void ResetIdleTime() { idle_time_ = 0.0; }
     
-    // Время в игре
     void AddPlayTime(double dt) { play_time_ += dt; }
     double GetPlayTime() const { return play_time_; }
     
-    // Состояние активности
     bool IsRetired() const { return retired_; }
     void SetRetired(bool retired) { retired_ = retired; }
 
@@ -429,12 +439,11 @@ private:
     BagContent bag_;
     size_t bag_capacity_ = 3;
     int score_ = 0;
-	double idle_time_ = 0.0;
+    
+    double idle_time_ = 0.0;
     double play_time_ = 0.0;
     bool retired_ = false;
 };
-
-class GameSession;
 
 class Player {
 public:
@@ -454,6 +463,8 @@ private:
 
 bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
                                  double px, double py, double threshold);
+
+class Game; // Forward declaration
 
 class GameSession {
 public:
@@ -477,17 +488,21 @@ public:
     void SetNextLootId(size_t id) { next_loot_id_ = id; }
     void RestoreDog(Dog&& dog);
     void AddLostObject(const LostObject& obj);
-	void SetNextPlayerId(uint64_t id) { next_player_id_ = id; }
+    void SetNextPlayerId(uint64_t id) { next_player_id_ = id; }
     uint64_t GetNextPlayerId() const { return next_player_id_; }
-	Player& AddPlayerWithId(Dog& dog, uint64_t id); 
-	void CheckIdleDogs();
-	void SetOnPlayerRetired(std::function<void(uint64_t)> callback) {
+    Player& AddPlayerWithId(Dog& dog, uint64_t id);
+    
+    void SetGame(Game* game) { game_ = game; }
+    
+    // Колбэки
+    void SetOnPlayerRetired(std::function<void(uint64_t)> callback) {
         on_player_retired_ = std::move(callback);
     }
     
     void SetOnRecordsSave(std::function<void(const std::vector<RetiredPlayer>&)> callback) {
         on_records_save_ = std::move(callback);
     }
+    
 private:
     const Map* map_ = nullptr;
     std::vector<std::unique_ptr<Dog>> dogs_;
@@ -499,9 +514,12 @@ private:
     std::optional<loot_gen::LootGenerator> loot_generator_;
     bool loot_generator_initialized_ = false;
     size_t next_loot_id_ = 0;
-	std::function<void(uint64_t)> on_player_retired_;
-    std::function<void(const std::vector<RetiredPlayer>&)> on_records_save_;
+    
     Game* game_ = nullptr;
+    std::function<void(uint64_t)> on_player_retired_;
+    std::function<void(const std::vector<RetiredPlayer>&)> on_records_save_;
+    
+    void CheckIdleDogs();
 };
 
 class Game {
@@ -514,37 +532,17 @@ public:
     void AddMap(Map map);
     void UpdateAllSessions(double time_delta);
     
-
     const std::unordered_map<const Map*, std::unique_ptr<GameSession>>& GetSessions() const {
         return sessions_;
     }
-	void SetRetirementTime(double seconds) { retirement_time_ = seconds; }
+    
+    void SetRetirementTime(double seconds) { retirement_time_ = seconds; }
     double GetRetirementTime() const { return retirement_time_; }
-	std::vector<RetiredPlayer> GetRecords(size_t start, size_t max_items) const;
-	void SetDatabaseManager(std::shared_ptr<db::DatabaseManager> db_manager) {
-        db_manager_ = db_manager;
-    }
     
-    std::vector<RetiredPlayer> GetRecords(size_t start, size_t max_items) const {
-        if (db_manager_) {
-            return db_manager_->GetRecords(start, max_items);
-        }
-        return {};
-    }
-    
-    void AddRetiredPlayer(const RetiredPlayer& player) {
-        if (db_manager_) {
-            db_manager_->AddRecord(player);
-        }
-    }
-    
-    void AddRetiredPlayers(const std::vector<RetiredPlayer>& players) {
-        if (db_manager_) {
-            for (const auto& player : players) {
-                db_manager_->AddRecord(player);
-            }
-        }
-    }
+    void SetDatabaseManager(std::shared_ptr<db::DatabaseManager> db_manager);
+    std::vector<RetiredPlayer> GetRecords(size_t start, size_t max_items) const;
+    void AddRetiredPlayer(const RetiredPlayer& player);
+    void AddRetiredPlayers(const std::vector<RetiredPlayer>& players);
 
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
@@ -553,11 +551,10 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
-	double retirement_time_ = 60.0;  
-    std::vector<RetiredPlayer> retired_players_;
-	std::shared_ptr<db::DatabaseManager> db_manager_;
+    
+    double retirement_time_ = 60.0;
+    std::shared_ptr<db::DatabaseManager> db_manager_;
 };
-
 
 class PlayerTokens {
 public:
@@ -569,12 +566,12 @@ public:
         auto it = tokens_.find(token);
         return it == tokens_.end() ? nullptr : it->second;
     }
-	
-	const std::unordered_map<std::string, model::Player*>& GetAllTokens() const {
+    
+    const std::unordered_map<std::string, model::Player*>& GetAllTokens() const {
         return tokens_;
     }
-	
-	std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
+    
+    std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
         return tokens_;
     }
 

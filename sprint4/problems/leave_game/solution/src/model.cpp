@@ -200,15 +200,75 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
     }
 }
 
+void GameSession::CheckIdleDogs() {
+    if (!game_) return;
+    double retirement_time = game_->GetRetirementTime();
+    
+    std::vector<RetiredPlayer> retired_players;
+    std::vector<uint64_t> players_to_remove;
+    
+    for (size_t i = 0; i < dogs_.size(); ++i) {
+        auto& dog = dogs_[i];
+        if (dog->IsRetired()) continue;
+        
+        if (dog->GetIdleTime() >= retirement_time) {
+            // Собака уходит на покой
+            dog->SetRetired(true);
+            
+            // Сохраняем рекорд
+            RetiredPlayer record;
+            record.name = dog->GetName();
+            record.score = dog->GetScore();
+            record.play_time = dog->GetPlayTime();
+            retired_players.push_back(record);
+            
+            // Находим игрока, связанного с этой собакой
+            for (auto& [player_id, player] : players_) {
+                if (player.GetDog() == dog.get()) {
+                    players_to_remove.push_back(player_id);
+                    if (on_player_retired_) {
+                        on_player_retired_(player_id);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Удаляем ушедших собак и игроков
+    for (auto it = dogs_.rbegin(); it != dogs_.rend(); ) {
+        if ((*it)->IsRetired()) {
+            uint64_t player_id_to_remove = 0;
+            for (auto& [id, player] : players_) {
+                if (player.GetDog() == it->get()) {
+                    player_id_to_remove = id;
+                    break;
+                }
+            }
+            if (player_id_to_remove > 0) {
+                players_.erase(player_id_to_remove);
+            }
+            it = std::vector<std::unique_ptr<Dog>>::reverse_iterator(
+                dogs_.erase(std::next(it).base())
+            );
+        } else {
+            ++it;
+        }
+    }
+    
+    // Сохраняем рекорды в БД через колбэк
+    if (on_records_save_ && !retired_players.empty()) {
+        on_records_save_(retired_players);
+    }
+}
+
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
     
     // Обновляем позиции собак
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
-        dog->AddPlayTime(dt);  // Увеличиваем время в игре
-        
-        // Обновляем время бездействия
+        dog->AddPlayTime(dt);
         dog->UpdateIdleTime(dt);
     }
     
@@ -257,72 +317,6 @@ Player& GameSession::AddPlayerWithId(Dog& dog, uint64_t id) {
         next_player_id_ = id + 1;
     }
     return it->second;
-}
-
-void GameSession::CheckIdleDogs() {
-    if (!game_) return;
-    double retirement_time = game_->GetRetirementTime();
-    
-    std::vector<size_t> dogs_to_remove;
-    std::vector<model::RetiredPlayer> retired_players;
-    
-    for (size_t i = 0; i < dogs_.size(); ++i) {
-        auto& dog = dogs_[i];
-        if (dog->IsRetired()) continue;
-        
-        if (dog->GetIdleTime() >= retirement_time) {
-            // Собака уходит на покой
-            dog->SetRetired(true);
-            
-            // Сохраняем рекорд
-            model::RetiredPlayer record;
-            record.name = dog->GetName();
-            record.score = dog->GetScore();
-            record.play_time = dog->GetPlayTime();
-            retired_players.push_back(record);
-            
-            // Находим игрока, связанного с этой собакой
-            for (auto& [player_id, player] : players_) {
-                if (player.GetDog() == dog.get()) {
-                    // Удаляем игрока из tokens
-                    // Это должно быть сделано через колбэк
-                    if (on_player_retired_) {
-                        on_player_retired_(player.GetId());
-                    }
-                    break;
-                }
-            }
-        }
-    }
-    
-    // Удаляем ушедших собак и игроков
-    // Используем обратный порядок для безопасного удаления
-    for (auto it = dogs_.rbegin(); it != dogs_.rend(); ) {
-        if ((*it)->IsRetired()) {
-            // Удаляем игрока
-            uint64_t player_id_to_remove = 0;
-            for (auto& [id, player] : players_) {
-                if (player.GetDog() == it->get()) {
-                    player_id_to_remove = id;
-                    break;
-                }
-            }
-            if (player_id_to_remove > 0) {
-                players_.erase(player_id_to_remove);
-            }
-            
-            it = std::vector<std::unique_ptr<Dog>>::reverse_iterator(
-                dogs_.erase(std::next(it).base())
-            );
-        } else {
-            ++it;
-        }
-    }
-    
-    // Сохраняем рекорды в БД через колбэк
-    if (on_records_save_ && !retired_players.empty()) {
-        on_records_save_(retired_players);
-    }
 }
 
 // ================= GAME =================
@@ -502,6 +496,31 @@ void GameSession::RestoreDog(Dog&& dog) {
 
 void GameSession::AddLostObject(const LostObject& obj) {
     lost_objects_.push_back(obj);
+}
+
+void Game::SetDatabaseManager(std::shared_ptr<db::DatabaseManager> db_manager) {
+    db_manager_ = db_manager;
+}
+
+std::vector<RetiredPlayer> Game::GetRecords(size_t start, size_t max_items) const {
+    if (db_manager_) {
+        return db_manager_->GetRecords(start, max_items);
+    }
+    return {};
+}
+
+void Game::AddRetiredPlayer(const RetiredPlayer& player) {
+    if (db_manager_) {
+        db_manager_->AddRecord(player);
+    }
+}
+
+void Game::AddRetiredPlayers(const std::vector<RetiredPlayer>& players) {
+    if (db_manager_) {
+        for (const auto& player : players) {
+            db_manager_->AddRecord(player);
+        }
+    }
 }
 
 } // namespace model

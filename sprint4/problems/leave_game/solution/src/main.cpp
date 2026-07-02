@@ -44,7 +44,7 @@ struct Args {
     bool randomize_spawn_points = false;
     std::optional<std::string> state_file;
     std::optional<uint64_t> save_state_period;
-	std::string db_url;
+    std::string db_url;
 };
 
 std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
@@ -58,8 +58,8 @@ std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
         ("www-root,w", po::value<std::string>(&args.www_root), "set static files root")
         ("randomize-spawn-points", po::bool_switch(&args.randomize_spawn_points), "spawn dogs at random positions")
         ("state-file", po::value<std::string>(), "set state file path")
-        ("save-state-period", po::value<uint64_t>(), "set save state period in milliseconds");
-		("db-url", po::value<std::string>(&args.db_url), "set database connection URL");
+        ("save-state-period", po::value<uint64_t>(), "set save state period in milliseconds")
+        ("db-url", po::value<std::string>(&args.db_url), "set database connection URL");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -90,6 +90,14 @@ std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
         args.save_state_period = vm["save-state-period"].as<uint64_t>();
     }
 
+    // Получаем URL базы данных из переменной окружения, если не задан через командную строку
+    if (args.db_url.empty()) {
+        char* db_url_env = std::getenv("GAME_DB_URL");
+        if (db_url_env) {
+            args.db_url = db_url_env;
+        }
+    }
+
     return args;
 }
 
@@ -112,51 +120,24 @@ int main(int argc, char* argv[]) {
         );
 
         model::Game game = json_loader::LoadGame(args->config_file);
-		
-		std::shared_ptr<db::DatabaseManager> db_manager;
-		if (!args->db_url.empty()) {
-			try {
-				db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
-				game.SetDatabaseManager(db_manager);
-		} 	catch (const std::exception& e) {
-			BOOST_LOG_TRIVIAL(error) 
-            << "Failed to initialize database: " << e.what();
-			return EXIT_FAILURE;
-		}
-		
-		
-}
-
-char* db_url = std::getenv("GAME_DB_URL");
-if (db_url) {
-    args->db_url = db_url;
-}
-
-for (const auto& [map, session] : game.GetSessions()) {
-    // Колбэк для ухода игрока на покой
-    session->SetOnPlayerRetired([&game, handler](uint64_t player_id) {
-        // Удаляем токен игрока
-        auto& tokens = handler->GetTokensMutable();
-        std::string token_to_remove;
-        for (auto& [token, player] : tokens) {
-            if (player->GetId() == player_id) {
-                token_to_remove = token;
-                break;
+        
+        // Инициализация базы данных
+        std::shared_ptr<db::DatabaseManager> db_manager;
+        if (!args->db_url.empty()) {
+            try {
+                db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
+                game.SetDatabaseManager(db_manager);
+                
+                BOOST_LOG_TRIVIAL(info)
+                    << logging::add_value(additional_data, json::object{{"db_url", args->db_url}})
+                    << "Database connected successfully";
+            } catch (const std::exception& e) {
+                BOOST_LOG_TRIVIAL(error) 
+                    << logging::add_value(additional_data, json::object{{"error", e.what()}})
+                    << "Failed to initialize database";
+                return EXIT_FAILURE;
             }
         }
-        if (!token_to_remove.empty()) {
-            tokens.erase(token_to_remove);
-        }
-    });
-    
-    // Колбэк для сохранения рекордов
-    session->SetOnRecordsSave([&game](const std::vector<model::RetiredPlayer>& players) {
-        for (const auto& player : players) {
-            game.AddRetiredPlayer(player);
-        }
-    });
-}
-
 
         const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
@@ -164,6 +145,42 @@ for (const auto& [map, session] : game.GetSessions()) {
         auto strand = net::make_strand(ioc);
 
         auto handler = std::make_shared<http_handler::RequestHandler>(args->www_root, strand, game);
+
+        // Устанавливаем связь GameSession с Game и настраиваем колбэки
+        for (auto& [map_ptr, session] : game.GetSessions()) {
+            session->SetGame(&game);
+            
+            session->SetOnPlayerRetired([handler](uint64_t player_id) {
+                auto& tokens = handler->GetTokensMutable();
+                std::string token_to_remove;
+                for (auto& [token, player] : tokens) {
+                    if (player && player->GetId() == player_id) {
+                        token_to_remove = token;
+                        break;
+                    }
+                }
+                if (!token_to_remove.empty()) {
+                    tokens.erase(token_to_remove);
+                    BOOST_LOG_TRIVIAL(info)
+                        << logging::add_value(additional_data, json::object{{"player_id", player_id}})
+                        << "Player retired due to inactivity";
+                }
+            });
+            
+            session->SetOnRecordsSave([&game](const std::vector<model::RetiredPlayer>& players) {
+                for (const auto& player : players) {
+                    game.AddRetiredPlayer(player);
+                    BOOST_LOG_TRIVIAL(info)
+                        << logging::add_value(additional_data, 
+                            json::object{
+                                {"name", player.name},
+                                {"score", player.score},
+                                {"play_time", player.play_time}
+                            })
+                        << "Player record saved";
+                }
+            });
+        }
 
         if (args->state_file) {
             state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
@@ -214,8 +231,8 @@ for (const auto& [map, session] : game.GetSessions()) {
         }
 
         handler->SetSaveCallback([update_game_state](std::chrono::milliseconds delta) {
-    update_game_state(delta);
-});
+            update_game_state(delta);
+        });
 
         const auto address = net::ip::make_address("0.0.0.0");
         const unsigned short port = 8080;
@@ -227,6 +244,9 @@ for (const auto& [map, session] : game.GetSessions()) {
             start_data["port"] = port;
             if (args->state_file) {
                 start_data["state_file"] = *args->state_file;
+            }
+            if (!args->db_url.empty()) {
+                start_data["database"] = "enabled";
             }
 
             BOOST_LOG_TRIVIAL(info)
@@ -254,6 +274,8 @@ for (const auto& [map, session] : game.GetSessions()) {
             t.join();
         }
 
+        // Сохраняем состояние перед выходом
+        SaveState();
 
     } catch (const std::exception& e) {
         json::object error_data;

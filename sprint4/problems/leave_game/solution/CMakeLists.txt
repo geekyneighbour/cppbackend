@@ -23,7 +23,11 @@ endif()
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
-# Основная библиотека модели (объединяем существующую с прекодом)
+# Находим libpqxx через pkg-config
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(PQXX REQUIRED libpqxx)
+
+# Основная библиотека модели
 add_library(game_model STATIC
     src/model.cpp
     src/loot_generator.cpp
@@ -39,12 +43,13 @@ target_include_directories(game_model
     PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     CONAN_PKG::boost
+    ${PQXX_INCLUDE_DIRS}
 )
 
 target_link_libraries(game_model 
     PUBLIC 
     CONAN_PKG::boost
-    CONAN_PKG::libpqxx
+    ${PQXX_LIBRARIES}
     Threads::Threads
 )
 
@@ -65,8 +70,18 @@ add_executable(game_server
     src/map_loot_types.h
 )
 
-target_include_directories(game_server PRIVATE CONAN_PKG::boost)
-target_link_libraries(game_server PRIVATE CONAN_PKG::boost game_model)
+target_include_directories(game_server 
+    PRIVATE 
+    CONAN_PKG::boost
+    ${PQXX_INCLUDE_DIRS}
+)
+
+target_link_libraries(game_server 
+    PRIVATE 
+    CONAN_PKG::boost 
+    game_model
+    ${PQXX_LIBRARIES}
+)
 
 add_executable(game_server_tests
     tests/loot_generator_tests.cpp
