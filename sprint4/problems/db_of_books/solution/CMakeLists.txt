@@ -1,34 +1,14 @@
 cmake_minimum_required(VERSION 3.11)
-
-set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -DDEBUG")
-set(CMAKE_C_FLAGS_DEBUG "-g -O0 -DDEBUG")
-
-set(CONAN_DISABLE_CHECK_COMPILER TRUE)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-add_compile_options(-Wno-enum-constexpr-conversion)
 
 project(book_manager CXX)
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo_multi.cmake)
 conan_basic_setup(TARGETS)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
 
-set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-add_executable(book_manager
-    ${SRC_DIR}/main.cpp
-    ${SRC_DIR}/database.cpp
-    ${SRC_DIR}/json_parser.cpp
-)
-
-
-target_include_directories(book_manager 
-    PRIVATE 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src
-)
-
-
-target_link_libraries(book_manager 
-    ${CONAN_LIBS}
-)
+add_executable(book_manager solution/main.cpp)
+target_link_libraries(book_manager CONAN_PKG::libpqxx CONAN_PKG::boost)
