@@ -3,11 +3,7 @@
 #include <string>
 #include <vector>
 #include "../util/tagged_uuid.h"
-
-// Forward declaration for UI types
-namespace ui { namespace detail {
-    struct BookInfo;
-}}
+#include "../app/use_cases.h"  // Добавляем для доступа к определениям структур
 
 namespace domain {
 

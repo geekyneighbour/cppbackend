@@ -3,12 +3,20 @@
 #include <string>
 #include <vector>
 
+// Добавляем полные определения структур
 namespace ui {
 namespace detail {
-struct AuthorInfo;
-struct BookInfo;
-}
-}
+struct AuthorInfo {
+    std::string id;
+    std::string name;
+};
+
+struct BookInfo {
+    std::string title;
+    int publication_year;
+};
+}  // namespace detail
+}  // namespace ui
 
 namespace app {
 

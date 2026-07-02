@@ -5,6 +5,7 @@
 
 #include "../domain/author.h"
 #include "../domain/book.h"
+#include "../app/use_cases.h"  // Добавляем для использования ui::detail::AuthorInfo и BookInfo
 
 namespace postgres {
 
