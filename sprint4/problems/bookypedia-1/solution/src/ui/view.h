@@ -1,4 +1,5 @@
 #pragma once
+
 #include <iosfwd>
 #include <optional>
 #include <string>

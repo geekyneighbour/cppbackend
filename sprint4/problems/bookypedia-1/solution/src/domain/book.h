@@ -4,6 +4,11 @@
 #include <vector>
 #include "../util/tagged_uuid.h"
 
+// Forward declaration for UI types
+namespace ui { namespace detail {
+    struct BookInfo;
+}}
+
 namespace domain {
 
 namespace detail {
@@ -29,11 +34,6 @@ private:
     std::string title_;
     int publication_year_;
 };
-
-// Forward declaration for UI types
-namespace ui { namespace detail {
-    struct BookInfo;
-}}
 
 class BookRepository {
 public:

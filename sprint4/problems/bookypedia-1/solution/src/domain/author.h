@@ -1,7 +1,13 @@
 #pragma once
-#include <string>
 
+#include <string>
+#include <vector>
 #include "../util/tagged_uuid.h"
+
+// Forward declaration for UI types
+namespace ui { namespace detail {
+    struct AuthorInfo;
+}}
 
 namespace domain {
 
@@ -33,10 +39,10 @@ private:
 
 class AuthorRepository {
 public:
+    virtual ~AuthorRepository() = default;
+    
     virtual void Save(const Author& author) = 0;
-
-protected:
-    ~AuthorRepository() = default;
+    virtual std::vector<ui::detail::AuthorInfo> GetAllAuthors() = 0;
 };
 
 }  // namespace domain

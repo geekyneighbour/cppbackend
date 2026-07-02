@@ -1,7 +1,6 @@
 #include "view.h"
 
 #include <boost/algorithm/string/trim.hpp>
-#include <cassert>
 #include <iostream>
 
 #include "../app/use_cases.h"
@@ -100,7 +99,7 @@ bool View::ShowAuthorBooks() const {
             auto books = GetAuthorBooks(*author_id);
             PrintVector(output_, books);
         }
-    } catch (const std::exception& e) {
+    } catch (const std::exception&) {
         output_ << "Failed to show author books"sv << std::endl;
     }
     return true;
