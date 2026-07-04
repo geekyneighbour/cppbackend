@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
         model::Game game = json_loader::LoadGame(args->config_file);
         
         // Инициализация базы данных
-        std::shared_ptr<db::DatabaseManager> db_manager;
+std::shared_ptr<db::DatabaseManager> db_manager;
 if (!args->db_url.empty()) {
     try {
         db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
@@ -132,10 +132,10 @@ if (!args->db_url.empty()) {
             << logging::add_value(additional_data, json::object{{"db_url", args->db_url}})
             << "Database connected successfully";
     } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(warning)  // Изменено с error на warning
+        BOOST_LOG_TRIVIAL(warning)
             << logging::add_value(additional_data, json::object{{"error", e.what()}})
             << "Failed to initialize database, continuing without database support";
-        // НЕ выходим из программы, продолжаем работу без БД
+
     }
 }
 
