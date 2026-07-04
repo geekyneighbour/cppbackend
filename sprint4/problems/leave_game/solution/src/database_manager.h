@@ -8,6 +8,12 @@
 #include "model.h"
 
 namespace db {
+	
+struct RetiredPlayer {
+    std::string name;
+    int score;
+    int play_time; 
+};
 
 class DatabaseManager {
 public:
@@ -22,6 +28,10 @@ public:
     std::vector<model::RetiredPlayer> GetRecords(size_t start, size_t max_items);
     bool PlayerExists(const std::string& name);
     void UpdateRecord(const model::RetiredPlayer& player);
+	
+	void CreateRetiredTable();
+    void SaveRetiredPlayer(const std::string& name, int score, int play_time);
+    std::vector<RetiredPlayer> GetRetiredPlayers(size_t start, size_t max_items);
     
 private:
     std::unique_ptr<pqxx::connection> connection_;

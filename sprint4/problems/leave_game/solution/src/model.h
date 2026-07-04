@@ -317,6 +317,8 @@ public:
     
     const Road* FindRoadAtPoint(double x, double y) const;
     const Road* FindNearestRoad(const PointDouble& pos) const;
+	std::chrono::milliseconds GetDogRetirementTime() const { return dog_retirement_time_; }
+    void SetDogRetirementTime(std::chrono::milliseconds time) { dog_retirement_time_ = time; }
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -338,6 +340,7 @@ private:
     
     size_t bag_capacity_ = 3;
     std::vector<int> loot_type_values_;
+	std::chrono::milliseconds dog_retirement_time_{std::chrono::minutes(1)};
 };
 
 // Forward declaration
@@ -410,23 +413,26 @@ public:
     geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
     
-    // Новые методы для отслеживания бездействия
-    void UpdateIdleTime(double dt) {
+    void UpdateIdleTime(std::chrono::milliseconds delta) {
         if (speed_.x == 0.0 && speed_.y == 0.0) {
-            idle_time_ += dt;
+            idle_time_ += delta;
         } else {
-            idle_time_ = 0.0;
+            idle_time_ = std::chrono::milliseconds(0);
         }
+        total_play_time_ += delta;
     }
     
-    double GetIdleTime() const { return idle_time_; }
-    void ResetIdleTime() { idle_time_ = 0.0; }
-    
-    void AddPlayTime(double dt) { play_time_ += dt; }
-    double GetPlayTime() const { return play_time_; }
+    bool ShouldRetire() const {
+        return !retired_ && idle_time_ >= retirement_time_;
+    }
     
     bool IsRetired() const { return retired_; }
-    void SetRetired(bool retired) { retired_ = retired; }
+    void SetRetired() { retired_ = true; }
+    void SetRetirementTime(std::chrono::milliseconds time) { retirement_time_ = time; }
+    std::chrono::milliseconds GetPlayTime() const { return total_play_time_; }
+    void SetPlayTime(std::chrono::milliseconds time) { total_play_time_ = time; }
+    void SetIdleTime(std::chrono::milliseconds time) { idle_time_ = time; }
+    std::chrono::milliseconds GetIdleTime() const { return idle_time_; }
 
 private:
     Id id_;
@@ -440,9 +446,11 @@ private:
     size_t bag_capacity_ = 3;
     int score_ = 0;
     
-    double idle_time_ = 0.0;
-    double play_time_ = 0.0;
-    bool retired_ = false;
+    std::chrono::milliseconds idle_time_{0};
+    std::chrono::milliseconds total_play_time_{0};
+    bool retired_{false};
+    std::chrono::milliseconds retirement_time_{std::chrono::minutes(1)};
+	
 };
 
 class Player {
@@ -493,15 +501,9 @@ public:
     Player& AddPlayerWithId(Dog& dog, uint64_t id);
     
     void SetGame(Game* game) { game_ = game; }
-    
-    // Колбэки
-    void SetOnPlayerRetired(std::function<void(uint64_t)> callback) {
-        on_player_retired_ = std::move(callback);
-    }
-    
-    void SetOnRecordsSave(std::function<void(const std::vector<RetiredPlayer>&)> callback) {
-        on_records_save_ = std::move(callback);
-    }
+	
+	using OnPlayerRetired = std::function<void(const std::string&, int, int)>;
+    void SetOnPlayerRetired(OnPlayerRetired callback) { on_player_retired_ = std::move(callback); }
     
 private:
     const Map* map_ = nullptr;
@@ -516,10 +518,8 @@ private:
     size_t next_loot_id_ = 0;
     
     Game* game_ = nullptr;
-    std::function<void(uint64_t)> on_player_retired_;
-    std::function<void(const std::vector<RetiredPlayer>&)> on_records_save_;
-    
-    void CheckIdleDogs();
+	
+	OnPlayerRetired on_player_retired_;
 };
 
 class Game {

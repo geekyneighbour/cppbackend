@@ -114,7 +114,7 @@ bool DatabaseManager::PlayerExists(const std::string& name) {
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Failed to check player existence: " << e.what() << std::endl;
-        return false;  // Возвращаем false, а не выбрасываем исключение
+        return false;
     }
 }
 
@@ -152,6 +152,70 @@ std::vector<model::RetiredPlayer> DatabaseManager::GetRecords(size_t start, size
     }
     
     return records;
+}
+
+void DatabaseManager::CreateRetiredTable() {
+    if (!connection_) return;
+    try {
+        pqxx::work work(*connection_);
+        work.exec(R"(
+CREATE TABLE IF NOT EXISTS retired_players (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name varchar(100) NOT NULL,
+    score integer NOT NULL,
+    play_time integer NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS retired_players_idx ON retired_players (
+    score DESC,
+    play_time ASC,
+    name ASC
+);
+)");
+        work.commit();
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to create retired_players table: " << e.what() << std::endl;
+    }
+}
+
+void DatabaseManager::SaveRetiredPlayer(const std::string& name, int score, int play_time) {
+    if (!connection_) return;
+    try {
+        pqxx::work work(*connection_);
+        work.exec_params(
+            "INSERT INTO retired_players (name, score, play_time) VALUES ($1, $2, $3)",
+            name, score, play_time
+        );
+        work.commit();
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to save retired player: " << e.what() << std::endl;
+    }
+}
+
+std::vector<model::RetiredPlayer> DatabaseManager::GetRetiredPlayers(size_t start, size_t max_items) {
+    std::vector<model::RetiredPlayer> result;
+    if (!connection_) return result;
+    try {
+        pqxx::work work(*connection_);
+        auto res = work.exec_params(
+            "SELECT name, score, play_time FROM retired_players "
+            "ORDER BY score DESC, play_time ASC, name ASC "
+            "LIMIT $1 OFFSET $2",
+            max_items, start
+        );
+        work.commit();
+        
+        for (const auto& row : res) {
+            model::RetiredPlayer player;
+            player.name = row[0].as<std::string>();
+            player.score = row[1].as<int>();
+            player.play_time = row[2].as<double>();
+            result.push_back(player);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to get retired players: " << e.what() << std::endl;
+    }
+    return result;
 }
 
 } // namespace db

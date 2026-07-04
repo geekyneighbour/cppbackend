@@ -8,6 +8,8 @@
 
 namespace json_loader {
 	
+static std::chrono::milliseconds global_dog_retirement_time = std::chrono::minutes(1);
+	
 static size_t global_bag_capacity = 3;
 
 void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGeneratorConfig& config) {
@@ -19,6 +21,12 @@ void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGen
         if (auto probability = cfg_obj.if_contains("probability")) {
             config.probability = probability->as_double();
         }
+    }
+	if (auto retirement = root_obj.if_contains("dogRetirementTime")) {
+        double seconds = retirement->as_double();
+        global_dog_retirement_time = std::chrono::milliseconds(
+            static_cast<long long>(seconds * 1000)
+        );
     }
 }
 
@@ -189,6 +197,8 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
                 
                 MapLootTypes::Instance().SetLootTypes(*map.GetId(), loot_types->as_array());
             }
+			
+			map.SetDogRetirementTime(global_dog_retirement_time);
 
             game.AddMap(std::move(map));
         

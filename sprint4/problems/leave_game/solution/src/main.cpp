@@ -90,7 +90,6 @@ std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
         args.save_state_period = vm["save-state-period"].as<uint64_t>();
     }
 
-    // Получаем URL базы данных из переменной окружения, если не задан через командную строку
     if (args.db_url.empty()) {
         char* db_url_env = std::getenv("GAME_DB_URL");
         if (db_url_env) {
@@ -121,23 +120,13 @@ int main(int argc, char* argv[]) {
 
         model::Game game = json_loader::LoadGame(args->config_file);
         
-        // Инициализация базы данных
-std::shared_ptr<db::DatabaseManager> db_manager;
-if (!args->db_url.empty()) {
-    try {
-        db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
-        game.SetDatabaseManager(db_manager);
+        std::string db_url = std::getenv("GAME_DB_URL") ? std::getenv("GAME_DB_URL") : "";
+        if (db_url.empty()) {
+            throw std::runtime_error("GAME_DB_URL environment variable is required");
+        }
         
-        BOOST_LOG_TRIVIAL(info)
-            << logging::add_value(additional_data, json::object{{"db_url", args->db_url}})
-            << "Database connected successfully";
-    } catch (const std::exception& e) {
-        BOOST_LOG_TRIVIAL(warning)
-            << logging::add_value(additional_data, json::object{{"error", e.what()}})
-            << "Failed to initialize database, continuing without database support";
-
-    }
-}
+        auto db_manager = std::make_shared<db::DatabaseManager>(db_url);
+        db_manager->CreateRetiredTable();
 
         const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
@@ -145,40 +134,17 @@ if (!args->db_url.empty()) {
         auto strand = net::make_strand(ioc);
 
         auto handler = std::make_shared<http_handler::RequestHandler>(args->www_root, strand, game);
+        
+        handler->SetDatabaseManager(db_manager);
+        
+        handler->SetOnPlayerRetired([handler](const std::string& name, int score, int play_time) {
+            handler->GetDatabaseManager().SaveRetiredPlayer(name, score, play_time);
+        });
 
-        // Устанавливаем связь GameSession с Game и настраиваем колбэки
         for (auto& [map_ptr, session] : game.GetSessions()) {
             session->SetGame(&game);
-            
-            session->SetOnPlayerRetired([handler](uint64_t player_id) {
-                auto& tokens = handler->GetTokensMutable();
-                std::string token_to_remove;
-                for (auto& [token, player] : tokens) {
-                    if (player && player->GetId() == player_id) {
-                        token_to_remove = token;
-                        break;
-                    }
-                }
-                if (!token_to_remove.empty()) {
-                    tokens.erase(token_to_remove);
-                    BOOST_LOG_TRIVIAL(info)
-                        << logging::add_value(additional_data, json::object{{"player_id", player_id}})
-                        << "Player retired due to inactivity";
-                }
-            });
-            
-            session->SetOnRecordsSave([&game](const std::vector<model::RetiredPlayer>& players) {
-                for (const auto& player : players) {
-                    game.AddRetiredPlayer(player);
-                    BOOST_LOG_TRIVIAL(info)
-                        << logging::add_value(additional_data, 
-                            json::object{
-                                {"name", player.name},
-                                {"score", player.score},
-                                {"play_time", player.play_time}
-                            })
-                        << "Player record saved";
-                }
+            session->SetOnPlayerRetired([handler](const std::string& name, int score, int play_time) {
+                handler->GetDatabaseManager().SaveRetiredPlayer(name, score, play_time);
             });
         }
 
@@ -274,7 +240,6 @@ if (!args->db_url.empty()) {
             t.join();
         }
 
-        // Сохраняем состояние перед выходом
         SaveState();
 
     } catch (const std::exception& e) {
