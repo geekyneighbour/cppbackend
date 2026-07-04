@@ -147,7 +147,51 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
         LoadLootGeneratorConfig(obj, global_config);
 
         for (const auto& map_val : obj.at("maps").as_array()) {
-            // ... остальной код ...
+            if (!map_val.is_object()) continue;
+            const auto& map_obj = map_val.as_object();
+
+            std::string id = boost::json::value_to<std::string>(map_obj.at("id"));
+            std::string name = boost::json::value_to<std::string>(map_obj.at("name"));
+
+            model::Map map(model::Map::Id{id}, name);
+            
+            if (auto speed = map_obj.if_contains("dogSpeed")) {
+                if (speed->is_double()) {
+                    map.SetDogSpeed(speed->as_double());
+                } else if (speed->is_int64()) {
+                    map.SetDogSpeed(static_cast<double>(speed->as_int64()));
+                }
+            }
+
+            if (auto roads = map_obj.if_contains("roads")) {
+                AddRoads(roads->as_array(), map);
+            }
+
+            if (auto buildings = map_obj.if_contains("buildings")) {
+                AddBuildings(buildings->as_array(), map);
+            }
+
+            if (auto offices = map_obj.if_contains("offices")) {
+                AddOffices(offices->as_array(), map);
+            }
+            
+            map.SetLootConfig(global_config);
+            
+            // Устанавливаем вместимость рюкзака для карты
+            size_t bag_capacity = global_bag_capacity;
+            if (auto capacity = map_obj.if_contains("bagCapacity")) {
+                bag_capacity = static_cast<size_t>(capacity->as_int64());
+            }
+            map.SetBagCapacity(bag_capacity);
+        
+            if (auto loot_types = map_obj.if_contains("lootTypes")) {
+                AddLootTypes(loot_types->as_array(), map);
+                
+                MapLootTypes::Instance().SetLootTypes(*map.GetId(), loot_types->as_array());
+            }
+
+            game.AddMap(std::move(map));
+        
         }
 
     } catch (const std::exception& e) {

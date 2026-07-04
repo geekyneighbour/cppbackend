@@ -101,9 +101,9 @@ void DatabaseManager::UpdateRecord(const model::RetiredPlayer& player) {
 }
 
 bool DatabaseManager::PlayerExists(const std::string& name) {
-    const std::string query = "SELECT COUNT(*) FROM retired_players WHERE name = $1;";
-    
     try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        const std::string query = "SELECT COUNT(*) FROM retired_players WHERE name = $1;";
         pqxx::work txn(*connection_);
         auto result = txn.exec_params(query, name);
         txn.commit();
@@ -114,7 +114,7 @@ bool DatabaseManager::PlayerExists(const std::string& name) {
         return false;
     } catch (const std::exception& e) {
         std::cerr << "Failed to check player existence: " << e.what() << std::endl;
-        return false;
+        return false;  // Возвращаем false, а не выбрасываем исключение
     }
 }
 

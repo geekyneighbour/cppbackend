@@ -265,6 +265,11 @@ void GameSession::CheckIdleDogs() {
 
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
+	
+	// Защита от отрицательного времени
+    if (dt < 0) dt = 0;
+    // Ограничение максимального шага (1 секунда)
+    if (dt > 1.0) dt = 1.0;
     
     // Обновляем позиции собак
     for (auto& dog : dogs_) {

@@ -123,21 +123,21 @@ int main(int argc, char* argv[]) {
         
         // Инициализация базы данных
         std::shared_ptr<db::DatabaseManager> db_manager;
-        if (!args->db_url.empty()) {
-            try {
-                db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
-                game.SetDatabaseManager(db_manager);
-                
-                BOOST_LOG_TRIVIAL(info)
-                    << logging::add_value(additional_data, json::object{{"db_url", args->db_url}})
-                    << "Database connected successfully";
-            } catch (const std::exception& e) {
-                BOOST_LOG_TRIVIAL(error) 
-                    << logging::add_value(additional_data, json::object{{"error", e.what()}})
-                    << "Failed to initialize database";
-                return EXIT_FAILURE;
-            }
-        }
+if (!args->db_url.empty()) {
+    try {
+        db_manager = std::make_shared<db::DatabaseManager>(args->db_url);
+        game.SetDatabaseManager(db_manager);
+        
+        BOOST_LOG_TRIVIAL(info)
+            << logging::add_value(additional_data, json::object{{"db_url", args->db_url}})
+            << "Database connected successfully";
+    } catch (const std::exception& e) {
+        BOOST_LOG_TRIVIAL(warning)  // Изменено с error на warning
+            << logging::add_value(additional_data, json::object{{"error", e.what()}})
+            << "Failed to initialize database, continuing without database support";
+        // НЕ выходим из программы, продолжаем работу без БД
+    }
+}
 
         const unsigned num_threads = std::max<unsigned>(1, std::thread::hardware_concurrency());
         net::io_context ioc(num_threads);
