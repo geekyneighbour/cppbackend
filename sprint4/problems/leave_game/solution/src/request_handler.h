@@ -95,6 +95,8 @@ public:
         , api_strand_(strand)
         , game_(game) {}
         
+    virtual ~RequestHandler() = default;
+        
     bool IsValidToken(const std::string& token) {
         if (token.size() != 32)
             return false;
@@ -171,6 +173,11 @@ public:
 	
 	void AddObserver(model::IGameObserver* observer) {
 		game_.AddObserver(observer);
+	}
+	
+	// Виртуальный метод для получения рекордов
+	virtual json::array GetRecords(int start, int maxItems) {
+		return json::array();
 	}
 
 private:
@@ -822,12 +829,6 @@ http::response<http::string_body> HandleFileRequest(const Req& req, const std::s
         res.body() = json::serialize(obj);
         res.prepare_payload();
         return res;
-    }
-    
-    // Метод для получения рекордов (будет переопределен в main с подключением БД)
-    json::array GetRecords(int start, int maxItems) {
-        // Возвращает пустой массив, если нет наблюдателя БД
-        return json::array();
     }
 };
 
