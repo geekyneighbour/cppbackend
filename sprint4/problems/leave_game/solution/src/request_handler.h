@@ -18,6 +18,7 @@
 #include <optional>
 #include <chrono>
 #include <fstream>
+#include <algorithm>
 
 namespace http_handler {
 
@@ -166,7 +167,11 @@ public:
 	
 	void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
 		save_callback_ = std::move(callback);
-}
+	}
+	
+	void AddObserver(model::IGameObserver* observer) {
+		game_.AddObserver(observer);
+	}
 
 private:
     model::Game& game_;
@@ -206,6 +211,10 @@ private:
         if (token.empty()) return std::nullopt;
 
         return token;
+    }
+    
+    void RemoveToken(const std::string& token) {
+        tokens_.RemovePlayer(token);
     }
 
     // ================= RESPONSES =================
@@ -652,60 +661,63 @@ private:
         return res;
     }
 }
-if (path == RECORDS) {
-    if (method != http::verb::get && method != http::verb::head)
-        return InvalidMethod(req, "GET, HEAD");
-
-
-    int start = 0;
-    int maxItems = 100;
-
-    try {
-        std::string target(req.target());
-        auto qpos = target.find('?');
-
-        if (qpos != std::string::npos) {
-            std::string query = target.substr(qpos + 1);
-            std::istringstream iss(query);
-            std::string pair;
-
-            while (std::getline(iss, pair, '&')) {
-                auto eq = pair.find('=');
-                if (eq == std::string::npos) continue;
-
-                std::string key = pair.substr(0, eq);
-                std::string value = pair.substr(eq + 1);
-
-                if (key == "start") {
-                    start = std::stoi(value);
-                }
-                else if (key == "maxItems") {
-                    maxItems = std::stoi(value);
-                }
-            }
-        }
-    }
-    catch (...) {
-        return BadRequest(req, "Invalid query parameters");
-    }
-
-    if (maxItems > 100) {
-        return BadRequest(req, "maxItems exceeds limit");
-    }
-
-
-    std::vector<boost::json::object> result;
-
-
-
-    http::response<http::string_body> res{http::status::ok, req.version()};
-    res.set(http::field::content_type, "application/json");
-    res.set(http::field::cache_control, "no-cache");
-
-    res.body() = boost::json::serialize(result);
-    res.prepare_payload();
-    return res;
-}
+		
+		if (path == RECORDS) {
+			if (method != http::verb::get && method != http::verb::head)
+                return InvalidMethod(req, "GET, HEAD");
+			
+			int start = 0;
+			int maxItems = 100;
+			
+			std::string query(req.target());
+			size_t qpos = query.find('?');
+			if (qpos != std::string::npos) {
+				std::string qs = query.substr(qpos + 1);
+				std::istringstream iss(qs);
+				std::string pair;
+				while (std::getline(iss, pair, '&')) {
+					auto eq = pair.find('=');
+					if (eq == std::string::npos) continue;
+					std::string key = pair.substr(0, eq);
+					std::string value = pair.substr(eq + 1);
+					if (key == "start") {
+						try { start = std::stoi(value); } catch (...) {}
+					} else if (key == "maxItems") {
+						try { maxItems = std::stoi(value); } catch (...) {}
+					}
+				}
+			}
+			
+			if (start < 0) {
+				json::object error{{"code", "badRequest"}, {"message", "start must be >= 0"}};
+				http::response<http::string_body> res{http::status::bad_request, req.version()};
+				res.set(http::field::content_type, "application/json");
+				res.set(http::field::cache_control, "no-cache");
+				res.body() = json::serialize(error);
+				res.prepare_payload();
+				return res;
+			}
+			
+			if (maxItems > 100) {
+				json::object error{{"code", "badRequest"}, {"message", "maxItems cannot exceed 100"}};
+				http::response<http::string_body> res{http::status::bad_request, req.version()};
+				res.set(http::field::content_type, "application/json");
+				res.set(http::field::cache_control, "no-cache");
+				res.body() = json::serialize(error);
+				res.prepare_payload();
+				return res;
+			}
+			
+			// Получаем записи из базы данных через observer
+			auto records = GetRecords(start, maxItems);
+			
+			http::response<http::string_body> res{http::status::ok, req.version()};
+			res.set(http::field::content_type, "application/json");
+			res.set(http::field::cache_control, "no-cache");
+			res.body() = json::serialize(records);
+			res.prepare_payload();
+			return res;
+		}
 
         return BadRequest(req, "Unknown endpoint");
     }
@@ -810,6 +822,12 @@ http::response<http::string_body> HandleFileRequest(const Req& req, const std::s
         res.body() = json::serialize(obj);
         res.prepare_payload();
         return res;
+    }
+    
+    // Метод для получения рекордов (будет переопределен в main с подключением БД)
+    json::array GetRecords(int start, int maxItems) {
+        // Возвращает пустой массив, если нет наблюдателя БД
+        return json::array();
     }
 };
 

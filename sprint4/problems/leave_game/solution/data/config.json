@@ -4,7 +4,6 @@
     "period": 5.0,
     "probability": 0.5
   },
-  "dogRetirementTime": 15.0,
   "maps": [
     {
       "dogSpeed": 4.0,
@@ -445,8 +444,8 @@
           "id": "o1",
           "x": 8,
           "y": 14,
-          "offsetX": 1,
-          "offsetY": -1
+          "offsetX": 0,
+          "offsetY": 0
         }
       ]
     }

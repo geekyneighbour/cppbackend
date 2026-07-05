@@ -6,6 +6,7 @@
 #include <random>
 #include <optional>  
 #include <cmath>
+#include <chrono>
 
 #include "tagged.h"
 #include "loot_generator.h"
@@ -70,6 +71,13 @@ struct BagItem {
     bool operator!=(const BagItem& other) const {
         return !(*this == other);
     }
+};
+
+// Структура для хранения записи о рекорде
+struct RetiredPlayerRecord {
+    std::string name;
+    int score;
+    double play_time;
 };
 
 class Road {
@@ -292,12 +300,19 @@ public:
         return (type < loot_type_values_.size()) ? loot_type_values_[type] : 0;
     }
     
+    double GetDogRetirementTime() const noexcept {
+        return dog_retirement_time_.has_value() ? *dog_retirement_time_ : default_dog_retirement_time_;
+    }
+    
+    void SetDogRetirementTime(double time) { dog_retirement_time_ = time; }
+    
+    static void SetDefaultDogRetirementTime(double time) { default_dog_retirement_time_ = time; }
+    
     PointDouble GetRandomPointOnRoad() const;
     size_t GetRandomLootType() const;
     
     const Road* FindRoadAtPoint(double x, double y) const;
     const Road* FindNearestRoad(const PointDouble& pos) const;
-	double GetDogRetirementTime() const { return dog_retirement_time_; }
 
 private:
     using OfficeIdToIndex = std::unordered_map<Office::Id, size_t, util::TaggedHasher<Office::Id>>;
@@ -319,11 +334,9 @@ private:
     
     size_t bag_capacity_ = 3;
     std::vector<int> loot_type_values_;
-	
-	double dog_retirement_time_ = 60.0;
-
-	void SetDogRetirementTime(double t) { dog_retirement_time_ = t; }
-	
+    
+    std::optional<double> dog_retirement_time_;
+    inline static double default_dog_retirement_time_ = 60.0; // 1 минута по умолчанию
 };
 
 class Dog {
@@ -335,7 +348,9 @@ public:
         : id_(std::move(id))
         , name_(std::move(name))
         , pos_(pos)
-        , bag_capacity_(bag_cap) {
+        , bag_capacity_(bag_cap)
+        , join_time_(std::chrono::steady_clock::now())
+        , last_active_time_(std::chrono::steady_clock::now()) {
         bag_.reserve(bag_cap);
     }
 
@@ -344,7 +359,9 @@ public:
         , id_(++next_id_)
         , pos_{0.0, 0.0}
         , speed_{0.0, 0.0}
-        , dir_(Direction::NORTH) {
+        , dir_(Direction::NORTH)
+        , join_time_(std::chrono::steady_clock::now())
+        , last_active_time_(std::chrono::steady_clock::now()) {
     }
 
     const Id& GetId() const noexcept { return id_; }
@@ -356,8 +373,17 @@ public:
     
     void SetPos(PointDouble pos) { pos_ = pos; }
     void SetPos(double x, double y) { pos_ = {x, y}; }
-    void SetSpeed(Speed speed) { speed_ = speed; }
-    void SetSpeed(double vx, double vy) { speed_ = {vx, vy}; }
+    void SetSpeed(Speed speed) { 
+        if (speed.x == 0.0 && speed.y == 0.0) {
+            if (speed_.x != 0.0 || speed_.y != 0.0) {
+                last_active_time_ = std::chrono::steady_clock::now();
+            }
+        } else {
+            last_active_time_ = std::chrono::steady_clock::now();
+        }
+        speed_ = speed; 
+    }
+    void SetSpeed(double vx, double vy) { SetSpeed({vx, vy}); }
     void SetDirection(Direction dir) { dir_ = dir; }
     
     void SetAction(const std::string& action, double speed);
@@ -392,14 +418,15 @@ public:
     void SetScore(int score) { score_ = score; }
 	geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
-	void OnJoin();
-    void OnMoveStart();
-    void OnStop();
-    void UpdateIdle(std::chrono::seconds dt, std::chrono::seconds limit);
-    bool IsRetired() const;
-    double GetPlayTimeSeconds() const;
-
-
+    
+    std::chrono::steady_clock::time_point GetJoinTime() const { return join_time_; }
+    std::chrono::steady_clock::time_point GetLastActiveTime() const { return last_active_time_; }
+    void UpdateLastActiveTime() { last_active_time_ = std::chrono::steady_clock::now(); }
+    
+    double GetPlayTime() const {
+        auto now = std::chrono::steady_clock::now();
+        return std::chrono::duration<double>(now - join_time_).count();
+    }
 
 private:
     Id id_;
@@ -412,14 +439,9 @@ private:
     BagContent bag_;
     size_t bag_capacity_ = 3;
     int score_ = 0;
-	
-	std::chrono::steady_clock::time_point join_time_;
-    std::chrono::steady_clock::time_point last_move_time_;
-    std::chrono::seconds idle_time_{0};
-    bool is_moving_ = true;
-    bool retired_ = false;
-
-    inline static uint64_t next_id_ = 0;
+    
+    std::chrono::steady_clock::time_point join_time_;
+    std::chrono::steady_clock::time_point last_active_time_;
 };
 
 class GameSession;
@@ -442,6 +464,13 @@ private:
 
 bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
                                  double px, double py, double threshold);
+
+// Интерфейс для наблюдателей за событиями игры
+class IGameObserver {
+public:
+    virtual ~IGameObserver() = default;
+    virtual void OnDogRetired(const std::string& name, int score, double play_time) = 0;
+};
 
 class GameSession {
 public:
@@ -467,7 +496,14 @@ public:
     void AddLostObject(const LostObject& obj);
 	void SetNextPlayerId(uint64_t id) { next_player_id_ = id; }
     uint64_t GetNextPlayerId() const { return next_player_id_; }
-	Player& AddPlayerWithId(Dog& dog, uint64_t id); 
+	Player& AddPlayerWithId(Dog& dog, uint64_t id);
+	
+	void AddObserver(IGameObserver* observer) { observers_.push_back(observer); }
+	void RemoveObserver(IGameObserver* observer);
+	
+	void CheckDogInactivity(double retirement_time);
+	void RetireDog(Dog& dog);
+	
 private:
     const Map* map_ = nullptr;
     std::vector<std::unique_ptr<Dog>> dogs_;
@@ -479,6 +515,8 @@ private:
     std::optional<loot_gen::LootGenerator> loot_generator_;
     bool loot_generator_initialized_ = false;
     size_t next_loot_id_ = 0;
+    
+    std::vector<IGameObserver*> observers_;
 };
 
 class Game {
@@ -495,6 +533,9 @@ public:
     const std::unordered_map<const Map*, std::unique_ptr<GameSession>>& GetSessions() const {
         return sessions_;
     }
+    
+    void AddObserver(IGameObserver* observer);
+    void RemoveObserver(IGameObserver* observer);
 
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;
@@ -503,8 +544,8 @@ private:
     std::vector<std::unique_ptr<Map>> maps_;
     MapIdToIndex map_id_to_index_;
     std::unordered_map<const Map*, std::unique_ptr<GameSession>> sessions_;
+    std::vector<IGameObserver*> observers_;
 };
-
 
 class PlayerTokens {
 public:
@@ -523,6 +564,10 @@ public:
 	
 	std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
         return tokens_;
+    }
+	
+	void RemovePlayer(const std::string& token) {
+        tokens_.erase(token);
     }
 
 private:

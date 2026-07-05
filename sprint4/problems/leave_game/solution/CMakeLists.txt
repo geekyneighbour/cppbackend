@@ -64,7 +64,7 @@ add_executable(game_server
 )
 
 target_include_directories(game_server PRIVATE CONAN_PKG::boost)
-target_link_libraries(game_server PRIVATE CONAN_PKG::boost game_model)
+target_link_libraries(game_server PRIVATE CONAN_PKG::boost game_model CONAN_PKG::libpqxx)
 
 add_executable(game_server_tests
     tests/loot_generator_tests.cpp

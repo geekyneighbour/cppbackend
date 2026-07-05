@@ -5,6 +5,7 @@ RUN apt update && \
     apt install -y \
       python3-pip \
       cmake \
+      libpq-dev \
     && \
     pip3 install conan==1.*
 
@@ -23,6 +24,14 @@ RUN cd /app/build && \
 
 # Второй контейнер в том же докерфайле
 FROM ubuntu:22.04 as run
+
+# Устанавливаем библиотеки для работы с PostgreSQL
+RUN apt update && \
+    apt install -y \
+      libpq5 \
+      libpq-dev \
+    && \
+    rm -rf /var/lib/apt/lists/*
 
 # Создадим пользователя www
 RUN groupadd -r www && useradd -r -g www www

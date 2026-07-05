@@ -53,6 +53,20 @@ void Game::AddMap(Map map) {
     maps_.push_back(std::make_unique<Map>(std::move(map)));
 }
 
+void Game::AddObserver(IGameObserver* observer) {
+    observers_.push_back(observer);
+    for (auto& [_, session] : sessions_) {
+        session->AddObserver(observer);
+    }
+}
+
+void Game::RemoveObserver(IGameObserver* observer) {
+    observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
+    for (auto& [_, session] : sessions_) {
+        session->RemoveObserver(observer);
+    }
+}
+
 // ================= SESSION =================
 Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     const auto& roads = map_->GetRoads();
@@ -95,6 +109,51 @@ std::vector<Player*> GameSession::GetPlayers() {
         res.push_back(&p);
     }
     return res;
+}
+
+void GameSession::RemoveObserver(IGameObserver* observer) {
+    observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
+}
+
+void GameSession::CheckDogInactivity(double retirement_time) {
+    auto now = std::chrono::steady_clock::now();
+    std::vector<Dog*> dogs_to_retire;
+    
+    for (auto& dog_ptr : dogs_) {
+        auto last_active = dog_ptr->GetLastActiveTime();
+        auto inactive_time = std::chrono::duration<double>(now - last_active).count();
+        
+        if (inactive_time >= retirement_time) {
+            dogs_to_retire.push_back(dog_ptr.get());
+        }
+    }
+    
+    for (auto* dog : dogs_to_retire) {
+        RetireDog(*dog);
+    }
+}
+
+void GameSession::RetireDog(Dog& dog) {
+    // Уведомляем наблюдателей
+    for (auto* observer : observers_) {
+        observer->OnDogRetired(dog.GetName(), dog.GetScore(), dog.GetPlayTime());
+    }
+    
+    // Удаляем собаку из сессии
+    auto it = std::find_if(dogs_.begin(), dogs_.end(),
+        [&dog](const auto& ptr) { return ptr.get() == &dog; });
+    
+    if (it != dogs_.end()) {
+        // Удаляем игрока, связанного с этой собакой
+        for (auto player_it = players_.begin(); player_it != players_.end(); ) {
+            if (player_it->second.GetDog() == &dog) {
+                player_it = players_.erase(player_it);
+            } else {
+                ++player_it;
+            }
+        }
+        dogs_.erase(it);
+    }
 }
 
 // ================= COLLISION HELPER =================
@@ -235,19 +294,12 @@ void GameSession::UpdateState(double dt) {
         int value = map_->GetLootTypeValue(type);
         lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
-	
-	for (auto& dog_ptr : dogs_) {
-    Dog& dog = *dog_ptr;
-
-    dog.UpdateIdle(
-        std::chrono::seconds((int)dt),
-        std::chrono::seconds((int)map_->GetDogRetirementTime())
-    );
-
-    if (dog.IsRetired()) {
-        SaveToLeaderboard(dog);
+    
+    // Проверяем бездействие собак
+    double retirement_time = map_->GetDogRetirementTime();
+    if (retirement_time > 0) {
+        CheckDogInactivity(retirement_time);
     }
-}
 }
 
 Player& GameSession::AddPlayerWithId(Dog& dog, uint64_t id) {
@@ -270,6 +322,9 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
     auto& ptr = sessions_[map];
     if (!ptr) {
         ptr = std::make_unique<GameSession>(map);
+        for (auto* observer : observers_) {
+            ptr->AddObserver(observer);
+        }
     }
     return *ptr;
 }
@@ -330,17 +385,21 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (new_x < min_x) {
         new_x = min_x;
         speed_.x = 0.0;
+        last_active_time_ = std::chrono::steady_clock::now();
     } else if (new_x > max_x) {
         new_x = max_x;
         speed_.x = 0.0;
+        last_active_time_ = std::chrono::steady_clock::now();
     }
 
     if (new_y < min_y) {
         new_y = min_y;
         speed_.y = 0.0;
+        last_active_time_ = std::chrono::steady_clock::now();
     } else if (new_y > max_y) {
         new_y = max_y;
         speed_.y = 0.0;
+        last_active_time_ = std::chrono::steady_clock::now();
     }
 
     pos_ = {new_x, new_y};
@@ -349,6 +408,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
         speed_ = {0.0, 0.0};
+        last_active_time_ = std::chrono::steady_clock::now();
         return;
     }
 
@@ -365,40 +425,7 @@ void Dog::SetAction(const std::string& action, double speed) {
         speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }
-}
-
-void Dog::OnJoin() {
-    join_time_ = std::chrono::steady_clock::now();
-    last_move_time_ = join_time_;
-}
-
-void Dog::OnMoveStart() {
-    is_moving_ = true;
-    idle_time_ = std::chrono::seconds(0);
-    last_move_time_ = std::chrono::steady_clock::now();
-}
-
-void Dog::OnStop() {
-    is_moving_ = false;
-    last_move_time_ = std::chrono::steady_clock::now();
-}
-
-void Dog::UpdateIdle(std::chrono::seconds dt, std::chrono::seconds limit) {
-    if (!is_moving_) {
-        idle_time_ += dt;
-        if (idle_time_ >= limit) {
-            retired_ = true;
-        }
-    }
-}
-
-bool Dog::IsRetired() const {
-    return retired_;
-}
-
-double Dog::GetPlayTimeSeconds() const {
-    auto end = std::chrono::steady_clock::now();
-    return std::chrono::duration<double>(end - join_time_).count();
+    last_active_time_ = std::chrono::steady_clock::now();
 }
 
 // ================= JSON SERIALIZATION =================

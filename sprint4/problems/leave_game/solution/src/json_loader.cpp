@@ -34,6 +34,14 @@ void LoadGlobalSettings(const boost::json::object& root_obj) {
     if (auto capacity = root_obj.if_contains("defaultBagCapacity")) {
         global_bag_capacity = static_cast<size_t>(capacity->as_int64());
     }
+    
+    if (auto retirement = root_obj.if_contains("dogRetirementTime")) {
+        if (retirement->is_double()) {
+            model::Map::SetDefaultDogRetirementTime(retirement->as_double());
+        } else if (retirement->is_int64()) {
+            model::Map::SetDefaultDogRetirementTime(static_cast<double>(retirement->as_int64()));
+        }
+    }
 }
 
 void AddRoads(const boost::json::array& roads_array, model::Map& map) {
@@ -177,6 +185,15 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
                 bag_capacity = static_cast<size_t>(capacity->as_int64());
             }
             map.SetBagCapacity(bag_capacity);
+            
+            // Устанавливаем время ухода на пенсию для карты
+            if (auto retirement = map_obj.if_contains("dogRetirementTime")) {
+                if (retirement->is_double()) {
+                    map.SetDogRetirementTime(retirement->as_double());
+                } else if (retirement->is_int64()) {
+                    map.SetDogRetirementTime(static_cast<double>(retirement->as_int64()));
+                }
+            }
         
             if (auto loot_types = map_obj.if_contains("lootTypes")) {
                 AddLootTypes(loot_types->as_array(), map);
