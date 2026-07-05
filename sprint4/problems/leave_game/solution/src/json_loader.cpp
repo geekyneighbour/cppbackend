@@ -8,8 +8,6 @@
 
 namespace json_loader {
 	
-static std::chrono::milliseconds global_dog_retirement_time = std::chrono::minutes(1);
-	
 static size_t global_bag_capacity = 3;
 
 void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGeneratorConfig& config) {
@@ -22,15 +20,9 @@ void LoadLootGeneratorConfig(const boost::json::object& root_obj, model::LootGen
             config.probability = probability->as_double();
         }
     }
-	if (auto retirement = root_obj.if_contains("dogRetirementTime")) {
-        double seconds = retirement->as_double();
-        global_dog_retirement_time = std::chrono::milliseconds(
-            static_cast<long long>(seconds * 1000)
-        );
-    }
 }
 
-void LoadGlobalSettings(const boost::json::object& root_obj, model::Game& game) {
+void LoadGlobalSettings(const boost::json::object& root_obj) {
     if (auto speed = root_obj.if_contains("defaultDogSpeed")) {
         if (speed->is_double()) {
             model::Map::SetDefaultDogSpeed(speed->as_double());
@@ -41,12 +33,6 @@ void LoadGlobalSettings(const boost::json::object& root_obj, model::Game& game) 
     
     if (auto capacity = root_obj.if_contains("defaultBagCapacity")) {
         global_bag_capacity = static_cast<size_t>(capacity->as_int64());
-    }
-    if (auto retirement_time = root_obj.if_contains("dogRetirementTime")) {
-        double time = retirement_time->as_double();
-        if (time > 0) {
-            game.SetRetirementTime(time);  // Теперь game доступна
-        }
     }
 }
 
@@ -147,7 +133,7 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
 
         const auto& obj = jv.as_object();
         
-        LoadGlobalSettings(obj, game);  
+        LoadGlobalSettings(obj);
 
         if (!obj.contains("maps")) return game;
 
@@ -197,11 +183,8 @@ model::Game LoadGame(const std::filesystem::path& json_path) {
                 
                 MapLootTypes::Instance().SetLootTypes(*map.GetId(), loot_types->as_array());
             }
-			
-			map.SetDogRetirementTime(global_dog_retirement_time);
 
             game.AddMap(std::move(map));
-        
         }
 
     } catch (const std::exception& e) {

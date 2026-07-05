@@ -4,7 +4,6 @@
 #include "model.h"
 #include "logging.h"
 #include "map_loot_types.h"
-#include "database_manager.h"
 
 #include <boost/json.hpp>
 #include <boost/beast/http.hpp>
@@ -86,7 +85,8 @@ private:
 // ================= HANDLER =================
 class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
 public:
-    using TokensMap = std::unordered_map<std::string, model::Player*>;
+
+	using TokensMap = std::unordered_map<std::string, model::Player*>;
     using Strand = net::strand<net::io_context::executor_type>;
 
     RequestHandler(fs::path root, Strand strand, model::Game& game)
@@ -104,7 +104,7 @@ public:
         }
 
         return true;
-    }
+    }	
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
@@ -141,57 +141,40 @@ public:
 
         send_wrapper(HandleFileRequest(req, target));
     }
-    
-    void SetTickMode(bool mode) { auto_tick_mode_ = mode; }
-    
-    const TokensMap& GetTokens() const {
+	
+	void SetTickMode(bool mode) { auto_tick_mode_ = mode; }
+	
+	const TokensMap& GetTokens() const {
         return tokens_.GetAllTokens();
     }
     
-    TokensMap& GetTokensMutable() {
+	TokensMap& GetTokensMutable() {
         return tokens_.GetAllTokensMutable();
     }
-    
+	
     void AddToken(const std::string& token, model::Player* player) {
-        tokens_.AddPlayer(token, player);
-    }
-    
-    void RestoreToken(const std::string& token, model::Player* player) {
-        tokens_.AddPlayer(token, player);
-    }
-
-    const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
-        return tokens_.GetAllTokens();
-    }
-    
-    void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
-        save_callback_ = std::move(callback);
+		tokens_.AddPlayer(token, player);
+	}
+	
+	void RestoreToken(const std::string& token, model::Player* player) {
+		tokens_.AddPlayer(token, player);
     }
 
-    void SetDatabaseManager(std::shared_ptr<db::DatabaseManager> db) {
-        db_manager_ = db;
-    }
-
-    db::DatabaseManager& GetDatabaseManager() { 
-        if (!db_manager_) {
-            throw std::runtime_error("Database manager not initialized");
-        }
-        return *db_manager_; 
-    }
-
-    void SetOnPlayerRetired(std::function<void(const std::string&, int, int)> callback) {
-        on_player_retired_ = std::move(callback);
-    }
+	const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
+		return tokens_.GetAllTokens();
+	}
+	
+	void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
+		save_callback_ = std::move(callback);
+}
 
 private:
     model::Game& game_;
     fs::path root_;
     Strand api_strand_;
     model::PlayerTokens tokens_;
-    bool auto_tick_mode_ = false;
-    std::function<void(std::chrono::milliseconds)> save_callback_;
-    std::shared_ptr<db::DatabaseManager> db_manager_;
-    std::function<void(const std::string&, int, int)> on_player_retired_;
+	bool auto_tick_mode_ = false;
+	std::function<void(std::chrono::milliseconds)> save_callback_;
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -243,19 +226,19 @@ private:
     }
 
     auto BadRequest(const http::request<auto>& req, const std::string& message) {
-        http::response<http::string_body> res{http::status::bad_request, req.version()};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
+    http::response<http::string_body> res{http::status::bad_request, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
 
-        json::object error{
-            {"code", "badRequest"},  
-            {"message", message}
-        };
+    json::object error{
+        {"code", "badRequest"},  
+        {"message", message}
+    };
 
-        res.body() = json::serialize(error);
-        res.prepare_payload();
-        return res;
-    }
+    res.body() = json::serialize(error);
+    res.prepare_payload();
+    return res;
+}
 
     auto NotFound(const http::request<auto>& req, const std::string& code = "mapNotFound", const std::string& message = "Map not found") {
         http::response<http::string_body> res{http::status::not_found, req.version()};
@@ -291,15 +274,15 @@ private:
     // ================= API =================
     template <typename Req>
     http::response<http::string_body> HandleApiRequest(const Req& req) {
-        constexpr size_t MAPS_PREFIX_LENGTH = 13;
-        constexpr std::string_view MAPS = "/api/v1/maps";
-        constexpr std::string_view MAPS2 = "/api/v1/maps/";
-        constexpr std::string_view JOIN = "/api/v1/game/join";
-        constexpr std::string_view PLAYERS = "/api/v1/game/players";
-        constexpr std::string_view STATE = "/api/v1/game/state";
-        constexpr std::string_view ACTION = "/api/v1/game/player/action";
-        constexpr std::string_view TICK = "/api/v1/game/tick";
-        constexpr std::string_view RECORDS = "/api/v1/game/records";
+		constexpr size_t MAPS_PREFIX_LENGTH = 13;
+		constexpr std::string_view MAPS = "/api/v1/maps";
+		constexpr std::string_view MAPS2 = "/api/v1/maps/";
+		constexpr std::string_view JOIN = "/api/v1/game/join";
+		constexpr std::string_view PLAYERS = "/api/v1/game/players";
+		constexpr std::string_view STATE = "/api/v1/game/state";
+		constexpr std::string_view ACTION = "/api/v1/game/player/action";
+		constexpr std::string_view TICK = "/api/v1/game/tick";
+		constexpr std::string_view RECORDS = "/api/v1/game/records";
 
         std::string path(req.target());
         
@@ -330,6 +313,7 @@ private:
             return res;
         }
         
+
         if (path.starts_with(MAPS2) && path.size() > MAPS_PREFIX_LENGTH) {
             if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
@@ -339,21 +323,22 @@ private:
             if (!map) {
                 return NotFound(req);
             }
+            
 
             json::object result;
             result["id"] = *map->GetId();
             result["name"] = map->GetName();
             result["roads"] = boost::json::value_from(map->GetRoads());
-            result["buildings"] = boost::json::value_from(map->GetBuildings());
-            result["offices"] = boost::json::value_from(map->GetOffices());
-            
-            auto* loot_types = MapLootTypes::Instance().GetLootTypes(map_id);
-            if (loot_types) {
-                result["lootTypes"] = *loot_types;
-            } else {
-                result["lootTypes"] = boost::json::array();
-            }
-    
+			result["buildings"] = boost::json::value_from(map->GetBuildings());
+			result["offices"] = boost::json::value_from(map->GetOffices());
+			
+			auto* loot_types = MapLootTypes::Instance().GetLootTypes(map_id);
+    if (loot_types) {
+        result["lootTypes"] = *loot_types;
+    } else {
+        result["lootTypes"] = boost::json::array();
+    }
+	
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, "application/json");
             res.set(http::field::cache_control, "no-cache");
@@ -393,11 +378,11 @@ private:
 
                 std::string token = GenerateToken();
                 tokens_.AddPlayer(token, &player);
-                
-                // Сохраняем состояние после JOIN
-                if (save_callback_) {
-                    save_callback_(std::chrono::milliseconds(0));
-                }
+				
+				// Сохраняем состояние после JOIN
+				if (save_callback_) {
+    save_callback_(std::chrono::milliseconds(0));
+}
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -476,14 +461,14 @@ private:
                 model::PointDouble pos = dog->GetPos();
                 model::Speed speed = dog->GetSpeed();
                 model::Direction dir = dog->GetDirection();
-                
-                json::array bag_array;
-                for (const auto& item : dog->GetBag()) {
-                    bag_array.push_back(json::object{
-                        {"id", static_cast<int>(item.id)},
-                        {"type", static_cast<int>(item.type)}
-                    });
-                }
+				
+				 json::array bag_array;
+        for (const auto& item : dog->GetBag()) {
+            bag_array.push_back(json::object{
+                {"id", static_cast<int>(item.id)},
+                {"type", static_cast<int>(item.type)}
+            });
+        }
                 
                 std::string dir_str;
                 switch (dir) {
@@ -496,25 +481,25 @@ private:
                     {"pos", json::array{pos.x, pos.y}},
                     {"speed", json::array{speed.x, speed.y}},
                     {"dir", dir_str},
-                    {"bag", bag_array},
-                    {"score", dog->GetScore()}
+					 {"bag", bag_array},
+        {"score", dog->GetScore()}
                 };
             }
 
             json::object response_obj{
                 {"players", players_obj}
             };
-            
-            json::object lost_objects_obj;
-            const auto& lost_objects = session->GetLostObjects();
-            for (size_t i = 0; i < lost_objects.size(); ++i) {
-                const auto& obj = lost_objects[i];
-                lost_objects_obj[std::to_string(i)] = json::object{
-                    {"type", static_cast<int>(obj.type)},
-                    {"pos", json::array{obj.pos.x, obj.pos.y}}
-                };
-            }
-            response_obj["lostObjects"] = lost_objects_obj;
+			
+			json::object lost_objects_obj;
+    const auto& lost_objects = session->GetLostObjects();
+    for (size_t i = 0; i < lost_objects.size(); ++i) {
+        const auto& obj = lost_objects[i];
+        lost_objects_obj[std::to_string(i)] = json::object{
+            {"type", static_cast<int>(obj.type)},
+            {"pos", json::array{obj.pos.x, obj.pos.y}}
+        };
+    }
+    response_obj["lostObjects"] = lost_objects_obj;
 
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, "application/json");
@@ -563,10 +548,11 @@ private:
                 double dog_speed = map->GetDogSpeed();
                 
                 player->GetDog()->SetAction(move, dog_speed);
-                
-                if (save_callback_) {
-                    save_callback_(std::chrono::milliseconds(0));
-                }
+				
+				
+				if (save_callback_) {
+    save_callback_(std::chrono::milliseconds(0));
+}
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -579,230 +565,236 @@ private:
                 return BadRequest(req, "Failed to parse action");
             }
         }
+		
+		if (path == TICK) {
+			if (auto_tick_mode_) {
+        return BadRequest(req, "Invalid endpoint");
+    }
+    if (method != http::verb::post)
+        return InvalidMethod(req, "POST");
         
-        if (path == TICK) {
-            if (auto_tick_mode_) {
-                return BadRequest(req, "Invalid endpoint");
-            }
-            if (method != http::verb::post)
-                return InvalidMethod(req, "POST");
-                
-            auto content_type = req.find(http::field::content_type);
-            if (content_type == req.end() || content_type->value() != "application/json") {
-                return BadRequest(req, "Invalid content type");
-            }
+    auto content_type = req.find(http::field::content_type);
+    if (content_type == req.end() || content_type->value() != "application/json") {
+        return BadRequest(req, "Invalid content type");
+    }
 
-            try {
-                auto body = json::parse(req.body()).as_object();
-                
-                if (!body.contains("timeDelta")) {
-                    json::object error{
-                        {"code", "invalidArgument"},
-                        {"message", "Missing timeDelta field"}
-                    };
-                    http::response<http::string_body> res{http::status::bad_request, req.version()};
-                    res.set(http::field::content_type, "application/json");
-                    res.set(http::field::cache_control, "no-cache");
-                    res.body() = json::serialize(error);
-                    res.prepare_payload();
-                    return res;
-                }
-                
-                if (!body.at("timeDelta").is_int64()) {
-                    json::object error{
-                        {"code", "invalidArgument"},
-                        {"message", "timeDelta must be an integer"}
-                    };
-                    http::response<http::string_body> res{http::status::bad_request, req.version()};
-                    res.set(http::field::content_type, "application/json");
-                    res.set(http::field::cache_control, "no-cache");
-                    res.body() = json::serialize(error);
-                    res.prepare_payload();
-                    return res;
-                }
-                
-                int64_t time_delta_ms = body.at("timeDelta").as_int64();
-                if (time_delta_ms <= 0) {
-                    json::object error{
-                        {"code", "invalidArgument"},
-                        {"message", "timeDelta must be positive"}
-                    };
-                    http::response<http::string_body> res{http::status::bad_request, req.version()};
-                    res.set(http::field::content_type, "application/json");
-                    res.set(http::field::cache_control, "no-cache");
-                    res.body() = json::serialize(error);
-                    res.prepare_payload();
-                    return res;
-                }
-
-                double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
-                
-                game_.UpdateAllSessions(time_delta_sec);
-                
-                // Сохраняем состояние после TICK
-                if (save_callback_) {
-                    save_callback_(std::chrono::milliseconds(time_delta_ms));
-                }
-                
-                http::response<http::string_body> res{http::status::ok, req.version()};
-                res.set(http::field::content_type, "application/json");
-                res.set(http::field::cache_control, "no-cache");
-                res.body() = "{}";
-                res.prepare_payload();
-                return res;
-                
-            } catch (const std::exception& e) {
-                json::object error{
-                    {"code", "invalidArgument"},
-                    {"message", "Failed to parse tick request JSON"}
-                };
-                
-                http::response<http::string_body> res{http::status::bad_request, req.version()};
-                res.set(http::field::content_type, "application/json");
-                res.set(http::field::cache_control, "no-cache");
-                res.body() = json::serialize(error);
-                res.prepare_payload();
-                return res;
-            }
-        }
-
-        if (path == RECORDS) {
-            if (method != http::verb::get && method != http::verb::head)
-                return InvalidMethod(req, "GET, HEAD");
-            
-            // Парсим параметры
-            size_t start = 0;
-            size_t max_items = 100;
-            
-            std::string query;
-            size_t qpos = req.target().find('?');
-            if (qpos != std::string::npos) {
-                query = std::string(req.target().substr(qpos + 1));
-                std::stringstream ss(query);
-                std::string param;
-                while (std::getline(ss, param, '&')) {
-                    auto eq = param.find('=');
-                    if (eq != std::string::npos) {
-                        std::string key = param.substr(0, eq);
-                        std::string value = param.substr(eq + 1);
-                        if (key == "start") start = std::stoul(value);
-                        if (key == "maxItems") {
-                            max_items = std::stoul(value);
-                            if (max_items > 100) {
-                                return BadRequest(req, "maxItems cannot exceed 100");
-                            }
-                        }
-                    }
-                }
-            }
-            
-            if (!db_manager_) {
-                return ServerError(req.version(), req.keep_alive());
-            }
-            
-            auto records = db_manager_->GetRetiredPlayers(start, max_items);
-            
-            json::array result;
-            for (const auto& r : records) {
-                result.push_back(json::object{
-                    {"name", r.name},
-                    {"score", r.score},
-                    {"playTime", r.play_time}
-                });
-            }
-            
-            http::response<http::string_body> res{http::status::ok, req.version()};
+    try {
+        auto body = json::parse(req.body()).as_object();
+        
+        if (!body.contains("timeDelta")) {
+            json::object error{
+                {"code", "invalidArgument"},
+                {"message", "Missing timeDelta field"}
+            };
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
             res.set(http::field::content_type, "application/json");
             res.set(http::field::cache_control, "no-cache");
-            res.body() = json::serialize(result);
+            res.body() = json::serialize(error);
             res.prepare_payload();
             return res;
         }
+        
+        if (!body.at("timeDelta").is_int64()) {
+            json::object error{
+                {"code", "invalidArgument"},
+                {"message", "timeDelta must be an integer"}
+            };
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(error);
+            res.prepare_payload();
+            return res;
+        }
+        
+        int64_t time_delta_ms = body.at("timeDelta").as_int64();
+        if (time_delta_ms <= 0) {
+            json::object error{
+                {"code", "invalidArgument"},
+                {"message", "timeDelta must be positive"}
+            };
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(error);
+            res.prepare_payload();
+            return res;
+        }
+        
+
+        double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
+        
+        game_.UpdateAllSessions(time_delta_sec);
+		
+		// Сохраняем состояние после TICK
+		if (save_callback_) {
+    save_callback_(std::chrono::milliseconds(time_delta_ms));
+}
+        
+        http::response<http::string_body> res{http::status::ok, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = "{}";
+        res.prepare_payload();
+        return res;
+        
+    } catch (const std::exception& e) {
+        json::object error{
+            {"code", "invalidArgument"},
+            {"message", "Failed to parse tick request JSON"}
+        };
+        
+        http::response<http::string_body> res{http::status::bad_request, req.version()};
+        res.set(http::field::content_type, "application/json");
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = json::serialize(error);
+        res.prepare_payload();
+        return res;
+    }
+}
+if (path == RECORDS) {
+    if (method != http::verb::get && method != http::verb::head)
+        return InvalidMethod(req, "GET, HEAD");
+
+
+    int start = 0;
+    int maxItems = 100;
+
+    try {
+        std::string target(req.target());
+        auto qpos = target.find('?');
+
+        if (qpos != std::string::npos) {
+            std::string query = target.substr(qpos + 1);
+            std::istringstream iss(query);
+            std::string pair;
+
+            while (std::getline(iss, pair, '&')) {
+                auto eq = pair.find('=');
+                if (eq == std::string::npos) continue;
+
+                std::string key = pair.substr(0, eq);
+                std::string value = pair.substr(eq + 1);
+
+                if (key == "start") {
+                    start = std::stoi(value);
+                }
+                else if (key == "maxItems") {
+                    maxItems = std::stoi(value);
+                }
+            }
+        }
+    }
+    catch (...) {
+        return BadRequest(req, "Invalid query parameters");
+    }
+
+    if (maxItems > 100) {
+        return BadRequest(req, "maxItems exceeds limit");
+    }
+
+
+    std::vector<boost::json::object> result;
+
+
+
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, "application/json");
+    res.set(http::field::cache_control, "no-cache");
+
+    res.body() = boost::json::serialize(result);
+    res.prepare_payload();
+    return res;
+}
 
         return BadRequest(req, "Unknown endpoint");
     }
 
     // ================= FILE =================
     template <typename Req>
-    http::response<http::string_body> HandleFileRequest(const Req& req, const std::string& target) {
-        std::string path = target;
-        if (path.empty() || path == "/") {
-            path = "/index.html";
-        }
+http::response<http::string_body> HandleFileRequest(const Req& req, const std::string& target) {
+    std::string path = target;
+    if (path.empty() || path == "/") {
+        path = "/index.html";
+    }
+    
+    
+    if (path.front() == '/') {
+        path = path.substr(1);
+    }
+    
+    fs::path full_path = root_ / path;
+    
+    
+    try {
+        auto canonical_root = fs::canonical(root_);
+        auto canonical_full = fs::canonical(full_path);
         
-        if (path.front() == '/') {
-            path = path.substr(1);
-        }
-        
-        fs::path full_path = root_ / path;
-        
-        try {
-            auto canonical_root = fs::canonical(root_);
-            auto canonical_full = fs::canonical(full_path);
-            
-            if (canonical_full.string().find(canonical_root.string()) != 0) {
-                http::response<http::string_body> res{http::status::bad_request, req.version()};
-                res.set(http::field::content_type, "text/plain");  
-                res.set(http::field::cache_control, "no-cache");
-                res.body() = "Bad request";
-                res.prepare_payload();
-                return res;
-            }
-        } catch (const fs::filesystem_error&) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
+        if (canonical_full.string().find(canonical_root.string()) != 0) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
             res.set(http::field::content_type, "text/plain");  
             res.set(http::field::cache_control, "no-cache");
-            res.body() = "File not found";
+            res.body() = "Bad request";
             res.prepare_payload();
             return res;
         }
-        
-        if (!fs::exists(full_path) || fs::is_directory(full_path)) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
-            res.set(http::field::content_type, "text/plain");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = "File not found";
-            res.prepare_payload();
-            return res;
-        }
-        
-        std::ifstream file(full_path, std::ios::binary);
-        if (!file.is_open()) {
-            http::response<http::string_body> res{http::status::not_found, req.version()};
-            res.set(http::field::content_type, "text/plain");  
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = "File not found";
-            res.prepare_payload();
-            return res;
-        }
-        
-        std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-        
-        std::string content_type;
-        std::string ext = full_path.extension().string();
-        if (ext == ".html" || ext == ".htm") {
-            content_type = "text/html";
-        } else if (ext == ".css") {
-            content_type = "text/css";
-        } else if (ext == ".js") {
-            content_type = "application/javascript";
-        } else if (ext == ".svg") {
-            content_type = "image/svg+xml";
-        } else if (ext == ".png") {
-            content_type = "image/png";
-        } else if (ext == ".jpg" || ext == ".jpeg") {
-            content_type = "image/jpeg";
-        } else {
-            content_type = "text/plain";
-        }
-        
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, content_type);
+    } catch (const fs::filesystem_error&) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");  
         res.set(http::field::cache_control, "no-cache");
-        res.body() = content;
+        res.body() = "File not found";
         res.prepare_payload();
         return res;
     }
+    
+    if (!fs::exists(full_path) || fs::is_directory(full_path)) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = "File not found";
+        res.prepare_payload();
+        return res;
+    }
+    
+    
+    std::ifstream file(full_path, std::ios::binary);
+    if (!file.is_open()) {
+        http::response<http::string_body> res{http::status::not_found, req.version()};
+        res.set(http::field::content_type, "text/plain");  
+        res.set(http::field::cache_control, "no-cache");
+        res.body() = "File not found";
+        res.prepare_payload();
+        return res;
+    }
+    
+    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    
+    
+    std::string content_type;
+    std::string ext = full_path.extension().string();
+    if (ext == ".html" || ext == ".htm") {
+        content_type = "text/html";
+    } else if (ext == ".css") {
+        content_type = "text/css";
+    } else if (ext == ".js") {
+        content_type = "application/javascript";
+    } else if (ext == ".svg") {
+        content_type = "image/svg+xml";
+    } else if (ext == ".png") {
+        content_type = "image/png";
+    } else if (ext == ".jpg" || ext == ".jpeg") {
+        content_type = "image/jpeg";
+    } else {
+        content_type = "text/plain";
+    }
+    
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.set(http::field::content_type, content_type);
+    res.set(http::field::cache_control, "no-cache");
+    res.body() = content;
+    res.prepare_payload();
+    return res;
+}
 
     http::response<http::string_body>
     ServerError(unsigned v, bool keep_alive) const {

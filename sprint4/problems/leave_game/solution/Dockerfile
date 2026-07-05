@@ -5,8 +5,6 @@ RUN apt update && \
     apt install -y \
       python3-pip \
       cmake \
-      libpqxx-dev \
-      libpq-dev \
     && \
     pip3 install conan==1.*
 
@@ -38,7 +36,5 @@ COPY ./data /app/data
 # Запускаем игровой сервер
 ENTRYPOINT ["/app/game_server"]
 CMD ["-c", "/app/data/config.json", "-w", "/app/static"]
-
-ENV GAME_DB_URL=""
 
 EXPOSE 8080
