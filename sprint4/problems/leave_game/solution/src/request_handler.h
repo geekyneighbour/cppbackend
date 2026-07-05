@@ -87,7 +87,7 @@ private:
 class RequestHandler : public std::enable_shared_from_this<RequestHandler> {
 public:
 
-	using TokensMap = std::unordered_map<std::string, model::Player*>;
+    using TokensMap = std::unordered_map<std::string, model::Player*>;
     using Strand = net::strand<net::io_context::executor_type>;
 
     RequestHandler(fs::path root, Strand strand, model::Game& game)
@@ -107,7 +107,7 @@ public:
         }
 
         return true;
-    }	
+    }   
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
@@ -144,53 +144,53 @@ public:
 
         send_wrapper(HandleFileRequest(req, target));
     }
-	
-	void SetTickMode(bool mode) { auto_tick_mode_ = mode; }
-	
-	const TokensMap& GetTokens() const {
+    
+    void SetTickMode(bool mode) { auto_tick_mode_ = mode; }
+    
+    const TokensMap& GetTokens() const {
         return tokens_.GetAllTokens();
     }
     
-	TokensMap& GetTokensMutable() {
+    TokensMap& GetTokensMutable() {
         return tokens_.GetAllTokensMutable();
     }
-	
+    
     void AddToken(const std::string& token, model::Player* player) {
-		tokens_.AddPlayer(token, player);
-	}
-	
-	void RestoreToken(const std::string& token, model::Player* player) {
-		tokens_.AddPlayer(token, player);
+        tokens_.AddPlayer(token, player);
+    }
+    
+    void RestoreToken(const std::string& token, model::Player* player) {
+        tokens_.AddPlayer(token, player);
     }
 
-	const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
-		return tokens_.GetAllTokens();
-	}
-	
-	void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
-		save_callback_ = std::move(callback);
-	}
-	
-	void AddObserver(model::IGameObserver* observer) {
-		game_.AddObserver(observer);
-	}
-	
-	// Виртуальный метод для получения рекордов
-	virtual json::array GetRecords(int start, int maxItems) {
-		return json::array();
-	}
-	
-	void RemoveToken(const std::string& token) {
-    tokens_.RemovePlayer(token);
-}
+    const std::unordered_map<std::string, model::Player*>& GetTokensMap() const {
+        return tokens_.GetAllTokens();
+    }
+    
+    void RemoveToken(const std::string& token) {
+        tokens_.RemovePlayer(token);
+    }
+    
+    void SetSaveCallback(std::function<void(std::chrono::milliseconds)> callback) {
+        save_callback_ = std::move(callback);
+    }
+    
+    void AddObserver(model::IGameObserver* observer) {
+        game_.AddObserver(observer);
+    }
+    
+    // Виртуальный метод для получения рекордов
+    virtual json::array GetRecords(int start, int maxItems) {
+        return json::array();
+    }
 
 private:
     model::Game& game_;
     fs::path root_;
     Strand api_strand_;
     model::PlayerTokens tokens_;
-	bool auto_tick_mode_ = false;
-	std::function<void(std::chrono::milliseconds)> save_callback_;
+    bool auto_tick_mode_ = false;
+    std::function<void(std::chrono::milliseconds)> save_callback_;
 
     // ================= TOKEN =================
     std::string GenerateToken() {
@@ -222,10 +222,6 @@ private:
         if (token.empty()) return std::nullopt;
 
         return token;
-    }
-    
-    void RemoveToken(const std::string& token) {
-        tokens_.RemovePlayer(token);
     }
 
     // ================= RESPONSES =================
@@ -294,15 +290,15 @@ private:
     // ================= API =================
     template <typename Req>
     http::response<http::string_body> HandleApiRequest(const Req& req) {
-		constexpr size_t MAPS_PREFIX_LENGTH = 13;
-		constexpr std::string_view MAPS = "/api/v1/maps";
-		constexpr std::string_view MAPS2 = "/api/v1/maps/";
-		constexpr std::string_view JOIN = "/api/v1/game/join";
-		constexpr std::string_view PLAYERS = "/api/v1/game/players";
-		constexpr std::string_view STATE = "/api/v1/game/state";
-		constexpr std::string_view ACTION = "/api/v1/game/player/action";
-		constexpr std::string_view TICK = "/api/v1/game/tick";
-		constexpr std::string_view RECORDS = "/api/v1/game/records";
+        constexpr size_t MAPS_PREFIX_LENGTH = 13;
+        constexpr std::string_view MAPS = "/api/v1/maps";
+        constexpr std::string_view MAPS2 = "/api/v1/maps/";
+        constexpr std::string_view JOIN = "/api/v1/game/join";
+        constexpr std::string_view PLAYERS = "/api/v1/game/players";
+        constexpr std::string_view STATE = "/api/v1/game/state";
+        constexpr std::string_view ACTION = "/api/v1/game/player/action";
+        constexpr std::string_view TICK = "/api/v1/game/tick";
+        constexpr std::string_view RECORDS = "/api/v1/game/records";
 
         std::string path(req.target());
         
@@ -349,16 +345,16 @@ private:
             result["id"] = *map->GetId();
             result["name"] = map->GetName();
             result["roads"] = boost::json::value_from(map->GetRoads());
-			result["buildings"] = boost::json::value_from(map->GetBuildings());
-			result["offices"] = boost::json::value_from(map->GetOffices());
-			
-			auto* loot_types = MapLootTypes::Instance().GetLootTypes(map_id);
+            result["buildings"] = boost::json::value_from(map->GetBuildings());
+            result["offices"] = boost::json::value_from(map->GetOffices());
+            
+            auto* loot_types = MapLootTypes::Instance().GetLootTypes(map_id);
     if (loot_types) {
         result["lootTypes"] = *loot_types;
     } else {
         result["lootTypes"] = boost::json::array();
     }
-	
+    
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::content_type, "application/json");
             res.set(http::field::cache_control, "no-cache");
@@ -398,11 +394,11 @@ private:
 
                 std::string token = GenerateToken();
                 tokens_.AddPlayer(token, &player);
-				
-				// Сохраняем состояние после JOIN
-				if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(0));
-}
+                
+                // Сохраняем состояние после JOIN
+                if (save_callback_) {
+                    save_callback_(std::chrono::milliseconds(0));
+                }
 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -481,8 +477,8 @@ private:
                 model::PointDouble pos = dog->GetPos();
                 model::Speed speed = dog->GetSpeed();
                 model::Direction dir = dog->GetDirection();
-				
-				 json::array bag_array;
+                
+                 json::array bag_array;
         for (const auto& item : dog->GetBag()) {
             bag_array.push_back(json::object{
                 {"id", static_cast<int>(item.id)},
@@ -501,7 +497,7 @@ private:
                     {"pos", json::array{pos.x, pos.y}},
                     {"speed", json::array{speed.x, speed.y}},
                     {"dir", dir_str},
-					 {"bag", bag_array},
+                     {"bag", bag_array},
         {"score", dog->GetScore()}
                 };
             }
@@ -509,8 +505,8 @@ private:
             json::object response_obj{
                 {"players", players_obj}
             };
-			
-			json::object lost_objects_obj;
+            
+            json::object lost_objects_obj;
     const auto& lost_objects = session->GetLostObjects();
     for (size_t i = 0; i < lost_objects.size(); ++i) {
         const auto& obj = lost_objects[i];
@@ -568,11 +564,11 @@ private:
                 double dog_speed = map->GetDogSpeed();
                 
                 player->GetDog()->SetAction(move, dog_speed);
-				
-				
-				if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(0));
-}
+                
+                
+                if (save_callback_) {
+                    save_callback_(std::chrono::milliseconds(0));
+                }
                 
                 http::response<http::string_body> res{http::status::ok, req.version()};
                 res.set(http::field::content_type, "application/json");
@@ -585,150 +581,150 @@ private:
                 return BadRequest(req, "Failed to parse action");
             }
         }
-		
-		if (path == TICK) {
-			if (auto_tick_mode_) {
-        return BadRequest(req, "Invalid endpoint");
-    }
-    if (method != http::verb::post)
-        return InvalidMethod(req, "POST");
         
-    auto content_type = req.find(http::field::content_type);
-    if (content_type == req.end() || content_type->value() != "application/json") {
-        return BadRequest(req, "Invalid content type");
-    }
+        if (path == TICK) {
+            if (auto_tick_mode_) {
+                return BadRequest(req, "Invalid endpoint");
+            }
+            if (method != http::verb::post)
+                return InvalidMethod(req, "POST");
+        
+            auto content_type = req.find(http::field::content_type);
+            if (content_type == req.end() || content_type->value() != "application/json") {
+                return BadRequest(req, "Invalid content type");
+            }
 
-    try {
-        auto body = json::parse(req.body()).as_object();
+            try {
+                auto body = json::parse(req.body()).as_object();
         
-        if (!body.contains("timeDelta")) {
-            json::object error{
-                {"code", "invalidArgument"},
-                {"message", "Missing timeDelta field"}
-            };
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = json::serialize(error);
-            res.prepare_payload();
-            return res;
-        }
+                if (!body.contains("timeDelta")) {
+                    json::object error{
+                        {"code", "invalidArgument"},
+                        {"message", "Missing timeDelta field"}
+                    };
+                    http::response<http::string_body> res{http::status::bad_request, req.version()};
+                    res.set(http::field::content_type, "application/json");
+                    res.set(http::field::cache_control, "no-cache");
+                    res.body() = json::serialize(error);
+                    res.prepare_payload();
+                    return res;
+                }
         
-        if (!body.at("timeDelta").is_int64()) {
-            json::object error{
-                {"code", "invalidArgument"},
-                {"message", "timeDelta must be an integer"}
-            };
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = json::serialize(error);
-            res.prepare_payload();
-            return res;
-        }
+                if (!body.at("timeDelta").is_int64()) {
+                    json::object error{
+                        {"code", "invalidArgument"},
+                        {"message", "timeDelta must be an integer"}
+                    };
+                    http::response<http::string_body> res{http::status::bad_request, req.version()};
+                    res.set(http::field::content_type, "application/json");
+                    res.set(http::field::cache_control, "no-cache");
+                    res.body() = json::serialize(error);
+                    res.prepare_payload();
+                    return res;
+                }
         
-        int64_t time_delta_ms = body.at("timeDelta").as_int64();
-        if (time_delta_ms <= 0) {
-            json::object error{
-                {"code", "invalidArgument"},
-                {"message", "timeDelta must be positive"}
-            };
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
-            res.set(http::field::content_type, "application/json");
-            res.set(http::field::cache_control, "no-cache");
-            res.body() = json::serialize(error);
-            res.prepare_payload();
-            return res;
-        }
+                int64_t time_delta_ms = body.at("timeDelta").as_int64();
+                if (time_delta_ms <= 0) {
+                    json::object error{
+                        {"code", "invalidArgument"},
+                        {"message", "timeDelta must be positive"}
+                    };
+                    http::response<http::string_body> res{http::status::bad_request, req.version()};
+                    res.set(http::field::content_type, "application/json");
+                    res.set(http::field::cache_control, "no-cache");
+                    res.body() = json::serialize(error);
+                    res.prepare_payload();
+                    return res;
+                }
         
 
-        double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
+                double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
         
-        game_.UpdateAllSessions(time_delta_sec);
-		
-		// Сохраняем состояние после TICK
-		if (save_callback_) {
-    save_callback_(std::chrono::milliseconds(time_delta_ms));
-}
+                game_.UpdateAllSessions(time_delta_sec);
         
-        http::response<http::string_body> res{http::status::ok, req.version()};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = "{}";
-        res.prepare_payload();
-        return res;
+                // Сохраняем состояние после TICK
+                if (save_callback_) {
+                    save_callback_(std::chrono::milliseconds(time_delta_ms));
+                }
         
-    } catch (const std::exception& e) {
-        json::object error{
-            {"code", "invalidArgument"},
-            {"message", "Failed to parse tick request JSON"}
-        };
+                http::response<http::string_body> res{http::status::ok, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+                res.body() = "{}";
+                res.prepare_payload();
+                return res;
         
-        http::response<http::string_body> res{http::status::bad_request, req.version()};
-        res.set(http::field::content_type, "application/json");
-        res.set(http::field::cache_control, "no-cache");
-        res.body() = json::serialize(error);
-        res.prepare_payload();
-        return res;
-    }
-}
-		
-		if (path == RECORDS) {
-			if (method != http::verb::get && method != http::verb::head)
+            } catch (const std::exception& e) {
+                json::object error{
+                    {"code", "invalidArgument"},
+                    {"message", "Failed to parse tick request JSON"}
+                };
+        
+                http::response<http::string_body> res{http::status::bad_request, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+                res.body() = json::serialize(error);
+                res.prepare_payload();
+                return res;
+            }
+        }
+        
+        if (path == RECORDS) {
+            if (method != http::verb::get && method != http::verb::head)
                 return InvalidMethod(req, "GET, HEAD");
-			
-			int start = 0;
-			int maxItems = 100;
-			
-			std::string query(req.target());
-			size_t qpos = query.find('?');
-			if (qpos != std::string::npos) {
-				std::string qs = query.substr(qpos + 1);
-				std::istringstream iss(qs);
-				std::string pair;
-				while (std::getline(iss, pair, '&')) {
-					auto eq = pair.find('=');
-					if (eq == std::string::npos) continue;
-					std::string key = pair.substr(0, eq);
-					std::string value = pair.substr(eq + 1);
-					if (key == "start") {
-						try { start = std::stoi(value); } catch (...) {}
-					} else if (key == "maxItems") {
-						try { maxItems = std::stoi(value); } catch (...) {}
-					}
-				}
-			}
-			
-			if (start < 0) {
-				json::object error{{"code", "badRequest"}, {"message", "start must be >= 0"}};
-				http::response<http::string_body> res{http::status::bad_request, req.version()};
-				res.set(http::field::content_type, "application/json");
-				res.set(http::field::cache_control, "no-cache");
-				res.body() = json::serialize(error);
-				res.prepare_payload();
-				return res;
-			}
-			
-			if (maxItems > 100) {
-				json::object error{{"code", "badRequest"}, {"message", "maxItems cannot exceed 100"}};
-				http::response<http::string_body> res{http::status::bad_request, req.version()};
-				res.set(http::field::content_type, "application/json");
-				res.set(http::field::cache_control, "no-cache");
-				res.body() = json::serialize(error);
-				res.prepare_payload();
-				return res;
-			}
-			
-			// Получаем записи из базы данных через observer
-			auto records = GetRecords(start, maxItems);
-			
-			http::response<http::string_body> res{http::status::ok, req.version()};
-			res.set(http::field::content_type, "application/json");
-			res.set(http::field::cache_control, "no-cache");
-			res.body() = json::serialize(records);
-			res.prepare_payload();
-			return res;
-		}
+            
+            int start = 0;
+            int maxItems = 100;
+            
+            std::string query(req.target());
+            size_t qpos = query.find('?');
+            if (qpos != std::string::npos) {
+                std::string qs = query.substr(qpos + 1);
+                std::istringstream iss(qs);
+                std::string pair;
+                while (std::getline(iss, pair, '&')) {
+                    auto eq = pair.find('=');
+                    if (eq == std::string::npos) continue;
+                    std::string key = pair.substr(0, eq);
+                    std::string value = pair.substr(eq + 1);
+                    if (key == "start") {
+                        try { start = std::stoi(value); } catch (...) {}
+                    } else if (key == "maxItems") {
+                        try { maxItems = std::stoi(value); } catch (...) {}
+                    }
+                }
+            }
+            
+            if (start < 0) {
+                json::object error{{"code", "badRequest"}, {"message", "start must be >= 0"}};
+                http::response<http::string_body> res{http::status::bad_request, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+                res.body() = json::serialize(error);
+                res.prepare_payload();
+                return res;
+            }
+            
+            if (maxItems > 100) {
+                json::object error{{"code", "badRequest"}, {"message", "maxItems cannot exceed 100"}};
+                http::response<http::string_body> res{http::status::bad_request, req.version()};
+                res.set(http::field::content_type, "application/json");
+                res.set(http::field::cache_control, "no-cache");
+                res.body() = json::serialize(error);
+                res.prepare_payload();
+                return res;
+            }
+            
+            // Получаем записи из базы данных через observer
+            auto records = GetRecords(start, maxItems);
+            
+            http::response<http::string_body> res{http::status::ok, req.version()};
+            res.set(http::field::content_type, "application/json");
+            res.set(http::field::cache_control, "no-cache");
+            res.body() = json::serialize(records);
+            res.prepare_payload();
+            return res;
+        }
 
         return BadRequest(req, "Unknown endpoint");
     }

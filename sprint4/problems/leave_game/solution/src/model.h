@@ -558,16 +558,16 @@ public:
         auto it = tokens_.find(token);
         return it == tokens_.end() ? nullptr : it->second;
     }
-	
-	const std::unordered_map<std::string, model::Player*>& GetAllTokens() const {
+    
+    const std::unordered_map<std::string, model::Player*>& GetAllTokens() const {
         return tokens_;
     }
-	
-	std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
+    
+    std::unordered_map<std::string, model::Player*>& GetAllTokensMutable() {
         return tokens_;
     }
-	
-	void RemovePlayer(const std::string& token) {
+    
+    void RemovePlayer(const std::string& token) {
         tokens_.erase(token);
     }
 

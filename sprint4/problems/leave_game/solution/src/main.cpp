@@ -302,8 +302,8 @@ int main(int argc, char* argv[]) {
         }
 
         handler->SetSaveCallback([update_game_state](std::chrono::milliseconds delta) {
-    update_game_state(delta);
-});
+            update_game_state(delta);
+        });
 
         const auto address = net::ip::make_address("0.0.0.0");
         const unsigned short port = 8080;
