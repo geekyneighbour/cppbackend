@@ -121,7 +121,6 @@ public:
             pqxx::connection conn(db_url_);
             pqxx::work txn(conn);
             
-            // Сортировка: по убыванию score, затем по возрастанию play_time, затем по имени
             pqxx::result res = txn.exec_params(
                 "SELECT name, score, play_time FROM retired_players "
                 "ORDER BY score DESC, play_time ASC, name ASC "
@@ -152,7 +151,6 @@ private:
             pqxx::connection conn(db_url_);
             pqxx::work txn(conn);
             
-            // Создаем таблицу, если её нет
             txn.exec(
                 "CREATE TABLE IF NOT EXISTS retired_players ("
                 "id SERIAL PRIMARY KEY,"
@@ -162,7 +160,6 @@ private:
                 ")"
             );
             
-            // Создаем индексы для быстрой сортировки
             txn.exec(
                 "CREATE INDEX IF NOT EXISTS idx_retired_players_score_play_time_name "
                 "ON retired_players (score DESC, play_time ASC, name ASC)"
@@ -175,7 +172,26 @@ private:
     }
 };
 
-// Адаптер для RequestHandler, переопределяющий GetRecords
+// Наблюдатель для удаления токенов
+class TokenRemoverObserver : public model::IGameObserver {
+public:
+    TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
+    
+    void OnDogRetired(const std::string& name, int score, double play_time) override {
+        // Ищем токен для этой собаки и удаляем его
+        for (const auto& [token, player] : handler_.GetTokensMap()) {
+            if (player && player->GetDog()->GetName() == name) {
+                handler_.RemoveToken(token);
+                break;
+            }
+        }
+    }
+    
+private:
+    http_handler::RequestHandler& handler_;
+};
+
+// Адаптер для RequestHandler
 class RecordsRequestHandler : public http_handler::RequestHandler {
 public:
     RecordsRequestHandler(fs::path root, Strand strand, model::Game& game)
@@ -221,15 +237,19 @@ int main(int argc, char* argv[]) {
 
         auto strand = net::make_strand(ioc);
 
-        // Создаем обработчик с поддержкой рекордов
         auto handler = std::make_shared<RecordsRequestHandler>(args->www_root, strand, game);
         
-        // Инициализируем наблюдатель БД
         std::shared_ptr<DatabaseObserver> db_observer;
         const char* db_url = std::getenv("GAME_DB_URL");
         if (db_url && strlen(db_url) > 0) {
             db_observer = std::make_shared<DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
+        }
+        
+        // Добавляем наблюдателя для удаления токенов
+        auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
+        game.AddObserver(token_remover.get());
+        if (db_observer) {
             game.AddObserver(db_observer.get());
         }
 

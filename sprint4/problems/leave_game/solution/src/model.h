@@ -470,6 +470,7 @@ class IGameObserver {
 public:
     virtual ~IGameObserver() = default;
     virtual void OnDogRetired(const std::string& name, int score, double play_time) = 0;
+    virtual void OnTokenInvalidated(const std::string& token) {} 
 };
 
 class GameSession {

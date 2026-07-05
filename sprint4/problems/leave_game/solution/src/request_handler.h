@@ -179,6 +179,10 @@ public:
 	virtual json::array GetRecords(int start, int maxItems) {
 		return json::array();
 	}
+	
+	void RemoveToken(const std::string& token) {
+    tokens_.RemovePlayer(token);
+}
 
 private:
     model::Game& game_;
