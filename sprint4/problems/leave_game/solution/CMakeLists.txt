@@ -27,8 +27,6 @@ find_package(Threads REQUIRED)
 add_library(game_model STATIC
     src/model.cpp
     src/loot_generator.cpp
-    src/database_manager.cpp
-    src/database_manager.h  
     src/geom.h
     src/model_serialization.h
     src/model.h
