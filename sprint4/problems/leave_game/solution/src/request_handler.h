@@ -98,16 +98,18 @@ public:
     virtual ~RequestHandler() = default;
         
     bool IsValidToken(const std::string& token) {
-        if (token.size() != 32)
+    // Проверяем формат токена (32 hex символа)
+    if (token.size() != 32)
+        return false;
+
+    for (char c : token) {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
+    }
 
-        for (char c : token) {
-            if (!std::isxdigit(static_cast<unsigned char>(c)))
-                return false;
-        }
-
-        return true;
-    }   
+    // Проверяем, что токен существует в карте токенов
+    return tokens_.FindPlayerByToken(token) != nullptr;
+}
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
@@ -468,6 +470,10 @@ private:
             if (!player) {
                 return Unauthorized(req, "unknownToken", "Player token has not been found");
             }
+			
+			if (!player->GetDog()) {
+        return Unauthorized(req, "unknownToken", "Player has retired");
+    }
 
             model::GameSession* session = player->GetSession();
             json::object players_obj;

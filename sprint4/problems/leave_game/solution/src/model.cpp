@@ -115,14 +115,26 @@ void GameSession::RemoveObserver(IGameObserver* observer) {
     observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
 }
 
+// В model.cpp
 void GameSession::CheckDogInactivity(double retirement_time) {
     auto now = std::chrono::steady_clock::now();
     std::vector<Dog*> dogs_to_retire;
     
     for (auto& dog_ptr : dogs_) {
+        // Проверяем, двигается ли собака
+        Speed speed = dog_ptr->GetSpeed();
+        bool is_moving = (speed.x != 0.0 || speed.y != 0.0);
+        
+        // Если собака двигается, обновляем время активности
+        if (is_moving) {
+            dog_ptr->UpdateLastActiveTime();
+            continue;
+        }
+        
         auto last_active = dog_ptr->GetLastActiveTime();
         auto inactive_time = std::chrono::duration<double>(now - last_active).count();
         
+        // Собака уходит на пенсию только если она не двигалась дольше retirement_time
         if (inactive_time >= retirement_time) {
             dogs_to_retire.push_back(dog_ptr.get());
         }
@@ -133,8 +145,9 @@ void GameSession::CheckDogInactivity(double retirement_time) {
     }
 }
 
+
 void GameSession::RetireDog(Dog& dog) {
-    // Уведомляем наблюдателей
+    // Уведомляем наблюдателей (это вызовет TokenRemoverObserver)
     for (auto* observer : observers_) {
         observer->OnDogRetired(dog.GetName(), dog.GetScore(), dog.GetPlayTime());
     }
@@ -295,9 +308,9 @@ void GameSession::UpdateState(double dt) {
         lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
     
-    // Проверяем бездействие собак
+    // Проверяем бездействие собак ТОЛЬКО если есть наблюдатели
     double retirement_time = map_->GetDogRetirementTime();
-    if (retirement_time > 0) {
+    if (retirement_time > 0 && !observers_.empty()) {
         CheckDogInactivity(retirement_time);
     }
 }
@@ -349,6 +362,8 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 	static constexpr double DOG_HALF_WIDTH = 0.4;
 	
     if (speed_.x == 0.0 && speed_.y == 0.0) return;
+	
+	last_active_time_ = std::chrono::steady_clock::now();
 
     double new_x = pos_.x + speed_.x * dt;
     double new_y = pos_.y + speed_.y * dt;

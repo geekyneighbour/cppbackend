@@ -178,9 +178,10 @@ public:
     TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
     
     void OnDogRetired(const std::string& name, int score, double play_time) override {
-        // Ищем токен для этой собаки и удаляем его
-        for (const auto& [token, player] : handler_.GetTokensMap()) {
-            if (player && player->GetDog()->GetName() == name) {
+        // Создаем копию токенов, чтобы избежать проблем с итерацией
+        auto tokens_copy = handler_.GetTokensMap();
+        for (const auto& [token, player] : tokens_copy) {
+            if (player && player->GetDog() && player->GetDog()->GetName() == name) {
                 handler_.RemoveToken(token);
                 break;
             }
@@ -244,6 +245,7 @@ int main(int argc, char* argv[]) {
         if (db_url && strlen(db_url) > 0) {
             db_observer = std::make_shared<DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
+			game.AddObserver(db_observer.get());
         }
         
         // Добавляем наблюдателя для удаления токенов
