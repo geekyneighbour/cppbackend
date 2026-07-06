@@ -98,18 +98,18 @@ public:
     virtual ~RequestHandler() = default;
         
     bool IsValidToken(const std::string& token) {
-    // Проверяем формат токена (32 hex символа)
-    if (token.size() != 32)
-        return false;
-
-    for (char c : token) {
-        if (!std::isxdigit(static_cast<unsigned char>(c)))
+        // Проверяем формат токена (32 hex символа)
+        if (token.size() != 32)
             return false;
-    }
 
-    // Проверяем, что токен существует в карте токенов
-    return tokens_.FindPlayerByToken(token) != nullptr;
-}
+        for (char c : token) {
+            if (!std::isxdigit(static_cast<unsigned char>(c)))
+                return false;
+        }
+
+        // Проверяем, что токен существует в карте токенов
+        return tokens_.FindPlayerByToken(token) != nullptr;
+    }
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,

@@ -115,7 +115,6 @@ void GameSession::RemoveObserver(IGameObserver* observer) {
     observers_.erase(std::remove(observers_.begin(), observers_.end(), observer), observers_.end());
 }
 
-// В model.cpp
 void GameSession::CheckDogInactivity(double retirement_time) {
     auto now = std::chrono::steady_clock::now();
     std::vector<Dog*> dogs_to_retire;
@@ -144,7 +143,6 @@ void GameSession::CheckDogInactivity(double retirement_time) {
         RetireDog(*dog);
     }
 }
-
 
 void GameSession::RetireDog(Dog& dog) {
     // Уведомляем наблюдателей (это вызовет TokenRemoverObserver)
@@ -308,9 +306,9 @@ void GameSession::UpdateState(double dt) {
         lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
     
-    // Проверяем бездействие собак ТОЛЬКО если есть наблюдатели
+    // Проверяем бездействие собак
     double retirement_time = map_->GetDogRetirementTime();
-    if (retirement_time > 0 && !observers_.empty()) {
+    if (retirement_time > 0) {
         CheckDogInactivity(retirement_time);
     }
 }
@@ -335,12 +333,17 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
     auto& ptr = sessions_[map];
     if (!ptr) {
         ptr = std::make_unique<GameSession>(map);
+        // Добавляем наблюдателей в новую сессию
         for (auto* observer : observers_) {
             ptr->AddObserver(observer);
         }
     }
+    for (auto* observer : observers_) {
+        ptr->AddObserver(observer);
+    }
     return *ptr;
 }
+
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);

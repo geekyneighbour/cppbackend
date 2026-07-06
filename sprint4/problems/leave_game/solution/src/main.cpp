@@ -245,15 +245,12 @@ int main(int argc, char* argv[]) {
         if (db_url && strlen(db_url) > 0) {
             db_observer = std::make_shared<DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
-			game.AddObserver(db_observer.get());
+            game.AddObserver(db_observer.get());
         }
         
         // Добавляем наблюдателя для удаления токенов
         auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
-        if (db_observer) {
-            game.AddObserver(db_observer.get());
-        }
 
         if (args->state_file) {
             state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
