@@ -472,7 +472,8 @@ private:
             }
 			
 			if (!player->GetDog()) {
-        return Unauthorized(req, "unknownToken", "Player has retired");
+        tokens_.RemovePlayer(*token_opt);
+        return Unauthorized(req, "invalidToken", "Player has retired");
     }
 
             model::GameSession* session = player->GetSession();

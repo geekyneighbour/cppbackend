@@ -178,7 +178,7 @@ public:
     TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
     
     void OnDogRetired(const std::string& name, int score, double play_time) override {
-        // Создаем копию токенов, чтобы избежать проблем с итерацией
+        // Ищем игрока с такой собакой по имени и удаляем токен
         auto tokens_copy = handler_.GetTokensMap();
         for (const auto& [token, player] : tokens_copy) {
             if (player && player->GetDog() && player->GetDog()->GetName() == name) {

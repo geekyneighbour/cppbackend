@@ -133,7 +133,7 @@ void GameSession::CheckDogInactivity(double retirement_time) {
         auto last_active = dog_ptr->GetLastActiveTime();
         auto inactive_time = std::chrono::duration<double>(now - last_active).count();
         
-        // Собака уходит на пенсию только если она не двигалась дольше retirement_time
+
         if (inactive_time >= retirement_time) {
             dogs_to_retire.push_back(dog_ptr.get());
         }
@@ -145,24 +145,23 @@ void GameSession::CheckDogInactivity(double retirement_time) {
 }
 
 void GameSession::RetireDog(Dog& dog) {
-    // Уведомляем наблюдателей (это вызовет TokenRemoverObserver)
     for (auto* observer : observers_) {
         observer->OnDogRetired(dog.GetName(), dog.GetScore(), dog.GetPlayTime());
     }
     
-    // Удаляем собаку из сессии
+
+    for (auto it = players_.begin(); it != players_.end(); ) {
+        if (it->second.GetDog() == &dog) {
+            it = players_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    
+
     auto it = std::find_if(dogs_.begin(), dogs_.end(),
         [&dog](const auto& ptr) { return ptr.get() == &dog; });
-    
     if (it != dogs_.end()) {
-        // Удаляем игрока, связанного с этой собакой
-        for (auto player_it = players_.begin(); player_it != players_.end(); ) {
-            if (player_it->second.GetDog() == &dog) {
-                player_it = players_.erase(player_it);
-            } else {
-                ++player_it;
-            }
-        }
         dogs_.erase(it);
     }
 }
@@ -426,7 +425,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 void Dog::SetAction(const std::string& action, double speed) {
     if (action.empty()) {
         speed_ = {0.0, 0.0};
-        last_active_time_ = std::chrono::steady_clock::now();
         return;
     }
 
@@ -443,6 +441,7 @@ void Dog::SetAction(const std::string& action, double speed) {
         speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }
+
     last_active_time_ = std::chrono::steady_clock::now();
 }
 
