@@ -374,14 +374,11 @@ public:
     void SetPos(PointDouble pos) { pos_ = pos; }
     void SetPos(double x, double y) { pos_ = {x, y}; }
     void SetSpeed(Speed speed) { 
-        if (speed.x == 0.0 && speed.y == 0.0) {
-            if (speed_.x != 0.0 || speed_.y != 0.0) {
-                last_active_time_ = std::chrono::steady_clock::now();
-            }
-        } else {
-            last_active_time_ = std::chrono::steady_clock::now();
-        }
-        speed_ = speed; 
+            if (speed.x != 0.0 || speed.y != 0.0) {
+        last_active_time_ = std::chrono::steady_clock::now();
+    }
+
+    speed_ = speed; 
     }
     void SetSpeed(double vx, double vy) { SetSpeed({vx, vy}); }
     void SetDirection(Direction dir) { dir_ = dir; }
