@@ -181,50 +181,36 @@ public:
     }
 
     void Restore(model::Game& game,
-             std::unordered_map<std::string, model::Player*>& tokens) const {
+                 std::unordered_map<uint64_t, model::Dog*>& dog_id_map) const {
 
-    std::unordered_map<uint64_t, model::Dog*> dog_id_map;
-
-    for (const auto& session_repr : sessions_) {
-        session_repr.Restore(game, dog_id_map);
-    }
-
-    for (const auto& token_repr : tokens_) {
-        const auto* map = game.FindMap(model::Map::Id{token_repr.map_id});
+        auto* map = game.FindMap(model::Map::Id{map_id_});
         if (!map) {
-            throw std::runtime_error("Map not found for token");
+            throw std::runtime_error("Map not found: " + map_id_);
         }
 
         auto& session = game.FindOrCreateSession(map);
 
-        model::Player* found_player = nullptr;
+        session.SetNextLootId(next_loot_id_);
+        session.SetNextPlayerId(next_player_id_);
 
-        // Сначала ищем существующего игрока
-        for (auto* p : session.GetPlayers()) {
-            if (p->GetId() == token_repr.player_id) {
-                found_player = p;
-                break;
-            }
-        }
+        for (const auto& dog_repr : dogs_) {
+            auto dog = dog_repr.Restore();
+            uint64_t dog_id = dog_repr.GetDogId();
 
-        // Если не нашли, создаем нового
-        if (!found_player) {
-            for (const auto& dog_ptr : session.GetDogs()) {
-                if (*dog_ptr->GetId() == token_repr.dog_id) {
-                    auto& player = session.AddPlayerWithId(*dog_ptr, token_repr.player_id);
-                    found_player = &player;
+            session.RestoreDog(std::move(dog));
+
+            for (const auto& d : session.GetDogs()) {
+                if (*d->GetId() == dog_id) {
+                    dog_id_map[dog_id] = d.get();
                     break;
                 }
             }
         }
 
-        if (!found_player) {
-            throw std::runtime_error("Failed to restore player");
+        for (const auto& obj_repr : lost_objects_) {
+            session.AddLostObject(obj_repr.Restore());
         }
-
-        tokens[token_repr.token] = found_player;
     }
-}
 
 private:
     std::string map_id_;
@@ -289,6 +275,7 @@ public:
 
             model::Player* found_player = nullptr;
 
+            // Сначала ищем существующего игрока
             for (auto* p : session.GetPlayers()) {
                 if (p->GetId() == token_repr.player_id) {
                     found_player = p;
@@ -296,14 +283,12 @@ public:
                 }
             }
 
+            // Если не нашли, создаем нового
             if (!found_player) {
-                for (const auto& dog_ptr : session.GetDogs()) {
-                    if (*dog_ptr->GetId() == token_repr.dog_id) {
-                        auto& player =
-                            session.AddPlayerWithId(*dog_ptr, token_repr.player_id);
-                        found_player = &player;
-                        break;
-                    }
+                auto it = dog_id_map.find(token_repr.dog_id);
+                if (it != dog_id_map.end()) {
+                    auto& player = session.AddPlayerWithId(*it->second, token_repr.player_id);
+                    found_player = &player;
                 }
             }
 
