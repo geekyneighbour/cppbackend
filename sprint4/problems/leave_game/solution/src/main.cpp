@@ -115,8 +115,8 @@ public:
         }
     }
     
-    json::array GetRecords(int start, int maxItems) {
-        json::array result;
+    boost::json::array GetRecords(int start, int maxItems) override {
+        boost::json::array result;
         try {
             pqxx::connection conn(db_url_);
             pqxx::work txn(conn);
@@ -129,7 +129,7 @@ public:
             );
             
             for (const auto& row : res) {
-                json::object record;
+                boost::json::object record;
                 record["name"] = row["name"].c_str();
                 record["score"] = row["score"].as<int>();
                 record["playTime"] = row["play_time"].as<double>();
@@ -178,13 +178,15 @@ public:
     TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
     
     void OnDogRetired(const std::string& name, int score, double play_time) override {
-        // Ищем игрока с такой собакой по имени и удаляем токен
-        auto tokens_copy = handler_.GetTokensMap();
-        for (const auto& [token, player] : tokens_copy) {
+        auto& tokens_map = handler_.GetTokensMutable();
+        std::vector<std::string> tokens_to_remove;
+        for (const auto& [token, player] : tokens_map) {
             if (player && player->GetDog() && player->GetDog()->GetName() == name) {
-                handler_.RemoveToken(token);
-                break;
+                tokens_to_remove.push_back(token);
             }
+        }
+        for (const auto& token : tokens_to_remove) {
+            handler_.RemoveToken(token);
         }
     }
     
@@ -202,11 +204,11 @@ public:
         observer_ = observer;
     }
     
-    json::array GetRecords(int start, int maxItems) override {
+    boost::json::array GetRecords(int start, int maxItems) override {
         if (observer_) {
             return observer_->GetRecords(start, maxItems);
         }
-        return json::array();
+        return boost::json::array();
     }
     
 private:
@@ -248,7 +250,6 @@ int main(int argc, char* argv[]) {
             game.AddObserver(db_observer.get());
         }
         
-        // Добавляем наблюдателя для удаления токенов
         auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
 

@@ -98,7 +98,6 @@ public:
     virtual ~RequestHandler() = default;
         
     bool IsValidToken(const std::string& token) {
-        // Проверяем формат токена (32 hex символа)
         if (token.size() != 32)
             return false;
 
@@ -107,8 +106,22 @@ public:
                 return false;
         }
 
-        // Проверяем, что токен существует в карте токенов
-        return tokens_.FindPlayerByToken(token) != nullptr;
+        auto* player = tokens_.FindPlayerByToken(token);
+        if (!player) return false;
+        
+        auto* session = player->GetSession();
+        if (!session) return false;
+        
+        auto* dog = player->GetDog();
+        if (!dog) {
+            tokens_.RemovePlayer(token);
+            return false;
+        }
+        
+        const auto& dogs = session->GetDogs();
+        auto it = std::find_if(dogs.begin(), dogs.end(),
+            [dog](const auto& ptr) { return ptr.get() == dog; });
+        return it != dogs.end();
     }
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
@@ -181,7 +194,6 @@ public:
         game_.AddObserver(observer);
     }
     
-    // Виртуальный метод для получения рекордов
     virtual json::array GetRecords(int start, int maxItems) {
         return json::array();
     }
@@ -397,7 +409,6 @@ private:
                 std::string token = GenerateToken();
                 tokens_.AddPlayer(token, &player);
                 
-                // Сохраняем состояние после JOIN
                 if (save_callback_) {
                     save_callback_(std::chrono::milliseconds(0));
                 }
@@ -470,23 +481,26 @@ private:
             if (!player) {
                 return Unauthorized(req, "unknownToken", "Player token has not been found");
             }
-			
-			if (!player->GetDog()) {
-        tokens_.RemovePlayer(*token_opt);
-        return Unauthorized(req, "invalidToken", "Player has retired");
-    }
+            
+            model::Dog* dog = player->GetDog();
+            if (!dog) {
+                tokens_.RemovePlayer(*token_opt);
+                return Unauthorized(req, "invalidToken", "Player has retired");
+            }
 
             model::GameSession* session = player->GetSession();
             json::object players_obj;
 
             for (model::Player* p : session->GetPlayers()) {
-                model::Dog* dog = p->GetDog();
-                model::PointDouble pos = dog->GetPos();
-                model::Speed speed = dog->GetSpeed();
-                model::Direction dir = dog->GetDirection();
+                model::Dog* d = p->GetDog();
+                if (!d) continue;
+                
+                model::PointDouble pos = d->GetPos();
+                model::Speed speed = d->GetSpeed();
+                model::Direction dir = d->GetDirection();
                 
                  json::array bag_array;
-        for (const auto& item : dog->GetBag()) {
+        for (const auto& item : d->GetBag()) {
             bag_array.push_back(json::object{
                 {"id", static_cast<int>(item.id)},
                 {"type", static_cast<int>(item.type)}
@@ -505,7 +519,7 @@ private:
                     {"speed", json::array{speed.x, speed.y}},
                     {"dir", dir_str},
                      {"bag", bag_array},
-        {"score", dog->GetScore()}
+        {"score", d->GetScore()}
                 };
             }
 
@@ -649,7 +663,6 @@ private:
         
                 game_.UpdateAllSessions(time_delta_sec);
         
-                // Сохраняем состояние после TICK
                 if (save_callback_) {
                     save_callback_(std::chrono::milliseconds(time_delta_ms));
                 }
@@ -722,7 +735,6 @@ private:
                 return res;
             }
             
-            // Получаем записи из базы данных через observer
             auto records = GetRecords(start, maxItems);
             
             http::response<http::string_body> res{http::status::ok, req.version()};

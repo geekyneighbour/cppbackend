@@ -336,7 +336,7 @@ private:
     std::vector<int> loot_type_values_;
     
     std::optional<double> dog_retirement_time_;
-    inline static double default_dog_retirement_time_ = 60.0; // 1 минута по умолчанию
+    inline static double default_dog_retirement_time_ = 60.0;
 };
 
 class Dog {
@@ -374,11 +374,10 @@ public:
     void SetPos(PointDouble pos) { pos_ = pos; }
     void SetPos(double x, double y) { pos_ = {x, y}; }
     void SetSpeed(Speed speed) { 
-            if (speed.x != 0.0 || speed.y != 0.0) {
-        last_active_time_ = std::chrono::steady_clock::now();
-    }
-
-    speed_ = speed; 
+        if (speed.x != 0.0 || speed.y != 0.0) {
+            last_active_time_ = std::chrono::steady_clock::now();
+        }
+        speed_ = speed; 
     }
     void SetSpeed(double vx, double vy) { SetSpeed({vx, vy}); }
     void SetDirection(Direction dir) { dir_ = dir; }
@@ -467,7 +466,10 @@ class IGameObserver {
 public:
     virtual ~IGameObserver() = default;
     virtual void OnDogRetired(const std::string& name, int score, double play_time) = 0;
-    virtual void OnTokenInvalidated(const std::string& token) {} 
+    virtual void OnTokenInvalidated(const std::string& token) {}
+    virtual boost::json::array GetRecords(int start, int maxItems) { 
+        return boost::json::array(); 
+    }
 };
 
 class GameSession {

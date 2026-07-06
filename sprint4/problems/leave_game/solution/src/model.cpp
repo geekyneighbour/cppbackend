@@ -91,6 +91,7 @@ Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     auto new_dog = std::make_unique<Dog>(std::string(name));
     new_dog->SetPos(spawn_pos.x, spawn_pos.y);
     new_dog->SetBagCapacity(map_->GetBagCapacity());
+    new_dog->UpdateLastActiveTime();
     
     dogs_.push_back(std::move(new_dog));
     return *dogs_.back();
@@ -120,11 +121,9 @@ void GameSession::CheckDogInactivity(double retirement_time) {
     std::vector<Dog*> dogs_to_retire;
     
     for (auto& dog_ptr : dogs_) {
-        // Проверяем, двигается ли собака
         Speed speed = dog_ptr->GetSpeed();
         bool is_moving = (speed.x != 0.0 || speed.y != 0.0);
         
-        // Если собака двигается, обновляем время активности
         if (is_moving) {
             dog_ptr->UpdateLastActiveTime();
             continue;
@@ -133,7 +132,6 @@ void GameSession::CheckDogInactivity(double retirement_time) {
         auto last_active = dog_ptr->GetLastActiveTime();
         auto inactive_time = std::chrono::duration<double>(now - last_active).count();
         
-
         if (inactive_time >= retirement_time) {
             dogs_to_retire.push_back(dog_ptr.get());
         }
@@ -145,11 +143,12 @@ void GameSession::CheckDogInactivity(double retirement_time) {
 }
 
 void GameSession::RetireDog(Dog& dog) {
+    auto play_time = dog.GetPlayTime();
+    
     for (auto* observer : observers_) {
-        observer->OnDogRetired(dog.GetName(), dog.GetScore(), dog.GetPlayTime());
+        observer->OnDogRetired(dog.GetName(), dog.GetScore(), play_time);
     }
     
-
     for (auto it = players_.begin(); it != players_.end(); ) {
         if (it->second.GetDog() == &dog) {
             it = players_.erase(it);
@@ -158,7 +157,6 @@ void GameSession::RetireDog(Dog& dog) {
         }
     }
     
-
     auto it = std::find_if(dogs_.begin(), dogs_.end(),
         [&dog](const auto& ptr) { return ptr.get() == &dog; });
     if (it != dogs_.end()) {
@@ -169,25 +167,20 @@ void GameSession::RetireDog(Dog& dog) {
 // ================= COLLISION HELPER =================
 bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
                                  double px, double py, double threshold) {
-    // Вектор от начала отрезка к концу
     double dx = x2 - x1;
     double dy = y2 - y1;
     double len2 = dx * dx + dy * dy;
     
     if (len2 < 1e-10) {
-        // Отрезок нулевой длины - проверяем точку
         return std::sqrt((px - x1) * (px - x1) + (py - y1) * (py - y1)) <= threshold;
     }
     
-    // Параметр t для ближайшей точки на отрезке
     double t = ((px - x1) * dx + (py - y1) * dy) / len2;
     t = std::max(0.0, std::min(1.0, t));
     
-    // Ближайшая точка на отрезке
     double near_x = x1 + t * dx;
     double near_y = y1 + t * dy;
     
-    // Расстояние от точки до отрезка
     double dist = std::sqrt((px - near_x) * (px - near_x) + 
                             (py - near_y) * (py - near_y));
     
@@ -196,30 +189,24 @@ bool CheckSegmentPointCollision(double x1, double y1, double x2, double y2,
 
 // ================= COLLISIONS =================
 void GameSession::ProcessCollisions(double dt) {
-    // Обрабатываем каждую собаку
     for (auto& dog_ptr : dogs_) {
         Dog& dog = *dog_ptr;
         
-        // Начальная и конечная позиции за тик
         double start_x = dog.GetPos().x - dog.GetSpeed().x * dt;
         double start_y = dog.GetPos().y - dog.GetSpeed().y * dt;
         double end_x = dog.GetPos().x;
         double end_y = dog.GetPos().y;
         
-        // Обработка сбора предметов
         CollectItems(dog, start_x, start_y, end_x, end_y);
-        
-        // Обработка сдачи предметов на базу
         ReturnItemsToBase(dog, end_x, end_y);
     }
 }
 
 void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
                                 double end_x, double end_y) {
-    const double DOG_HALF = 0.3;  // 0.6 / 2
-    const double ITEM_HALF = 0.0; // предметы - точки
+    const double DOG_HALF = 0.3;
+    const double ITEM_HALF = 0.0;
     
-    // Собираем предметы, которые нужно удалить
     std::vector<size_t> items_to_remove;
     
     for (size_t i = 0; i < lost_objects_.size(); ++i) {
@@ -235,20 +222,18 @@ void GameSession::CollectItems(Dog& dog, double start_x, double start_y,
         }
     }
     
-    // Удаляем собранные предметы (в обратном порядке)
     for (auto it = items_to_remove.rbegin(); it != items_to_remove.rend(); ++it) {
         lost_objects_.erase(lost_objects_.begin() + *it);
     }
 }
 
 void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
-    const double DOG_HALF = 0.3;   // 0.6 / 2
-    const double BASE_HALF = 0.25; // 0.5 / 2
+    const double DOG_HALF = 0.3;
+    const double BASE_HALF = 0.25;
     const double COLLISION_DIST = DOG_HALF + BASE_HALF;
     
     if (dog.GetBagSize() == 0) return;
     
-    // Проверяем все офисы на карте
     for (const auto& office : map_->GetOffices()) {
         double office_x = office.GetPosition().x + office.GetOffset().dx;
         double office_y = office.GetPosition().y + office.GetOffset().dy;
@@ -257,7 +242,6 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
                                (y - office_y) * (y - office_y));
         
         if (dist <= COLLISION_DIST) {
-            // Начисляем очки за каждый предмет в рюкзаке
             int total_score = 0;
             for (const auto& item : dog.GetBag()) {
                 total_score += map_->GetLootTypeValue(item.type);
@@ -272,15 +256,12 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
     
-    // Обновляем позиции собак
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
     }
     
-    // Обрабатываем коллизии
     ProcessCollisions(dt);
     
-    // Генерируем новые предметы
     auto ms_dt = std::chrono::milliseconds(static_cast<long long>(dt * 1000));
     auto& config = map_->GetLootConfig();
     
@@ -305,7 +286,6 @@ void GameSession::UpdateState(double dt) {
         lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
     
-    // Проверяем бездействие собак
     double retirement_time = map_->GetDogRetirementTime();
     if (retirement_time > 0) {
         CheckDogInactivity(retirement_time);
@@ -332,7 +312,6 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
     auto& ptr = sessions_[map];
     if (!ptr) {
         ptr = std::make_unique<GameSession>(map);
-        // Добавляем наблюдателей в новую сессию
         for (auto* observer : observers_) {
             ptr->AddObserver(observer);
         }
@@ -342,7 +321,6 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
     }
     return *ptr;
 }
-
 
 const Map* Game::FindMap(const Map::Id& id) const {
     auto it = map_id_to_index_.find(id);
@@ -423,6 +401,8 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 }
 
 void Dog::SetAction(const std::string& action, double speed) {
+    last_active_time_ = std::chrono::steady_clock::now();
+    
     if (action.empty()) {
         speed_ = {0.0, 0.0};
         return;
@@ -441,8 +421,6 @@ void Dog::SetAction(const std::string& action, double speed) {
         speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }
-
-    last_active_time_ = std::chrono::steady_clock::now();
 }
 
 // ================= JSON SERIALIZATION =================
