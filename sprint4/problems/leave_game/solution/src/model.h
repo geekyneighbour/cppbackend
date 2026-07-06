@@ -7,6 +7,7 @@
 #include <optional>  
 #include <cmath>
 #include <chrono>
+#include <boost/json.hpp>
 
 #include "tagged.h"
 #include "loot_generator.h"
