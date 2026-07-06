@@ -49,8 +49,12 @@ void AddRoads(const boost::json::array& roads_array, model::Map& map) {
         if (!road_val.is_object()) continue;
         const auto& road_obj = road_val.as_object();
 
-        int x0 = static_cast<int>(road_obj.if_contains("x0") ? road_obj.at("x0").as_int64() : 0);
-        int y0 = static_cast<int>(road_obj.if_contains("y0") ? road_obj.at("y0").as_int64() : 0);
+        int x0 = static_cast<int>(road_obj.if_contains("x0")
+    ? road_obj.at("x0").as_int64()
+    : 0);
+        int y0 = static_cast<int>(road_obj.if_contains("y0")
+    ? road_obj.at("y0").as_int64()
+    : 0);
 
         if (road_obj.contains("x1")) {
             int x1 = static_cast<int>(road_obj.at("x1").as_int64());
@@ -71,10 +75,18 @@ void AddBuildings(const boost::json::array& buildings_array, model::Map& map) {
         if (!building_val.is_object()) continue;
         const auto& building_obj = building_val.as_object();
 
-        int x = static_cast<int>(building_obj.at("x").as_int64());
-        int y = static_cast<int>(building_obj.at("y").as_int64());
-        int w = static_cast<int>(building_obj.at("w").as_int64());
-        int h = static_cast<int>(building_obj.at("h").as_int64());
+        int x = static_cast<int>(building_obj.if_contains("x")
+    ? building_obj.at("x").as_int64()
+    : 0);
+        int y = static_cast<int>(building_obj.if_contains("y")
+    ? building_obj.at("y").as_int64()
+    : 0);
+        int w = static_cast<int>(building_obj.if_contains("w")
+    ? building_obj.at("w").as_int64()
+    : 0);
+        int h = static_cast<int>(building_obj.if_contains("h")
+    ? building_obj.at("h").as_int64()
+    : 0);
 
         map.AddBuilding(model::Building(
             model::Rectangle{
@@ -90,7 +102,10 @@ void AddOffices(const boost::json::array& offices_array, model::Map& map) {
         if (!office_val.is_object()) continue;
         const auto& office_obj = office_val.as_object();
 
-        std::string office_id = boost::json::value_to<std::string>(office_obj.at("id"));
+        std::string office_id =
+    office_obj.if_contains("id")
+        ? boost::json::value_to<std::string>(office_obj.at("id"))
+        : "";
         int x = static_cast<int>(office_obj.at("x").as_int64());
         int y = static_cast<int>(office_obj.at("y").as_int64());
         int offsetX = static_cast<int>(office_obj.at("offsetX").as_int64());

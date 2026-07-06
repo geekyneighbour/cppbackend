@@ -16,7 +16,8 @@ public:
     Ticker(Strand strand, std::chrono::milliseconds period, Handler handler)
         : strand_{strand}
         , period_{period}
-        , handler_{std::move(handler)} {
+        , handler_{std::move(handler)}
+		, last_tick_{Clock::now()}{
     }
 
     void Start() {

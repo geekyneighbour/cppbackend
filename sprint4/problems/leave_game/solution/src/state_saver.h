@@ -33,7 +33,13 @@ bool SaveState(const Game& game, const Tokens& tokens, const fs::path& filepath)
 
         ofs.close();
 
-        fs::rename(temp_path, filepath);
+        std::error_code ec;
+fs::rename(temp_path, filepath, ec);
+
+if (ec) {
+    fs::remove(temp_path);
+    throw std::runtime_error("rename failed: " + ec.message());
+}
         return true;
 
     } catch (const std::exception& e) {
@@ -50,7 +56,7 @@ bool LoadState(Game& game, Tokens& tokens, const fs::path& filepath) {
         }
 
         if (fs::file_size(filepath) == 0) {
-            return false;
+            return true;
         }
 
         std::ifstream ifs(filepath, std::ios::binary);

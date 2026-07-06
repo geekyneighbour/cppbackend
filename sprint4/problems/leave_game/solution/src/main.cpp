@@ -130,7 +130,7 @@ public:
             
             for (const auto& row : res) {
                 json::object record;
-                record["name"] = row["name"].as<std::string>();
+                record["name"] = row["name"].c_str();
                 record["score"] = row["score"].as<int>();
                 record["playTime"] = row["play_time"].as<double>();
                 result.push_back(record);
