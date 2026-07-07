@@ -458,6 +458,7 @@ private:
 	double play_time_ = 0.0;
 	double inactive_time_ = 0.0;
 	static constexpr double EPSILON_ = 1e-9;
+	bool has_started_playing_ = false;
 };
 
 class GameSession;

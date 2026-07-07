@@ -404,6 +404,7 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 void Dog::SetAction(const std::string& action, double speed) {
 	
 	last_active_time_ = std::chrono::steady_clock::now();
+	has_started_playing_ = true;
     inactive_time_ = 0.0;
 
     if (action.empty()) {
