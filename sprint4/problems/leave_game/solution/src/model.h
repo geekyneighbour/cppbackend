@@ -425,10 +425,12 @@ public:
     void AddPlayTime(double dt) {
     play_time_ += dt;
 
-    if (speed == 0)
-    inactive_time_ += dt;
-else
-    inactive_time_ = 0;
+    const double EPSILON = 1e-9;
+        if (std::abs(speed_.x) < EPSILON && std::abs(speed_.y) < EPSILON) {
+        inactive_time_ += dt;
+    } else {
+		inactive_time_ = 0;
+	}
 	
 }
 
