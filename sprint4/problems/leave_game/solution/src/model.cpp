@@ -121,7 +121,7 @@ void GameSession::CheckDogInactivity(double retirement_time) {
     
     for (auto& dog : dogs_) {
         double inactive = dog->GetInactiveTime();
-        if (inactive >= retirement_time) {
+        if (inactive > retirement_time) {
             dogs_to_retire.push_back(dog.get());
         }
     }
