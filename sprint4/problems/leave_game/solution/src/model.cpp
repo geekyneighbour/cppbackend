@@ -403,13 +403,12 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
 void Dog::SetAction(const std::string& action, double speed) {
     last_active_time_ = std::chrono::steady_clock::now();
-    inactive_time_ = 0.0;
+    inactive_time_ = 0.0; 
 	
     if (action.empty()) {
         speed_ = {0.0, 0.0};
         return;
     }
-	
 
     if (action == "L") {
         speed_ = {-speed, 0.0};

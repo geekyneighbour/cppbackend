@@ -427,11 +427,8 @@ public:
 
     const double EPSILON = 1e-9;
         if (std::abs(speed_.x) < EPSILON && std::abs(speed_.y) < EPSILON) {
-            inactive_time_ += dt;
-        } else {
-            inactive_time_ = 0.0;
-            last_active_time_ = std::chrono::steady_clock::now();
-        }
+        inactive_time_ += dt;
+    }
 }
 
 double GetPlayTime() const {
