@@ -376,7 +376,7 @@ public:
     void SetPos(double x, double y) { pos_ = {x, y}; }
     void SetSpeed(Speed speed) { 
         if (speed.x != 0.0 || speed.y != 0.0) {
-            last_active_time_ = std::chrono::steady_clock::now();
+            inactive_time_ = 0.0;
         }
         speed_ = speed; 
     }
@@ -420,10 +420,25 @@ public:
     std::chrono::steady_clock::time_point GetLastActiveTime() const { return last_active_time_; }
     void UpdateLastActiveTime() { last_active_time_ = std::chrono::steady_clock::now(); }
     
-    double GetPlayTime() const {
-        auto now = std::chrono::steady_clock::now();
-        return std::chrono::duration<double>(now - join_time_).count();
+    void AddPlayTime(double dt) {
+    play_time_ += dt;
+
+    if (speed_.x == 0.0 && speed_.y == 0.0) {
+        inactive_time_ += dt;
+    } else {
+        inactive_time_ = 0.0;
     }
+}
+
+double GetPlayTime() const {
+    return play_time_;
+}
+
+double GetInactiveTime() const {
+    return inactive_time_;
+}
+	
+	
 
 private:
     Id id_;
@@ -439,6 +454,8 @@ private:
     
     std::chrono::steady_clock::time_point join_time_;
     std::chrono::steady_clock::time_point last_active_time_;
+	double play_time_ = 0.0;
+	double inactive_time_ = 0.0;
 };
 
 class GameSession;
@@ -504,6 +521,7 @@ public:
 	
 	void CheckDogInactivity(double retirement_time);
 	void RetireDog(Dog& dog);
+	void CopyObserversFrom(const GameSession& other);
 	
 private:
     const Map* map_ = nullptr;
@@ -537,6 +555,7 @@ public:
     
     void AddObserver(IGameObserver* observer);
     void RemoveObserver(IGameObserver* observer);
+	const std::vector<IGameObserver*>& GetObservers() const { return observers_; }
 
 private:
     using MapIdHasher = util::TaggedHasher<Map::Id>;

@@ -117,26 +117,14 @@ void GameSession::RemoveObserver(IGameObserver* observer) {
 }
 
 void GameSession::CheckDogInactivity(double retirement_time) {
-    auto now = std::chrono::steady_clock::now();
     std::vector<Dog*> dogs_to_retire;
-    
-    for (auto& dog_ptr : dogs_) {
-        Speed speed = dog_ptr->GetSpeed();
-        bool is_moving = (speed.x != 0.0 || speed.y != 0.0);
-        
-        if (is_moving) {
-            dog_ptr->UpdateLastActiveTime();
-            continue;
-        }
-        
-        auto last_active = dog_ptr->GetLastActiveTime();
-        auto inactive_time = std::chrono::duration<double>(now - last_active).count();
-        
-        if (inactive_time >= retirement_time) {
-            dogs_to_retire.push_back(dog_ptr.get());
+
+    for (auto& dog : dogs_) {
+        if (dog->GetInactiveTime() >= retirement_time) {
+            dogs_to_retire.push_back(dog.get());
         }
     }
-    
+
     for (auto* dog : dogs_to_retire) {
         RetireDog(*dog);
     }
@@ -258,7 +246,10 @@ void GameSession::UpdateState(double dt) {
     
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
+		dog->AddPlayTime(dt);
     }
+	
+	
     
     ProcessCollisions(dt);
     
@@ -307,6 +298,12 @@ Player& GameSession::AddPlayerWithId(Dog& dog, uint64_t id) {
     return it->second;
 }
 
+void GameSession::CopyObserversFrom(const GameSession& other) {
+    for (auto* observer : other.observers_) {
+        observers_.push_back(observer);
+    }
+}
+
 // ================= GAME =================
 GameSession& Game::FindOrCreateSession(const Map* map) {
     auto& ptr = sessions_[map];
@@ -315,9 +312,6 @@ GameSession& Game::FindOrCreateSession(const Map* map) {
         for (auto* observer : observers_) {
             ptr->AddObserver(observer);
         }
-    }
-    for (auto* observer : observers_) {
-        ptr->AddObserver(observer);
     }
     return *ptr;
 }
@@ -343,7 +337,6 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 	
     if (speed_.x == 0.0 && speed_.y == 0.0) return;
 	
-	last_active_time_ = std::chrono::steady_clock::now();
 
     double new_x = pos_.x + speed_.x * dt;
     double new_y = pos_.y + speed_.y * dt;
@@ -380,21 +373,17 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
     if (new_x < min_x) {
         new_x = min_x;
         speed_.x = 0.0;
-        last_active_time_ = std::chrono::steady_clock::now();
     } else if (new_x > max_x) {
         new_x = max_x;
         speed_.x = 0.0;
-        last_active_time_ = std::chrono::steady_clock::now();
     }
 
     if (new_y < min_y) {
         new_y = min_y;
         speed_.y = 0.0;
-        last_active_time_ = std::chrono::steady_clock::now();
     } else if (new_y > max_y) {
         new_y = max_y;
         speed_.y = 0.0;
-        last_active_time_ = std::chrono::steady_clock::now();
     }
 
     pos_ = {new_x, new_y};

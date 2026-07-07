@@ -253,6 +253,10 @@ int main(int argc, char* argv[]) {
         auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
 
+if (db_observer) {
+    game.AddObserver(db_observer.get());
+}
+game.AddObserver(token_remover.get());
         if (args->state_file) {
             state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
         }

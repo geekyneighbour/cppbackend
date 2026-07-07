@@ -302,27 +302,29 @@ std::optional<detail::BookInfoEx>
 View::SelectBook(const std::vector<detail::BookInfoEx> &books_info) const {
   PrintVector(output_, std::vector<detail::BookInfo>(books_info.begin(),
                                                      books_info.end()));
-  output_ << "Enter the book # or empty line to cancel: " << std::endl;
+  output_ << "Enter the book # or author name, or empty line to cancel: " << std::endl;
 
   std::string str;
-  std::getline(input_, str);
-
-  if (str.empty()) {
+  if (!std::getline(input_, str) || str.empty()) {
     return std::nullopt;
   }
 
-  int book_idx;
   try {
-    book_idx = std::stoi(str) - 1;
+    int book_idx = std::stoi(str) - 1;
+    if (book_idx >= 0 && book_idx < static_cast<int>(books_info.size())) {
+      return books_info[book_idx];
+    }
   } catch (std::exception const &) {
-    throw std::runtime_error("Invalid book num");
   }
 
-  if (book_idx < 0 or book_idx >= static_cast<int>(books_info.size())) {
-    throw std::runtime_error("Invalid book num");
+  boost::algorithm::trim(str);
+  for (const auto& book : books_info) {
+    if (book.author_name == str) {
+      return book;
+    }
   }
 
-  return books_info[book_idx];
+  throw std::runtime_error("Invalid selection");
 }
 
 bool View::ShowAuthorBooks() const {
