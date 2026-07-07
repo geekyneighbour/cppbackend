@@ -403,25 +403,27 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
 void Dog::SetAction(const std::string& action, double speed) {
 	
-	if (action.empty()) {
+	last_active_time_ = std::chrono::steady_clock::now();
+    inactive_time_ = 0.0;
+
+    if (action.empty()) {
         speed_ = {0.0, 0.0};
         return;
     }
-    last_active_time_ = std::chrono::steady_clock::now();
-    inactive_time_ = 0.0; 
-	
-    
 
     if (action == "L") {
         speed_ = {-speed, 0.0};
         dir_ = Direction::WEST;
-    } else if (action == "R") {
+    }
+    else if (action == "R") {
         speed_ = {speed, 0.0};
         dir_ = Direction::EAST;
-    } else if (action == "U") {
+    }
+    else if (action == "U") {
         speed_ = {0.0, -speed};
         dir_ = Direction::NORTH;
-    } else if (action == "D") {
+    }
+    else if (action == "D") {
         speed_ = {0.0, speed};
         dir_ = Direction::SOUTH;
     }

@@ -484,7 +484,7 @@ private:
             }
 
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-            if (!player) {
+            if (!player || !player->GetSession()) {
                 return Unauthorized(req, "unknownToken", "Player token has not been found");
             }
             
