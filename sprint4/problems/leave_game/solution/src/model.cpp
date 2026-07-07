@@ -118,25 +118,34 @@ void GameSession::RemoveObserver(IGameObserver* observer) {
 
 void GameSession::CheckDogInactivity(double retirement_time) {
     std::vector<Dog*> dogs_to_retire;
-
+    
     for (auto& dog : dogs_) {
-        if (dog->GetInactiveTime() >= retirement_time) {
+        double inactive = dog->GetInactiveTime();
+        if (inactive >= retirement_time) {
             dogs_to_retire.push_back(dog.get());
         }
     }
-
+    
     for (auto* dog : dogs_to_retire) {
         RetireDog(*dog);
     }
 }
 
 void GameSession::RetireDog(Dog& dog) {
-    auto play_time = dog.GetPlayTime();
+    // Убеждаемся, что собака еще не удалена
+    auto it = std::find_if(dogs_.begin(), dogs_.end(),
+        [&dog](const auto& ptr) { return ptr.get() == &dog; });
+    if (it == dogs_.end()) {
+        return;  // Собака уже удалена
+    }
     
+    // Уведомляем наблюдателей
+    auto play_time = dog.GetPlayTime();
     for (auto* observer : observers_) {
         observer->OnDogRetired(dog.GetName(), dog.GetScore(), play_time);
     }
     
+    // Удаляем игрока
     for (auto it = players_.begin(); it != players_.end(); ) {
         if (it->second.GetDog() == &dog) {
             it = players_.erase(it);
@@ -145,10 +154,11 @@ void GameSession::RetireDog(Dog& dog) {
         }
     }
     
-    auto it = std::find_if(dogs_.begin(), dogs_.end(),
+    // Удаляем собаку
+    auto dog_it = std::find_if(dogs_.begin(), dogs_.end(),
         [&dog](const auto& ptr) { return ptr.get() == &dog; });
-    if (it != dogs_.end()) {
-        dogs_.erase(it);
+    if (dog_it != dogs_.end()) {
+        dogs_.erase(dog_it);
     }
 }
 
@@ -244,15 +254,16 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
 void GameSession::UpdateState(double dt) {
     if (!map_) return;
     
+    // Сначала обновляем позиции собак и время
     for (auto& dog : dogs_) {
         dog->UpdatePosition(dt, map_->GetRoads());
-		dog->AddPlayTime(dt);
+        dog->AddPlayTime(dt);
     }
-	
-	
     
+    // Обрабатываем столкновения
     ProcessCollisions(dt);
     
+    // Генерируем лут
     auto ms_dt = std::chrono::milliseconds(static_cast<long long>(dt * 1000));
     auto& config = map_->GetLootConfig();
     
@@ -277,6 +288,7 @@ void GameSession::UpdateState(double dt) {
         lost_objects_.push_back(LostObject{type, pos, value, next_loot_id_++});
     }
     
+    // Проверяем бездействие собак
     double retirement_time = map_->GetDogRetirementTime();
     if (retirement_time > 0) {
         CheckDogInactivity(retirement_time);
@@ -391,13 +403,13 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 
 void Dog::SetAction(const std::string& action, double speed) {
     last_active_time_ = std::chrono::steady_clock::now();
-    
+    inactive_time_ = 0.0;
+	
     if (action.empty()) {
         speed_ = {0.0, 0.0};
         return;
     }
 	
-	inactive_time_ = 0.0;
 
     if (action == "L") {
         speed_ = {-speed, 0.0};

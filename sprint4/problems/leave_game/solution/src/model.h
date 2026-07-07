@@ -417,16 +417,21 @@ public:
     
     std::chrono::steady_clock::time_point GetJoinTime() const { return join_time_; }
     std::chrono::steady_clock::time_point GetLastActiveTime() const { return last_active_time_; }
-    void UpdateLastActiveTime() { last_active_time_ = std::chrono::steady_clock::now(); }
+    void UpdateLastActiveTime() {
+        last_active_time_ = std::chrono::steady_clock::now();
+        inactive_time_ = 0.0;
+    }
     
     void AddPlayTime(double dt) {
     play_time_ += dt;
 
-    if (speed_.x == 0.0 && speed_.y == 0.0) {
-        inactive_time_ += dt;
-    } else {
-        inactive_time_ = 0.0;
-    }
+    const double EPSILON = 1e-9;
+        if (std::abs(speed_.x) < EPSILON && std::abs(speed_.y) < EPSILON) {
+            inactive_time_ += dt;
+        } else {
+            inactive_time_ = 0.0;
+            last_active_time_ = std::chrono::steady_clock::now();
+        }
 }
 
 double GetPlayTime() const {
@@ -455,6 +460,7 @@ private:
     std::chrono::steady_clock::time_point last_active_time_;
 	double play_time_ = 0.0;
 	double inactive_time_ = 0.0;
+	static constexpr double EPSILON_ = 1e-9;
 };
 
 class GameSession;

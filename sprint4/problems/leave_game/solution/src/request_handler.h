@@ -98,31 +98,37 @@ public:
     virtual ~RequestHandler() = default;
         
     bool IsValidToken(const std::string& token) {
-        if (token.size() != 32)
-            return false;
+    if (token.size() != 32)
+        return false;
 
-        for (char c : token) {
-            if (!std::isxdigit(static_cast<unsigned char>(c)))
-                return false;
-        }
-
-        auto* player = tokens_.FindPlayerByToken(token);
-        if (!player) return false;
-        
-        auto* session = player->GetSession();
-        if (!session) return false;
-        
-        auto* dog = player->GetDog();
-        if (!dog) {
-            tokens_.RemovePlayer(token);
+    for (char c : token) {
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
             return false;
-        }
-        
-        const auto& dogs = session->GetDogs();
-        auto it = std::find_if(dogs.begin(), dogs.end(),
-            [dog](const auto& ptr) { return ptr.get() == dog; });
-        return it != dogs.end();
     }
+
+    auto* player = tokens_.FindPlayerByToken(token);
+    if (!player) return false;
+    
+    auto* session = player->GetSession();
+    if (!session) return false;
+    
+    auto* dog = player->GetDog();
+    if (!dog) {
+        tokens_.RemovePlayer(token);
+        return false;
+    }
+    
+    // Проверяем, что собака все еще существует в сессии
+    const auto& dogs = session->GetDogs();
+    auto it = std::find_if(dogs.begin(), dogs.end(),
+        [dog](const auto& ptr) { return ptr.get() == dog; });
+    if (it == dogs.end()) {
+        tokens_.RemovePlayer(token);
+        return false;
+    }
+    
+    return true;
+}
 
     template <typename Body, typename Alloc, typename Send, typename Endpoint>
     void operator()(http::request<Body, http::basic_fields<Alloc>>&& req,
