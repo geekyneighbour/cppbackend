@@ -181,8 +181,11 @@ public:
         auto& tokens_map = handler_.GetTokensMutable();
         std::vector<std::string> tokens_to_remove;
         for (const auto& [token, player] : tokens_map) {
-            if (player && player->GetDog() && player->GetDog()->GetName() == name) {
-                tokens_to_remove.push_back(token);
+            if (player && player->GetDog()) {
+                const auto& dog_name = player->GetDog()->GetName();
+                if (dog_name == name) {
+                    tokens_to_remove.push_back(token);
+                }
             }
         }
         for (const auto& token : tokens_to_remove) {
@@ -247,16 +250,15 @@ int main(int argc, char* argv[]) {
         if (db_url && strlen(db_url) > 0) {
             db_observer = std::make_shared<DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
-            game.AddObserver(db_observer.get());
+			if (db_observer) {
+    game.AddObserver(db_observer.get());
+}
         }
         
         auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
 
-if (db_observer) {
-    game.AddObserver(db_observer.get());
-}
-game.AddObserver(token_remover.get());
+
         if (args->state_file) {
             state_saver::LoadState(game, handler->GetTokensMutable(), fs::path(*args->state_file));
         }
