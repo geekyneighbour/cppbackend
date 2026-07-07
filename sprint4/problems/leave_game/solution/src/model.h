@@ -380,7 +380,12 @@ public:
         }
         speed_ = speed; 
     }
-    void SetSpeed(double vx, double vy) { SetSpeed({vx, vy}); }
+    void SetSpeed(Speed speed) { 
+    if (speed.x != 0.0 || speed.y != 0.0) {
+        inactive_time_ = 0.0;
+    }
+    speed_ = speed; 
+}
     void SetDirection(Direction dir) { dir_ = dir; }
     
     void SetAction(const std::string& action, double speed);

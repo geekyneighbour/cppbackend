@@ -396,6 +396,8 @@ void Dog::SetAction(const std::string& action, double speed) {
         speed_ = {0.0, 0.0};
         return;
     }
+	
+	inactive_time_ = 0.0;
 
     if (action == "L") {
         speed_ = {-speed, 0.0};
