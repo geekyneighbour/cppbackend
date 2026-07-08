@@ -91,7 +91,6 @@ Dog& GameSession::AddDog(std::string_view name, bool randomize) {
     auto new_dog = std::make_unique<Dog>(std::string(name));
     new_dog->SetPos(spawn_pos.x, spawn_pos.y);
     new_dog->SetBagCapacity(map_->GetBagCapacity());
-    new_dog->UpdateLastActiveTime();
     
     dogs_.push_back(std::move(new_dog));
     return *dogs_.back();
@@ -410,7 +409,6 @@ void Dog::SetAction(const std::string& action, double speed) {
         return;
     }
 	
-	last_active_time_ = std::chrono::steady_clock::now();
 	has_started_playing_ = true;
     inactive_time_ = 0.0;
 

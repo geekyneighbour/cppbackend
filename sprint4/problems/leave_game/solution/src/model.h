@@ -349,9 +349,7 @@ public:
         : id_(std::move(id))
         , name_(std::move(name))
         , pos_(pos)
-        , bag_capacity_(bag_cap)
-        , join_time_(std::chrono::steady_clock::now())
-        , last_active_time_(std::chrono::steady_clock::now()) {
+        , bag_capacity_(bag_cap) {
         bag_.reserve(bag_cap);
     }
 
@@ -360,9 +358,7 @@ public:
         , id_(++next_id_)
         , pos_{0.0, 0.0}
         , speed_{0.0, 0.0}
-        , dir_(Direction::NORTH)
-        , join_time_(std::chrono::steady_clock::now())
-        , last_active_time_(std::chrono::steady_clock::now()) {
+        , dir_(Direction::NORTH) {
     }
 
     const Id& GetId() const noexcept { return id_; }
@@ -411,9 +407,6 @@ public:
     void SetScore(int score) { score_ = score; }
 	geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
-    
-    std::chrono::steady_clock::time_point GetJoinTime() const { return join_time_; }
-    std::chrono::steady_clock::time_point GetLastActiveTime() const { return last_active_time_; }
     
     void AddPlayTime(double dt)
 {
