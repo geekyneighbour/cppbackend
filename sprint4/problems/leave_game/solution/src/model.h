@@ -414,21 +414,18 @@ public:
     
     std::chrono::steady_clock::time_point GetJoinTime() const { return join_time_; }
     std::chrono::steady_clock::time_point GetLastActiveTime() const { return last_active_time_; }
-    void UpdateLastActiveTime() {
-        last_active_time_ = std::chrono::steady_clock::now();
-        inactive_time_ = 0.0;
-    }
     
-    void AddPlayTime(double dt) {
+    void AddPlayTime(double dt)
+{
     play_time_ += dt;
 
-    const double EPSILON = 1e-9;
-        if (std::abs(speed_.x) < EPSILON && std::abs(speed_.y) < EPSILON) {
+    if (std::abs(speed_.x) < EPSILON_ &&
+        std::abs(speed_.y) < EPSILON_) {
+
         inactive_time_ += dt;
     } else {
-		inactive_time_ = 0;
-	}
-	
+        inactive_time_ = 0.0;
+    }
 }
 
 double GetPlayTime() const {
@@ -453,8 +450,6 @@ private:
     size_t bag_capacity_ = 3;
     int score_ = 0;
     
-    std::chrono::steady_clock::time_point join_time_;
-    std::chrono::steady_clock::time_point last_active_time_;
 	double play_time_ = 0.0;
 	double inactive_time_ = 0.0;
 	static constexpr double EPSILON_ = 1e-9;
