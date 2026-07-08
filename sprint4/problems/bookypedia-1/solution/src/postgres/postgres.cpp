@@ -99,6 +99,7 @@ std::vector<ui::detail::BookInfo> BookRepositoryImpl::GetBooksByAuthor(const std
 Database::Database(pqxx::connection connection)
     : connection_{std::move(connection)} {
     pqxx::work work{connection_};
+	EnsureTablesExist();
     
     // Create authors table
     work.exec(R"(
@@ -118,6 +119,40 @@ CREATE TABLE IF NOT EXISTS books (
     CONSTRAINT fk_author FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
 );
 )"_zv);
+    
+    work.commit();
+}
+
+void Database::EnsureTablesExist() {
+    pqxx::work work{connection_};
+
+    auto result = work.exec(
+        "SELECT EXISTS ("
+        "SELECT 1 FROM information_schema.tables "
+        "WHERE table_name = 'authors'"
+        ")"
+    );
+    
+    bool authors_exists = result[0][0].as<bool>();
+    
+    if (!authors_exists) {
+        work.exec(R"(
+            CREATE TABLE IF NOT EXISTS authors (
+                id UUID CONSTRAINT author_id_constraint PRIMARY KEY,
+                name varchar(100) UNIQUE NOT NULL
+            );
+        )");
+        
+        work.exec(R"(
+            CREATE TABLE IF NOT EXISTS books (
+                id UUID CONSTRAINT book_id_constraint PRIMARY KEY,
+                author_id UUID NOT NULL,
+                title varchar(100) NOT NULL,
+                publication_year integer NOT NULL,
+                CONSTRAINT fk_author FOREIGN KEY (author_id) REFERENCES authors(id) ON DELETE CASCADE
+            );
+        )");
+    }
     
     work.commit();
 }

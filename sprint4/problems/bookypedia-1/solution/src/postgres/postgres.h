@@ -44,6 +44,7 @@ public:
     BookRepositoryImpl& GetBooks() & { return books_; }
 
 private:
+	void EnsureTablesExist();
     pqxx::connection connection_;
     AuthorRepositoryImpl authors_{connection_};
     BookRepositoryImpl books_{connection_};
