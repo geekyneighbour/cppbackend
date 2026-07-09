@@ -408,17 +408,17 @@ public:
 	geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
     
-    void AddPlayTime(double dt)
-{
+    void Dog::AddPlayTime(double dt) {
     play_time_ += dt;
+
 
     if (!has_started_playing_) {
         inactive_time_ = 0.0;
         return;
     }
 
-    if (std::abs(speed_.x) < EPSILON_ &&
-        std::abs(speed_.y) < EPSILON_) {
+
+    if (std::abs(speed_.x) < EPSILON_ && std::abs(speed_.y) < EPSILON_) {
         inactive_time_ += dt;
     } else {
         inactive_time_ = 0.0;
