@@ -6,4 +6,4 @@ class Author;
 
 class AuthorRepository;
 
-}  // namespace domain
+} // namespace domain

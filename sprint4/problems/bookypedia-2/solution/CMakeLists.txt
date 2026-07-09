@@ -18,13 +18,10 @@ add_library(libbookypedia STATIC
 	src/ui/view.cpp
 	src/ui/view.h
 	src/app/use_cases.h
-	src/app/use_cases.cpp
 	src/app/use_cases_impl.cpp
 	src/app/use_cases_impl.h
 	src/domain/author.h
 	src/domain/author_fwd.h
-	src/domain/book.h
-	src/domain/book_fwd.h
 	src/util/tagged.h
 	src/util/tagged_uuid.cpp
 	src/util/tagged_uuid.h

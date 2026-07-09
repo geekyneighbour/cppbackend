@@ -1,50 +1,7 @@
 #pragma once
 
+#include "../ui/view.h"
 #include <string>
-#include <vector>
-#include <optional>
-#include <set>
-#include <ostream>
-
-namespace ui {
-namespace detail {
-
-struct AddBookParams {
-  std::string title;
-  std::string author_id;
-  int publication_year = 0;
-  std::set<std::string> tags;
-};
-
-struct EditBookParams {
-  std::string id;
-  std::string title;
-  int publication_year = 0;
-  std::set<std::string> tags;
-};
-
-struct AuthorInfo {
-  std::string id;
-  std::string name;
-};
-
-struct BookInfo {
-  std::string title;
-  int publication_year;
-  std::string author_name;
-};
-
-struct BookInfoEx : public BookInfo {
-  std::string tags;
-  std::string id;
-};
-
-std::ostream &operator<<(std::ostream &out, const AuthorInfo &author);
-std::ostream &operator<<(std::ostream &out, const BookInfo &book);
-std::ostream &operator<<(std::ostream &out, const BookInfoEx &book);
-
-} // namespace detail
-} // namespace ui
 
 namespace app {
 
