@@ -1,0 +1,1 @@
+conan install . --build=missing -s build_type=Debug -s compiler=gcc -s compiler.version=11 -s compiler.libcxx=libstdc++11 -if=./build/ && cmake -D CMAKE_CXX_COMPILER=/usr/bin/g++-11 -D CMAKE_BUILD_TYPE=Debug -D CMAKE_CXX_FLAGS="-g -O0" -S . -B ./build && cmake --build ./build -j 8

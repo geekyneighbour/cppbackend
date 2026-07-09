@@ -11,8 +11,7 @@ namespace bookypedia {
 using namespace std::literals;
 
 Application::Application(const AppConfig& config)
-    : db_{pqxx::connection{config.db_url}}
-    , use_cases_{db_.GetAuthors(), db_.GetBooks()} {
+    : db_{pqxx::connection{config.db_url}} {
 }
 
 void Application::Run() {
@@ -21,7 +20,7 @@ void Application::Run() {
         menu.ShowInstructions();
         return true;
     });
-    menu.AddAction("Exit"s, {}, "Exit program"s, [](std::istream&) {
+    menu.AddAction("Exit"s, {}, "Exit program"s, [&menu](std::istream&) {
         return false;
     });
     ui::View view{menu, use_cases_, std::cin, std::cout};

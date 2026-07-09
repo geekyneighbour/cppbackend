@@ -1,4 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
+#include <string>
+#include <vector>
 
 #include "../src/app/use_cases_impl.h"
 #include "../src/domain/author.h"
@@ -7,55 +9,54 @@
 namespace {
 
 struct MockAuthorRepository : domain::AuthorRepository {
-    std::vector<domain::Author> saved_authors;
+  std::vector<domain::Author> saved_authors;
 
-    void Save(const domain::Author& author) override {
-        saved_authors.emplace_back(author);
-    }
-    
-    std::vector<ui::detail::AuthorInfo> GetAllAuthors() override {
-        return {};
-    }
+  void Save(const domain::Author &author) override {
+    saved_authors.emplace_back(author);
+  }
+
+  std::vector<ui::detail::AuthorInfo> ShowAuthors() override {
+    return std::vector<ui::detail::AuthorInfo>{};
+  };
 };
 
 struct MockBookRepository : domain::BookRepository {
-    std::vector<domain::Book> saved_books;
-    std::vector<std::string> saved_author_ids;
+  std::vector<domain::Book> saved_books;
 
-    void Save(const domain::Book& book, const std::string& author_id) override {
-        saved_books.emplace_back(book);
-        saved_author_ids.push_back(author_id);
-    }
-    
-    std::vector<ui::detail::BookInfo> GetAllBooks() override {
-        return {};
-    }
-    
-    std::vector<ui::detail::BookInfo> GetBooksByAuthor(const std::string& author_id) override {
-        return {};
-    }
+  void Save(const domain::Book &book, const std::string &author_id) override {
+    saved_books.emplace_back(book);
+  }
+
+  std::vector<ui::detail::BookInfo> ShowBooks() override {
+    return std::vector<ui::detail::BookInfo>{};
+  };
+
+  std::vector<ui::detail::BookInfo>
+  ShowAuthorBooks(const std::string &author_id) override {
+    return std::vector<ui::detail::BookInfo>{};
+  };
 };
 
 struct Fixture {
-    MockAuthorRepository authors;
-    MockBookRepository books;
+  MockAuthorRepository authors;
+  MockBookRepository books;
 };
 
-}  // namespace
+} // namespace
 
 SCENARIO_METHOD(Fixture, "Book Adding") {
-    GIVEN("Use cases") {
-        app::UseCasesImpl use_cases{authors, books};
+  GIVEN("Use cases") {
+    app::UseCasesImpl use_cases{authors, books};
 
-        WHEN("Adding an author") {
-            const auto author_name = "Joanne Rowling";
-            use_cases.AddAuthor(author_name);
+    WHEN("Adding an author") {
+      const auto author_name = "Joanne Rowling";
+      use_cases.AddAuthor(author_name);
 
-            THEN("author with the specified name is saved to repository") {
-                REQUIRE(authors.saved_authors.size() == 1);
-                CHECK(authors.saved_authors.at(0).GetName() == author_name);
-                CHECK(authors.saved_authors.at(0).GetId() != domain::AuthorId{});
-            }
-        }
+      THEN("author with the specified name is saved to repository") {
+        REQUIRE(authors.saved_authors.size() == 1);
+        CHECK(authors.saved_authors.at(0).GetName() == author_name);
+        CHECK(authors.saved_authors.at(0).GetId() != domain::AuthorId{});
+      }
     }
+  }
 }
