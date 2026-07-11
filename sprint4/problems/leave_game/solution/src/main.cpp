@@ -178,20 +178,20 @@ public:
     TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
     
     void OnDogRetired(const std::string& name, int score, double play_time) override {
-    auto& tokens_map = handler_.GetTokensMutable();
-    std::vector<std::string> tokens_to_remove;
-    for (const auto& [token, player] : tokens_map) {
-        if (player && player->GetDog()) {
-            const auto& dog_name = player->GetDog()->GetName();
-            if (dog_name == name) {
-                tokens_to_remove.push_back(token);
+        auto& tokens_map = handler_.GetTokensMutable();
+        std::vector<std::string> tokens_to_remove;
+        for (const auto& [token, player] : tokens_map) {
+            if (player && player->GetDog()) {
+                const auto& dog_name = player->GetDog()->GetName();
+                if (dog_name == name) {
+                    tokens_to_remove.push_back(token);
+                }
             }
         }
+        for (const auto& token : tokens_to_remove) {
+            handler_.RemoveToken(token);
+        }
     }
-    for (const auto& token : tokens_to_remove) {
-        handler_.RemoveToken(token);
-    }
-}
     
 private:
     http_handler::RequestHandler& handler_;
@@ -254,10 +254,6 @@ int main(int argc, char* argv[]) {
     game.AddObserver(db_observer.get());
 }
         }
-		auto records_handler = std::make_shared<RecordsRequestHandler>(args->www_root, strand, game);
-if (db_observer) {
-    records_handler->SetObserver(db_observer);
-}
         
         auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
