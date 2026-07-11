@@ -125,11 +125,7 @@ public:
         return false;
     }
     
-    double retirement_time = session->GetMap()->GetDogRetirementTime();
-    if (dog->GetInactiveTime() >= retirement_time) {
-        return false;  
-    }
-    
+
     return true;
 }
 
@@ -486,7 +482,7 @@ private:
                 return Unauthorized(req, "invalidToken", "Invalid token");
             }
 
-            model::Player* player = tokens_.FindPlayerByToken(*token_opt);
+             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
     if (!player || !player->GetSession()) {
         return Unauthorized(req, "unknownToken", "Player token has not been found");
     }
@@ -497,9 +493,11 @@ private:
         return Unauthorized(req, "invalidToken", "Player has retired");
     }
     
- 
+    // ✅ Проверяем бездействие ЗДЕСЬ
     double retirement_time = player->GetSession()->GetMap()->GetDogRetirementTime();
-    if (dog->GetInactiveTime() >= retirement_time) {
+    if (dog->HasStartedPlaying() && dog->GetInactiveTime() >= retirement_time) {
+        // Собака ушла на пенсию, но мы не удаляем токен сейчас
+        // Это сделает GameSession::CheckDogInactivity
         return Unauthorized(req, "invalidToken", "Player has retired");
     }
 
@@ -579,9 +577,21 @@ private:
             }
 
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-            if (!player) {
-                return Unauthorized(req, "unknownToken", "Player token has not been found");
-            }
+    if (!player) {
+        return Unauthorized(req, "unknownToken", "Player token has not been found");
+    }
+    
+    // ✅ Проверяем, не ушла ли собака на пенсию
+    model::Dog* dog = player->GetDog();
+    if (!dog) {
+        tokens_.RemovePlayer(*token_opt);
+        return Unauthorized(req, "invalidToken", "Player has retired");
+    }
+    
+    double retirement_time = player->GetSession()->GetMap()->GetDogRetirementTime();
+    if (dog->HasStartedPlaying() && dog->GetInactiveTime() >= retirement_time) {
+        return Unauthorized(req, "invalidToken", "Player has retired");
+    }
 
             try {
                 auto body = json::parse(req.body()).as_object();

@@ -119,8 +119,9 @@ void GameSession::CheckDogInactivity(double retirement_time) {
     std::vector<Dog*> dogs_to_retire;
     
     for (auto& dog : dogs_) {
+        
         double inactive = dog->GetInactiveTime();
-        if (inactive >= retirement_time - 1e-9) { 
+        if (dog->HasStartedPlaying() && inactive >= retirement_time) {
             dogs_to_retire.push_back(dog.get());
         }
     }
@@ -131,11 +132,10 @@ void GameSession::CheckDogInactivity(double retirement_time) {
 }
 
 void GameSession::RetireDog(Dog& dog) {
-    // Убеждаемся, что собака еще не удалена
     auto it = std::find_if(dogs_.begin(), dogs_.end(),
         [&dog](const auto& ptr) { return ptr.get() == &dog; });
     if (it == dogs_.end()) {
-        return;  // Собака уже удалена
+        return;  
     }
     
     // Уведомляем наблюдателей
@@ -345,24 +345,22 @@ void Game::UpdateAllSessions(double dt) {
 // ================= DOG =================
 void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
 	static constexpr double DOG_HALF_WIDTH = 0.4;
-	
+    
     if (speed_.x == 0.0 && speed_.y == 0.0) return;
-	
-
+    
     double new_x = pos_.x + speed_.x * dt;
     double new_y = pos_.y + speed_.y * dt;
-
+    
     double min_x = pos_.x, max_x = pos_.x;
     double min_y = pos_.y, max_y = pos_.y;
-
     bool found_road = false;
-
+    
     for (const auto& road : roads) {
         double road_min_x = std::min(road.GetStart().x, road.GetEnd().x) - DOG_HALF_WIDTH;
         double road_max_x = std::max(road.GetStart().x, road.GetEnd().x) + DOG_HALF_WIDTH;
         double road_min_y = std::min(road.GetStart().y, road.GetEnd().y) - DOG_HALF_WIDTH;
         double road_max_y = std::max(road.GetStart().y, road.GetEnd().y) + DOG_HALF_WIDTH;
-
+        
         if (pos_.x >= road_min_x && pos_.x <= road_max_x &&
             pos_.y >= road_min_y && pos_.y <= road_max_y) {
             
@@ -378,40 +376,44 @@ void Dog::UpdatePosition(double dt, const std::vector<Road>& roads) {
             }
         }
     }
-
+    
     if (!found_road) return;
-
+    
+    bool stopped = false;
+    
     if (new_x < min_x) {
         new_x = min_x;
         speed_.x = 0.0;
+        stopped = true;
     } else if (new_x > max_x) {
         new_x = max_x;
         speed_.x = 0.0;
+        stopped = true;
     }
-
+    
     if (new_y < min_y) {
         new_y = min_y;
         speed_.y = 0.0;
+        stopped = true;
     } else if (new_y > max_y) {
         new_y = max_y;
         speed_.y = 0.0;
+        stopped = true;
     }
-
+    
     pos_ = {new_x, new_y};
 }
 
 void Dog::SetAction(const std::string& action, double speed) {
-	
-	
-
+    has_started_playing_ = true;
+    
     if (action.empty()) {
         speed_ = {0.0, 0.0};
         inactive_time_ = 0.0;
         return;
     }
     
-    has_started_playing_ = true;
-    inactive_time_ = 0.0; 
+    inactive_time_ = 0.0;
     
     if (action == "L") {
         speed_ = {-speed, 0.0};

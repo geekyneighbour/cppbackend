@@ -411,12 +411,18 @@ public:
     void AddPlayTime(double dt) {
     play_time_ += dt;
     
-    if (has_started_playing_ && 
-        std::abs(speed_.x) < EPSILON_ && 
-        std::abs(speed_.y) < EPSILON_) {
-        inactive_time_ += dt;
-    } else if (has_started_playing_) {
-        inactive_time_ = 0.0;
+
+    if (!has_started_playing_) {
+        return;
+    }
+    
+
+    bool is_moving = std::abs(speed_.x) > EPSILON_ || std::abs(speed_.y) > EPSILON_;
+    
+    if (is_moving) {
+        inactive_time_ = 0.0;  // Сброс при движении
+    } else {
+        inactive_time_ += dt;   // Накопление бездействия
     }
 }
 
@@ -427,6 +433,8 @@ double GetPlayTime() const {
 double GetInactiveTime() const {
     return inactive_time_;
 }
+
+bool HasStartedPlaying() const { return has_started_playing_; }
 	
 	
 
