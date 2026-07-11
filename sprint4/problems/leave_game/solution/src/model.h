@@ -408,7 +408,7 @@ public:
 	geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
     
-    void Dog::AddPlayTime(double dt) {
+    void AddPlayTime(double dt) {
     play_time_ += dt;
     
     if (has_started_playing_ && 
