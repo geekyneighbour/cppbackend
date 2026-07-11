@@ -120,7 +120,7 @@ void GameSession::CheckDogInactivity(double retirement_time) {
     
     for (auto& dog : dogs_) {
         double inactive = dog->GetInactiveTime();
-        if (inactive >= retirement_time) {
+        if (inactive >= retirement_time - 1e-9) { 
             dogs_to_retire.push_back(dog.get());
         }
     }
@@ -406,12 +406,13 @@ void Dog::SetAction(const std::string& action, double speed) {
 
     if (action.empty()) {
         speed_ = {0.0, 0.0};
+        inactive_time_ = 0.0;
         return;
     }
-	
-	has_started_playing_ = true;
-    inactive_time_ = 0.0;
-
+    
+    has_started_playing_ = true;
+    inactive_time_ = 0.0; 
+    
     if (action == "L") {
         speed_ = {-speed, 0.0};
         dir_ = Direction::WEST;
