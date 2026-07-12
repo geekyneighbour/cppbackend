@@ -408,21 +408,16 @@ public:
 	geom::Point2D GetPosition() const { return pos_; }
     const BagContent& GetBagContent() const { return bag_; }
     
-    void AddPlayTime(double dt) {
+    void AddPlayTime(double dt)
+{
     play_time_ += dt;
-    
 
-    if (!has_started_playing_) {
-        return;
-    }
-    
+    if (std::abs(speed_.x) < EPSILON_ &&
+        std::abs(speed_.y) < EPSILON_) {
 
-    bool is_moving = std::abs(speed_.x) > EPSILON_ || std::abs(speed_.y) > EPSILON_;
-    
-    if (is_moving) {
-        inactive_time_ = 0.0;  // Сброс при движении
+        inactive_time_ += dt;
     } else {
-        inactive_time_ += dt;   // Накопление бездействия
+        inactive_time_ = 0.0;
     }
 }
 
@@ -433,8 +428,6 @@ double GetPlayTime() const {
 double GetInactiveTime() const {
     return inactive_time_;
 }
-
-bool HasStartedPlaying() const { return has_started_playing_; }
 	
 	
 

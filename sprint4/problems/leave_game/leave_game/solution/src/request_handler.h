@@ -98,12 +98,14 @@ public:
     virtual ~RequestHandler() = default;
         
     bool IsValidToken(const std::string& token) {
-    if (token.size() != 32) return false;
-    
+    if (token.size() != 32)
+        return false;
+
     for (char c : token) {
-        if (!std::isxdigit(static_cast<unsigned char>(c))) return false;
+        if (!std::isxdigit(static_cast<unsigned char>(c)))
+            return false;
     }
-    
+
     auto* player = tokens_.FindPlayerByToken(token);
     if (!player) return false;
     
@@ -116,7 +118,7 @@ public:
         return false;
     }
     
-
+    // Проверяем, что собака все еще существует в сессии
     const auto& dogs = session->GetDogs();
     auto it = std::find_if(dogs.begin(), dogs.end(),
         [dog](const auto& ptr) { return ptr.get() == dog; });
@@ -125,7 +127,6 @@ public:
         return false;
     }
     
-
     return true;
 }
 
@@ -482,24 +483,16 @@ private:
                 return Unauthorized(req, "invalidToken", "Invalid token");
             }
 
-             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-    if (!player || !player->GetSession()) {
-        return Unauthorized(req, "unknownToken", "Player token has not been found");
-    }
-    
-    model::Dog* dog = player->GetDog();
-    if (!dog) {
-        tokens_.RemovePlayer(*token_opt);
-        return Unauthorized(req, "invalidToken", "Player has retired");
-    }
-    
-    // ✅ Проверяем бездействие ЗДЕСЬ
-    double retirement_time = player->GetSession()->GetMap()->GetDogRetirementTime();
-    if (dog->HasStartedPlaying() && dog->GetInactiveTime() >= retirement_time) {
-        // Собака ушла на пенсию, но мы не удаляем токен сейчас
-        // Это сделает GameSession::CheckDogInactivity
-        return Unauthorized(req, "invalidToken", "Player has retired");
-    }
+            model::Player* player = tokens_.FindPlayerByToken(*token_opt);
+            if (!player || !player->GetSession()) {
+                return Unauthorized(req, "unknownToken", "Player token has not been found");
+            }
+            
+            model::Dog* dog = player->GetDog();
+            if (!dog) {
+                tokens_.RemovePlayer(*token_opt);
+                return Unauthorized(req, "invalidToken", "Player has retired");
+            }
 
             model::GameSession* session = player->GetSession();
             json::object players_obj;
@@ -577,21 +570,9 @@ private:
             }
 
             model::Player* player = tokens_.FindPlayerByToken(*token_opt);
-    if (!player) {
-        return Unauthorized(req, "unknownToken", "Player token has not been found");
-    }
-    
-    // ✅ Проверяем, не ушла ли собака на пенсию
-    model::Dog* dog = player->GetDog();
-    if (!dog) {
-        tokens_.RemovePlayer(*token_opt);
-        return Unauthorized(req, "invalidToken", "Player has retired");
-    }
-    
-    double retirement_time = player->GetSession()->GetMap()->GetDogRetirementTime();
-    if (dog->HasStartedPlaying() && dog->GetInactiveTime() >= retirement_time) {
-        return Unauthorized(req, "invalidToken", "Player has retired");
-    }
+            if (!player) {
+                return Unauthorized(req, "unknownToken", "Player token has not been found");
+            }
 
             try {
                 auto body = json::parse(req.body()).as_object();
