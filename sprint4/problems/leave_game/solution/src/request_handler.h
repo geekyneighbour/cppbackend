@@ -667,7 +667,6 @@ private:
 
                 double time_delta_sec = static_cast<double>(time_delta_ms) / 1000.0;
         
-                game_.UpdateAllSessions(time_delta_sec);
         
                 if (save_callback_) {
                     save_callback_(std::chrono::milliseconds(time_delta_ms));
