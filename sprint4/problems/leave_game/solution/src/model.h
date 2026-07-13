@@ -540,49 +540,6 @@ private:
 
 PointDouble GetRandomPointOnRoad(const Road& road);
 
-class DatabaseObserver : public model::IGameObserver {
-public:
-    explicit DatabaseObserver(const std::string& db_url) 
-        : db_url_(db_url) {
-        InitDatabase();
-    }
-
-    void OnDogRetired(const std::string& name, int score, double play_time) override;
-    
-    boost::json::array GetRecords(int start, int maxItems) override;
-
-private:
-    std::string db_url_;
-    
-    void InitDatabase();
-};
-
-class TokenRemoverObserver : public model::IGameObserver {
-public:
-    explicit TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
-    
-    void OnDogRetired(const std::string& name, int score, double play_time) override;
-    
-private:
-    http_handler::RequestHandler& handler_;
-};
-
-class RecordsRequestHandler : public http_handler::RequestHandler {
-public:
-    RecordsRequestHandler(fs::path root, Strand strand, model::Game& game)
-        : http_handler::RequestHandler(std::move(root), strand, game) {}
-    
-    void SetObserver(std::shared_ptr<DatabaseObserver> observer) {
-        observer_ = observer;
-    }
-    
-    boost::json::array GetRecords(int start, int maxItems) override;
-	
-    
-private:
-    std::shared_ptr<DatabaseObserver> observer_;
-};
-
 }  // namespace model
 
 namespace boost {

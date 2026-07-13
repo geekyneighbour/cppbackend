@@ -549,49 +549,4 @@ bool Road::IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDT
         if (across < min_across) across = min_across;
         if (across > max_across) across = max_across;
     }
-	
-	void DatabaseObserver::OnDogRetired(const std::string& name, int score, double play_time) override {
-        try {
-            pqxx::connection conn(db_url_);
-            pqxx::work txn(conn);
-            
-            txn.exec_params(
-                "INSERT INTO retired_players (name, score, play_time) VALUES ($1, $2, $3)",
-                name, score, play_time
-            );
-            
-            txn.commit();
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to insert retired player record: " << e.what() << std::endl;
-        }
-    }
-	
-	boost::json::array DatabaseObserver::GetRecords(int start, int maxItems) override {
-        boost::json::array result;
-        try {
-            pqxx::connection conn(db_url_);
-            pqxx::work txn(conn);
-            
-            pqxx::result res = txn.exec_params(
-                "SELECT name, score, play_time FROM retired_players "
-                "ORDER BY score DESC, play_time ASC, name ASC "
-                "LIMIT $1 OFFSET $2",
-                maxItems, start
-            );
-            
-            for (const auto& row : res) {
-                boost::json::object record;
-                record["name"] = row["name"].c_str();
-                record["score"] = row["score"].as<int>();
-                record["playTime"] = row["play_time"].as<double>();
-                result.push_back(record);
-            }
-            
-            txn.commit();
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to get records: " << e.what() << std::endl;
-        }
-        return result;
-    }
-
 } // namespace model
