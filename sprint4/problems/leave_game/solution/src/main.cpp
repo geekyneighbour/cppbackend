@@ -116,19 +116,19 @@ int main(int argc, char* argv[]) {
 
         auto strand = net::make_strand(ioc);
 
-        auto handler = std::make_shared<RecordsRequestHandler>(args->www_root, strand, game);
+        auto handler = std::make_shared<http_hanlder::RecordsRequestHandler>(args->www_root, strand, game);
         
-        std::shared_ptr<handler::DatabaseObserver> db_observer;
+        std::shared_ptr<http_hanlder::DatabaseObserver> db_observer;
         const char* db_url = std::getenv("GAME_DB_URL");
         if (db_url && strlen(db_url) > 0) {
-            db_observer = std::make_shared<handler::DatabaseObserver>(db_url);
+            db_observer = std::make_shared<http_hanlder::DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
 			if (db_observer) {
     game.AddObserver(db_observer.get());
 }
         }
         
-        auto token_remover = std::make_shared<handler::TokenRemoverObserver>(*handler);
+        auto token_remover = std::make_shared<http_hanlder::TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
 
 
