@@ -91,133 +91,6 @@ std::optional<Args> ParseCommandLine(int argc, const char* const argv[]) {
     return args;
 }
 
-// Наблюдатель для записи рекордов в PostgreSQL
-class DatabaseObserver : public model::IGameObserver {
-public:
-    DatabaseObserver(const std::string& db_url) 
-        : db_url_(db_url) {
-        InitDatabase();
-    }
-
-    void OnDogRetired(const std::string& name, int score, double play_time) override {
-        try {
-            pqxx::connection conn(db_url_);
-            pqxx::work txn(conn);
-            
-            txn.exec_params(
-                "INSERT INTO retired_players (name, score, play_time) VALUES ($1, $2, $3)",
-                name, score, play_time
-            );
-            
-            txn.commit();
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to insert retired player record: " << e.what() << std::endl;
-        }
-    }
-    
-    boost::json::array GetRecords(int start, int maxItems) override {
-        boost::json::array result;
-        try {
-            pqxx::connection conn(db_url_);
-            pqxx::work txn(conn);
-            
-            pqxx::result res = txn.exec_params(
-                "SELECT name, score, play_time FROM retired_players "
-                "ORDER BY score DESC, play_time ASC, name ASC "
-                "LIMIT $1 OFFSET $2",
-                maxItems, start
-            );
-            
-            for (const auto& row : res) {
-                boost::json::object record;
-                record["name"] = row["name"].c_str();
-                record["score"] = row["score"].as<int>();
-                record["playTime"] = row["play_time"].as<double>();
-                result.push_back(record);
-            }
-            
-            txn.commit();
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to get records: " << e.what() << std::endl;
-        }
-        return result;
-    }
-
-private:
-    std::string db_url_;
-    
-    void InitDatabase() {
-        try {
-            pqxx::connection conn(db_url_);
-            pqxx::work txn(conn);
-            
-            txn.exec(
-                "CREATE TABLE IF NOT EXISTS retired_players ("
-                "id SERIAL PRIMARY KEY,"
-                "name TEXT NOT NULL,"
-                "score INTEGER NOT NULL,"
-                "play_time DOUBLE PRECISION NOT NULL"
-                ")"
-            );
-            
-            txn.exec(
-                "CREATE INDEX IF NOT EXISTS idx_retired_players_score_play_time_name "
-                "ON retired_players (score DESC, play_time ASC, name ASC)"
-            );
-            
-            txn.commit();
-        } catch (const std::exception& e) {
-            std::cerr << "Failed to initialize database: " << e.what() << std::endl;
-        }
-    }
-};
-
-// Наблюдатель для удаления токенов
-class TokenRemoverObserver : public model::IGameObserver {
-public:
-    TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
-    
-    void OnDogRetired(const std::string& name, int score, double play_time) override {
-        auto& tokens_map = handler_.GetTokensMutable();
-        std::vector<std::string> tokens_to_remove;
-        for (const auto& [token, player] : tokens_map) {
-            if (player && player->GetDog()) {
-                const auto& dog_name = player->GetDog()->GetName();
-                if (dog_name == name) {
-                    tokens_to_remove.push_back(token);
-                }
-            }
-        }
-        for (const auto& token : tokens_to_remove) {
-            handler_.RemoveToken(token);
-        }
-    }
-    
-private:
-    http_handler::RequestHandler& handler_;
-};
-
-// Адаптер для RequestHandler
-class RecordsRequestHandler : public http_handler::RequestHandler {
-public:
-    RecordsRequestHandler(fs::path root, Strand strand, model::Game& game)
-        : http_handler::RequestHandler(std::move(root), strand, game) {}
-    
-    void SetObserver(std::shared_ptr<DatabaseObserver> observer) {
-        observer_ = observer;
-    }
-    
-    boost::json::array GetRecords(int start, int maxItems) override {
-        if (observer_) {
-            return observer_->GetRecords(start, maxItems);
-        }
-        return boost::json::array();
-    }
-    
-private:
-    std::shared_ptr<DatabaseObserver> observer_;
-};
-
 int main(int argc, char* argv[]) {
     try {
         auto args = ParseCommandLine(argc, argv);
@@ -245,17 +118,17 @@ int main(int argc, char* argv[]) {
 
         auto handler = std::make_shared<RecordsRequestHandler>(args->www_root, strand, game);
         
-        std::shared_ptr<DatabaseObserver> db_observer;
+        std::shared_ptr<model::DatabaseObserver> db_observer;
         const char* db_url = std::getenv("GAME_DB_URL");
         if (db_url && strlen(db_url) > 0) {
-            db_observer = std::make_shared<DatabaseObserver>(db_url);
+            db_observer = std::make_shared<model::DatabaseObserver>(db_url);
             handler->SetObserver(db_observer);
 			if (db_observer) {
     game.AddObserver(db_observer.get());
 }
         }
         
-        auto token_remover = std::make_shared<TokenRemoverObserver>(*handler);
+        auto token_remover = std::make_shared<model::TokenRemoverObserver>(*handler);
         game.AddObserver(token_remover.get());
 
 

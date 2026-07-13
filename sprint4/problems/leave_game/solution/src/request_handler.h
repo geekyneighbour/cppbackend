@@ -712,9 +712,9 @@ private:
                     std::string key = pair.substr(0, eq);
                     std::string value = pair.substr(eq + 1);
                     if (key == "start") {
-                        try { start = std::stoi(value); } catch (...) {}
+                        try { start = std::stoi(value); } catch (const std::exception& e) {}
                     } else if (key == "maxItems") {
-                        try { maxItems = std::stoi(value); } catch (...) {}
+                        try { maxItems = std::stoi(value); } catch (const std::exception& e) {}
                     }
                 }
             }

@@ -15,6 +15,8 @@
 
 namespace model {
 	
+constexpr double EPSILON = 1e-9;	
+	
 using namespace std::string_literals;
 
 using Dimension = int;
@@ -134,61 +136,18 @@ public:
         return std::max(static_cast<double>(start_.y), static_cast<double>(end_.y));
     }
     
-    bool IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
-        double half_dog = dog_width / 2.0;
-        
-        if (IsHorizontal()) {
-            double road_y = static_cast<double>(start_.y);
-            if (std::abs(y - road_y) > half_dog + TOLERANCE_) return false;
-            
-            double min_x = GetMinX() - half_dog;
-            double max_x = GetMaxX() + half_dog;
-            
-            return x >= min_x - TOLERANCE_ && x <= max_x + TOLERANCE_;
-            
-        } else {
-            double road_x = static_cast<double>(start_.x);
-            if (std::abs(x - road_x) > half_dog + TOLERANCE_) return false;
-            
-            double min_y = GetMinY() - half_dog;
-            double max_y = GetMaxY() + half_dog;
-            
-            return y >= min_y - TOLERANCE_ && y <= max_y + TOLERANCE_;
-        }
-    }
+    bool IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const;
     
-    void ConstrainMovement(double& x, double& y, const PointDouble& /*old_pos*/) const {
-        if (IsHorizontal()) {
-            double min_x = GetMinX();
-            double max_x = GetMaxX();
-            double road_y = static_cast<double>(start_.y);
-            ConstrainAxis(x, y, min_x, max_x, road_y);
-        } else {
-            double min_y = GetMinY();
-            double max_y = GetMaxY();
-            double road_x = static_cast<double>(start_.x);
-            ConstrainAxis(y, x, min_y, max_y, road_x);
-        }
-    }
+    void ConstrainMovement(double& x, double& y, const PointDouble& /*old_pos*/) const;
 
 private:
     void ConstrainAxis(double& along, double& across,
                        double min_along, double max_along,
-                       double across_value) const {
-        if (along < min_along) along = min_along;
-        if (along > max_along) along = max_along;
-        
-        double min_across = across_value - DOG_HALF_WIDTH_;
-        double max_across = across_value + DOG_HALF_WIDTH_;
-        
-        if (across < min_across) across = min_across;
-        if (across > max_across) across = max_across;
-    }
+                       double across_value) const;
     
     Point start_;
     Point end_;
     static constexpr double DEFAULT_DOG_WIDTH_ = 0.8;
-    static constexpr double TOLERANCE_ = 1e-9;
     static constexpr double DOG_HALF_WIDTH_ = 0.4;
 };
 
@@ -410,8 +369,8 @@ public:
 {
     play_time_ += dt;
 
-    if (std::abs(speed_.x) < EPSILON_ &&
-        std::abs(speed_.y) < EPSILON_) {
+    if (std::abs(speed_.x) < EPSILON &&
+        std::abs(speed_.y) < EPSILON) {
 
         inactive_time_ += dt;
     } else {
@@ -443,7 +402,6 @@ private:
     
 	double play_time_ = 0.0;
 	double inactive_time_ = 0.0;
-	static constexpr double EPSILON_ = 1e-9;
 	bool has_started_playing_ = false;
 };
 
@@ -581,6 +539,48 @@ private:
 };
 
 PointDouble GetRandomPointOnRoad(const Road& road);
+
+class DatabaseObserver : public model::IGameObserver {
+public:
+    explicit DatabaseObserver(const std::string& db_url) 
+        : db_url_(db_url) {
+        InitDatabase();
+    }
+
+    void OnDogRetired(const std::string& name, int score, double play_time) override;
+    
+    boost::json::array GetRecords(int start, int maxItems) override;
+
+private:
+    std::string db_url_;
+    
+    void InitDatabase();
+};
+
+class TokenRemoverObserver : public model::IGameObserver {
+public:
+    explicit TokenRemoverObserver(http_handler::RequestHandler& handler) : handler_(handler) {}
+    
+    void OnDogRetired(const std::string& name, int score, double play_time) override;
+    
+private:
+    http_handler::RequestHandler& handler_;
+};
+
+class RecordsRequestHandler : public http_handler::RequestHandler {
+public:
+    RecordsRequestHandler(fs::path root, Strand strand, model::Game& game)
+        : http_handler::RequestHandler(std::move(root), strand, game) {}
+    
+    void SetObserver(std::shared_ptr<DatabaseObserver> observer) {
+        observer_ = observer;
+    }
+    
+    boost::json::array GetRecords(int start, int maxItems) override;
+    
+private:
+    std::shared_ptr<DatabaseObserver> observer_;
+};
 
 }  // namespace model
 

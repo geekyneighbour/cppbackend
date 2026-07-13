@@ -4,8 +4,11 @@
 #include <boost/json.hpp>
 #include <cmath>
 #include <algorithm>
+#include <numeric>
 
 namespace model {
+	
+constexpr int64_t SECONDS_TO_MS = 1000;
 
 // ================= RANDOM POINT =================
 PointDouble GetRandomPointOnRoad(const Road& road) {
@@ -22,7 +25,7 @@ PointDouble GetRandomPointOnRoad(const Road& road) {
     } 
     double min_y = std::min(start.y, end.y);
     double max_y = std::max(start.y, end.y);
-    return {(double)start.x, min_y + dist(gen) * (max_y - min_y)};
+    return {static_cast<double>(start.x), min_y + dist(gen) * (max_y - min_y)};
 }
 
 // ================= MAP =================
@@ -131,30 +134,26 @@ void GameSession::CheckDogInactivity(double retirement_time) {
 }
 
 void GameSession::RetireDog(Dog& dog) {
-    auto it = std::find_if(dogs_.begin(), dogs_.end(),
+    auto dog_it = std::find_if(dogs_.begin(), dogs_.end(),
         [&dog](const auto& ptr) { return ptr.get() == &dog; });
-    if (it == dogs_.end()) {
+    if (dog_it == dogs_.end()) {
         return;  
     }
+	dogs_.erase(dog_it);
     
     auto play_time = dog.GetPlayTime();
     for (auto* observer : observers_) {
         observer->OnDogRetired(dog.GetName(), dog.GetScore(), play_time);
     }
     
-    for (auto it = players_.begin(); it != players_.end(); ) {
-        if (it->second.GetDog() == &dog) {
-            it = players_.erase(it);
+    for (auto player_it = players_.begin(); player_it != players_.end(); ) {
+        if (player_it->second.GetDog() == &dog) {
+            player_it = players_.erase(player_it);
         } else {
-            ++it;
+            ++player_it;
         }
     }
     
-    auto dog_it = std::find_if(dogs_.begin(), dogs_.end(),
-        [&dog](const auto& ptr) { return ptr.get() == &dog; });
-    if (dog_it != dogs_.end()) {
-        dogs_.erase(dog_it);
-    }
 }
 
 // ================= COLLISION HELPER =================
@@ -235,10 +234,12 @@ void GameSession::ReturnItemsToBase(Dog& dog, double x, double y) {
                                (y - office_y) * (y - office_y));
         
         if (dist <= COLLISION_DIST) {
-            int total_score = 0;
-            for (const auto& item : dog.GetBag()) {
-                total_score += map_->GetLootTypeValue(item.type);
-            }
+            int total_score = std::accumulate(
+                dog.GetBag().begin(), dog.GetBag().end(), 0,
+                [this](int sum, const auto& item) {
+                    return sum + map_->GetLootTypeValue(item.type);
+                }
+            );
             dog.AddScore(total_score);
             dog.ClearBag();
             break;
@@ -256,12 +257,12 @@ void GameSession::UpdateState(double dt) {
     
     ProcessCollisions(dt);
     
-    auto ms_dt = std::chrono::milliseconds(static_cast<long long>(dt * 1000));
+    auto ms_dt = std::chrono::milliseconds(static_cast<int64_t>(dt * SECONDS_TO_MS));
     auto& config = map_->GetLootConfig();
     
     if (!loot_generator_initialized_) {
         loot_generator_ = loot_gen::LootGenerator(
-            std::chrono::milliseconds(static_cast<long long>(config.period * 1000)),
+            std::chrono::milliseconds(static_cast<int64_t>(config.period * SECONDS_TO_MS)),
             config.probability
         );
         loot_generator_initialized_ = true;
@@ -498,5 +499,99 @@ void GameSession::RestoreDog(Dog&& dog) {
 void GameSession::AddLostObject(const LostObject& obj) {
     lost_objects_.push_back(obj);
 }
+
+bool Road::IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
+        double half_dog = dog_width / 2.0;
+        
+        if (IsHorizontal()) {
+            double road_y = static_cast<double>(start_.y);
+            if (std::abs(y - road_y) > half_dog + EPSILON) return false;
+            
+            double min_x = GetMinX() - half_dog;
+            double max_x = GetMaxX() + half_dog;
+            
+            return x >= min_x - EPSILON && x <= max_x + EPSILON;
+            
+        } else {
+            double road_x = static_cast<double>(start_.x);
+            if (std::abs(x - road_x) > half_dog + EPSILON) return false;
+            
+            double min_y = GetMinY() - half_dog;
+            double max_y = GetMaxY() + half_dog;
+            
+            return y >= min_y - EPSILON && y <= max_y + EPSILON;
+        }
+    }
+    
+    void Road::ConstrainMovement(double& x, double& y, const PointDouble& /*old_pos*/) const {
+        if (IsHorizontal()) {
+            double min_x = GetMinX();
+            double max_x = GetMaxX();
+            double road_y = static_cast<double>(start_.y);
+            ConstrainAxis(x, y, min_x, max_x, road_y);
+        } else {
+            double min_y = GetMinY();
+            double max_y = GetMaxY();
+            double road_x = static_cast<double>(start_.x);
+            ConstrainAxis(y, x, min_y, max_y, road_x);
+        }
+    }
+	
+	void Road::ConstrainAxis(double& along, double& across,
+                       double min_along, double max_along,
+                       double across_value) const {
+        if (along < min_along) along = min_along;
+        if (along > max_along) along = max_along;
+        
+        double min_across = across_value - DOG_HALF_WIDTH_;
+        double max_across = across_value + DOG_HALF_WIDTH_;
+        
+        if (across < min_across) across = min_across;
+        if (across > max_across) across = max_across;
+    }
+	
+	void DatabaseObserver::OnDogRetired(const std::string& name, int score, double play_time) override {
+        try {
+            pqxx::connection conn(db_url_);
+            pqxx::work txn(conn);
+            
+            txn.exec_params(
+                "INSERT INTO retired_players (name, score, play_time) VALUES ($1, $2, $3)",
+                name, score, play_time
+            );
+            
+            txn.commit();
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to insert retired player record: " << e.what() << std::endl;
+        }
+    }
+	
+	boost::json::array DatabaseObserver::GetRecords(int start, int maxItems) override {
+        boost::json::array result;
+        try {
+            pqxx::connection conn(db_url_);
+            pqxx::work txn(conn);
+            
+            pqxx::result res = txn.exec_params(
+                "SELECT name, score, play_time FROM retired_players "
+                "ORDER BY score DESC, play_time ASC, name ASC "
+                "LIMIT $1 OFFSET $2",
+                maxItems, start
+            );
+            
+            for (const auto& row : res) {
+                boost::json::object record;
+                record["name"] = row["name"].c_str();
+                record["score"] = row["score"].as<int>();
+                record["playTime"] = row["play_time"].as<double>();
+                result.push_back(record);
+            }
+            
+            txn.commit();
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to get records: " << e.what() << std::endl;
+        }
+        return result;
+    }
 
 } // namespace model
