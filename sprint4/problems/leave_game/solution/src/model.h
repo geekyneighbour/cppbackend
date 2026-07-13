@@ -577,6 +577,7 @@ public:
     }
     
     boost::json::array GetRecords(int start, int maxItems) override;
+	
     
 private:
     std::shared_ptr<DatabaseObserver> observer_;
