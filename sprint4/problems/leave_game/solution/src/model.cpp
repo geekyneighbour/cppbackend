@@ -500,7 +500,7 @@ void GameSession::AddLostObject(const LostObject& obj) {
     lost_objects_.push_back(obj);
 }
 
-bool Road::IsPointOnRoad(double x, double y, double dog_width = DEFAULT_DOG_WIDTH_) const {
+bool Road::IsPointOnRoad(double x, double y, double dog_width) const {
         double half_dog = dog_width / 2.0;
         
         if (IsHorizontal()) {
